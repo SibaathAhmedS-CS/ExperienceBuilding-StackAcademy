@@ -1,0 +1,246 @@
+.main {
+  padding-top: var(--header-height);
+  min-height: 100vh;
+  background: var(--neutral-50);
+}
+
+/* Hero Section */
+.hero {
+  background: var(--gradient-primary);
+  padding: 60px 0;
+  text-align: center;
+  color: white;
+}
+
+.hero h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  margin-bottom: 12px;
+}
+
+.hero p {
+  font-size: 1.15rem;
+  opacity: 0.9;
+  margin-bottom: 32px;
+}
+
+.searchWrapper {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px 24px;
+  background: white;
+  border-radius: var(--radius-full);
+  box-shadow: var(--shadow-lg);
+}
+
+.searchWrapper svg {
+  color: var(--neutral-400);
+  flex-shrink: 0;
+}
+
+.searchWrapper input {
+  flex: 1;
+  border: none;
+  font-size: 1rem;
+  color: var(--neutral-800);
+  outline: none;
+}
+
+.searchWrapper input::placeholder {
+  color: var(--neutral-400);
+}
+
+/* Content Section */
+.content {
+  padding: 48px 0 80px;
+}
+
+/* Category Tabs */
+.categoryTabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+/* Results Header */
+.resultsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 32px;
+}
+
+.resultsCount {
+  font-size: 1rem;
+  color: var(--neutral-600);
+}
+
+.resultsCount strong {
+  color: var(--neutral-900);
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Sort Dropdown */
+.sortDropdown {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: white;
+  border: 2px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.sortDropdown svg {
+  color: var(--neutral-400);
+}
+
+.sortDropdown select {
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--neutral-700);
+  cursor: pointer;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* View Toggle */
+.viewToggle {
+  display: flex;
+  background: white;
+  border: 2px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.viewToggle button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  color: var(--neutral-400);
+  transition: all var(--transition-fast);
+}
+
+.viewToggle button:first-child {
+  border-right: 1px solid var(--neutral-200);
+}
+
+.viewToggle button:hover {
+  color: var(--neutral-600);
+}
+
+.viewToggle button.active {
+  background: var(--primary-50);
+  color: var(--primary-600);
+}
+
+/* Courses Grid */
+.coursesGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+
+.listView {
+  grid-template-columns: 1fr;
+  gap: 20px;
+}
+
+/* No Results */
+.noResults {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  text-align: center;
+}
+
+.noResults svg {
+  color: var(--neutral-300);
+  margin-bottom: 20px;
+}
+
+.noResults h3 {
+  font-size: 1.5rem;
+  color: var(--neutral-700);
+  margin-bottom: 8px;
+}
+
+.noResults p {
+  color: var(--neutral-500);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .coursesGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .coursesGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .categoryTabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 10px;
+    margin: 0 -24px 40px;
+    padding: 0 24px 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 2rem;
+  }
+
+  .resultsHeader {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .coursesGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .controls {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    padding: 40px 0;
+  }
+
+  .searchWrapper {
+    padding: 12px 18px;
+  }
+
+  .sortDropdown {
+    flex: 1;
+  }
+}
+

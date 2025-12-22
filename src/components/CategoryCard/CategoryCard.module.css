@@ -1,0 +1,225 @@
+/* Default Card */
+.card {
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-normal);
+  position: relative;
+  overflow: hidden;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--category-gradient);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--transition-normal);
+}
+
+.card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-xl);
+}
+
+.card:hover::before {
+  transform: scaleX(1);
+}
+
+.iconWrapper {
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--category-bg);
+  border-radius: var(--radius-md);
+  color: var(--category-color);
+  margin-bottom: 20px;
+  transition: all var(--transition-normal);
+}
+
+.card:hover .iconWrapper {
+  background: var(--category-gradient);
+  color: white;
+  transform: scale(1.05);
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--neutral-900);
+  margin-bottom: 8px;
+  transition: color var(--transition-fast);
+}
+
+.card:hover .title {
+  color: var(--category-color);
+}
+
+.description {
+  font-size: 0.9rem;
+  color: var(--neutral-500);
+  line-height: 1.6;
+  margin-bottom: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.courseCount {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--category-color);
+  margin-top: auto;
+}
+
+.hoverArrow {
+  position: absolute;
+  bottom: 28px;
+  right: 28px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--category-color);
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all var(--transition-fast);
+}
+
+.card:hover .hoverArrow {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Compact Card */
+.compactCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: white;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--neutral-100);
+  transition: all var(--transition-fast);
+}
+
+.compactCard:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--category-color);
+  transform: translateY(-2px);
+}
+
+.compactIcon {
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--category-bg);
+  border-radius: var(--radius-sm);
+  color: var(--category-color);
+  flex-shrink: 0;
+}
+
+.compactCard:hover .compactIcon {
+  background: var(--category-gradient);
+  color: white;
+}
+
+.compactContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.compactTitle {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--neutral-800);
+  margin-bottom: 2px;
+}
+
+.compactCount {
+  font-size: 0.8rem;
+  color: var(--neutral-500);
+}
+
+/* Button Card */
+.buttonCard {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: var(--category-bg);
+  border-radius: var(--radius-full);
+  border: 2px solid transparent;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.buttonCard:hover {
+  background: white;
+  border-color: var(--category-color);
+  box-shadow: var(--shadow-md);
+}
+
+.buttonCard.active {
+  background: var(--category-gradient);
+  border-color: transparent;
+}
+
+.buttonIcon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 50%;
+  color: var(--category-color);
+  transition: all var(--transition-fast);
+}
+
+.buttonCard.active .buttonIcon {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.buttonLabel {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--category-color);
+  transition: color var(--transition-fast);
+}
+
+.buttonCard.active .buttonLabel {
+  color: white;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .card {
+    padding: 20px;
+  }
+
+  .iconWrapper {
+    width: 50px;
+    height: 50px;
+  }
+
+  .title {
+    font-size: 1.1rem;
+  }
+}
+

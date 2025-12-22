@@ -1,0 +1,156 @@
+.main {
+  padding-top: var(--header-height);
+  min-height: 100vh;
+  background: var(--neutral-50);
+}
+
+/* Carousel Section */
+.carouselSection {
+  padding: 32px 0;
+}
+
+/* Section Common Styles */
+.sectionTitle {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--neutral-900);
+  margin-bottom: 8px;
+}
+
+.sectionSubtitle {
+  font-size: 1rem;
+  color: var(--neutral-500);
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 36px;
+}
+
+/* Categories Section */
+.categoriesSection {
+  padding: 60px 0;
+  background: white;
+}
+
+.categoriesSection .sectionTitle,
+.categoriesSection .sectionSubtitle {
+  text-align: center;
+}
+
+.categoriesSection .sectionSubtitle {
+  margin-bottom: 40px;
+}
+
+.categoryTabs {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 40px;
+}
+
+.filteredCourses {
+  animation: fadeIn 0.4s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.noCourses {
+  text-align: center;
+  padding: 60px 20px;
+  background: var(--neutral-50);
+  border-radius: var(--radius-lg);
+  color: var(--neutral-500);
+}
+
+/* Courses Section */
+.coursesSection {
+  padding: 60px 0;
+}
+
+.coursesSection.recommended {
+  background: white;
+}
+
+.coursesGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
+}
+
+/* FAQ Section */
+.faqSection {
+  padding: 80px 0;
+  background: var(--neutral-50);
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .coursesGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .coursesGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .categoryTabs {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+  .sectionTitle {
+    font-size: 1.5rem;
+  }
+
+  .sectionHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .coursesGrid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .categoryTabs {
+    justify-content: flex-start;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 10px;
+    margin: 0 -16px 40px;
+    padding: 0 16px 10px;
+  }
+
+  .categoryTabs::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .carouselSection {
+    padding: 20px 0;
+  }
+
+  .categoriesSection,
+  .coursesSection {
+    padding: 40px 0;
+  }
+}
+

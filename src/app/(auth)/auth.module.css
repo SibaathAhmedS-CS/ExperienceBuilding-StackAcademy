@@ -1,0 +1,488 @@
+.authPage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  min-height: 100vh;
+}
+
+/* Brand Side */
+.brandSide {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--gradient-primary);
+  padding: 60px;
+  overflow: hidden;
+}
+
+.brandContent {
+  position: relative;
+  z-index: 2;
+  max-width: 480px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 60px;
+}
+
+.logoIcon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-md);
+  color: white;
+}
+
+.logoText {
+  font-family: var(--font-heading);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: white;
+}
+
+.brandMessage {
+  margin-bottom: 48px;
+}
+
+.brandMessage h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  color: white;
+  margin-bottom: 16px;
+}
+
+.brandMessage p {
+  font-size: 1.15rem;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.7;
+}
+
+.brandStats {
+  display: flex;
+  gap: 32px;
+}
+
+.brandStat {
+  display: flex;
+  flex-direction: column;
+}
+
+.statNumber {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  font-weight: 800;
+  color: white;
+}
+
+.statText {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.featureItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.featureItem svg {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Decorative Elements */
+.decorElements {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.decorCircle1 {
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+  top: -100px;
+  right: -100px;
+  border-radius: 50%;
+}
+
+.decorCircle2 {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(255,255,255,0.08) 0%, transparent 70%);
+  bottom: 10%;
+  left: -50px;
+  border-radius: 50%;
+}
+
+.decorCircle3 {
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  background: radial-gradient(circle, rgba(255,255,255,0.05) 0%, transparent 70%);
+  top: 40%;
+  right: 10%;
+  border-radius: 50%;
+}
+
+/* Form Side */
+.formSide {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: white;
+}
+
+.formContainer {
+  width: 100%;
+  max-width: 440px;
+}
+
+.formHeader {
+  margin-bottom: 32px;
+}
+
+.formHeader h2 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--neutral-900);
+  margin-bottom: 8px;
+}
+
+.formHeader p {
+  font-size: 1rem;
+  color: var(--neutral-500);
+}
+
+/* Social Login */
+.socialLogin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.socialBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  background: white;
+  border: 2px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--neutral-700);
+  transition: all var(--transition-fast);
+}
+
+.socialBtn:hover {
+  border-color: var(--neutral-300);
+  background: var(--neutral-50);
+}
+
+/* Divider */
+.divider {
+  position: relative;
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--neutral-200);
+}
+
+.divider span {
+  position: relative;
+  display: inline-block;
+  padding: 0 16px;
+  background: white;
+  font-size: 0.85rem;
+  color: var(--neutral-400);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Form */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inputGroup label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--neutral-700);
+}
+
+.labelRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.forgotLink {
+  font-size: 0.85rem;
+  color: var(--primary-600);
+  font-weight: 500;
+}
+
+.forgotLink:hover {
+  text-decoration: underline;
+}
+
+.inputWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 16px;
+  color: var(--neutral-400);
+  pointer-events: none;
+}
+
+.inputWrapper input {
+  width: 100%;
+  padding: 14px 16px 14px 48px;
+  font-size: 1rem;
+  border: 2px solid var(--neutral-200);
+  border-radius: var(--radius-md);
+  background: var(--neutral-50);
+  transition: all var(--transition-fast);
+}
+
+.inputWrapper input:focus {
+  outline: none;
+  border-color: var(--primary-500);
+  background: white;
+  box-shadow: 0 0 0 4px var(--primary-100);
+}
+
+.inputWrapper input::placeholder {
+  color: var(--neutral-400);
+}
+
+.togglePassword {
+  position: absolute;
+  right: 16px;
+  color: var(--neutral-400);
+  padding: 4px;
+}
+
+.togglePassword:hover {
+  color: var(--neutral-600);
+}
+
+/* Password Requirements */
+.passwordRequirements {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.requirement {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--neutral-400);
+}
+
+.requirement svg {
+  opacity: 0.4;
+}
+
+.requirement.met {
+  color: var(--success-600);
+}
+
+.requirement.met svg {
+  opacity: 1;
+}
+
+/* Remember Me / Terms */
+.rememberMe {
+  display: flex;
+  align-items: flex-start;
+}
+
+.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--neutral-600);
+  line-height: 1.5;
+}
+
+.checkbox input {
+  display: none;
+}
+
+.checkmark {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border: 2px solid var(--neutral-300);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  margin-top: 2px;
+}
+
+.checkbox input:checked + .checkmark {
+  background: var(--primary-500);
+  border-color: var(--primary-500);
+}
+
+.checkbox input:checked + .checkmark::after {
+  content: '✓';
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.checkbox a {
+  color: var(--primary-600);
+}
+
+.checkbox a:hover {
+  text-decoration: underline;
+}
+
+/* Error Message */
+.errorMessage {
+  padding: 14px 16px;
+  background: var(--error-50);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  color: var(--error-500);
+  font-size: 0.9rem;
+}
+
+/* Submit Button */
+.submitBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 16px;
+  background: var(--gradient-primary);
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-fast);
+  box-shadow: var(--shadow-md);
+  margin-top: 8px;
+}
+
+.submitBtn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg), var(--shadow-glow);
+}
+
+.submitBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Switch Auth */
+.switchAuth {
+  text-align: center;
+  margin-top: 28px;
+  font-size: 0.95rem;
+  color: var(--neutral-600);
+}
+
+.switchAuth a {
+  color: var(--primary-600);
+  font-weight: 600;
+}
+
+.switchAuth a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .authPage {
+    grid-template-columns: 1fr;
+  }
+
+  .brandSide {
+    display: none;
+  }
+
+  .formSide {
+    padding: 40px 24px;
+  }
+}
+
+@media (max-width: 480px) {
+  .formContainer {
+    max-width: 100%;
+  }
+
+  .formHeader h2 {
+    font-size: 1.75rem;
+  }
+
+  .passwordRequirements {
+    grid-template-columns: 1fr;
+  }
+}
+

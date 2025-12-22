@@ -1,0 +1,1036 @@
+{
+  "taxonomy": {
+    "uid": "elearning_platform",
+    "name": "E-Learning Platform",
+    "description": "A comprehensive three-level hierarchical taxonomy for an e-learning platform covering technical and non-technical subjects with deep categorization capabilities."
+  },
+  "terms": [
+    {
+      "uid": "technology_and_development",
+      "name": "Technology & Development",
+      "parent_uid": null,
+      "order": 1,
+      "terms": [
+        {
+          "uid": "software_development",
+          "name": "Software Development",
+          "parent_uid": "technology_and_development",
+          "order": 1,
+          "terms": [
+            {
+              "uid": "web_frontend",
+              "name": "Web Frontend",
+              "parent_uid": "software_development",
+              "order": 1
+            },
+            {
+              "uid": "web_backend",
+              "name": "Web Backend",
+              "parent_uid": "software_development",
+              "order": 2
+            },
+            {
+              "uid": "mobile_development",
+              "name": "Mobile (iOS/Android)",
+              "parent_uid": "software_development",
+              "order": 3
+            },
+            {
+              "uid": "full_stack",
+              "name": "Full-Stack Development",
+              "parent_uid": "software_development",
+              "order": 4
+            },
+            {
+              "uid": "game_development",
+              "name": "Game Development",
+              "parent_uid": "software_development",
+              "order": 5
+            },
+            {
+              "uid": "programming_languages",
+              "name": "Programming Languages",
+              "parent_uid": "software_development",
+              "order": 6
+            }
+          ]
+        },
+        {
+          "uid": "cloud_and_infrastructure",
+          "name": "Cloud & Infrastructure",
+          "parent_uid": "technology_and_development",
+          "order": 2,
+          "terms": [
+            {
+              "uid": "aws",
+              "name": "Amazon Web Services (AWS)",
+              "parent_uid": "cloud_and_infrastructure",
+              "order": 1
+            },
+            {
+              "uid": "azure",
+              "name": "Microsoft Azure",
+              "parent_uid": "cloud_and_infrastructure",
+              "order": 2
+            },
+            {
+              "uid": "gcp",
+              "name": "Google Cloud Platform (GCP)",
+              "parent_uid": "cloud_and_infrastructure",
+              "order": 3
+            },
+            {
+              "uid": "devops_sre",
+              "name": "DevOps & SRE",
+              "parent_uid": "cloud_and_infrastructure",
+              "order": 4
+            },
+            {
+              "uid": "containerization",
+              "name": "Containerization (Docker/Kubernetes)",
+              "parent_uid": "cloud_and_infrastructure",
+              "order": 5
+            },
+            {
+              "uid": "networking",
+              "name": "Networking",
+              "parent_uid": "cloud_and_infrastructure",
+              "order": 6
+            }
+          ]
+        },
+        {
+          "uid": "cyber_security",
+          "name": "Cyber Security",
+          "parent_uid": "technology_and_development",
+          "order": 3,
+          "terms": [
+            {
+              "uid": "network_security",
+              "name": "Network Security",
+              "parent_uid": "cyber_security",
+              "order": 1
+            },
+            {
+              "uid": "application_security",
+              "name": "Application Security",
+              "parent_uid": "cyber_security",
+              "order": 2
+            },
+            {
+              "uid": "ethical_hacking",
+              "name": "Ethical Hacking & Penetration Testing",
+              "parent_uid": "cyber_security",
+              "order": 3
+            },
+            {
+              "uid": "security_compliance",
+              "name": "Security Compliance & Governance",
+              "parent_uid": "cyber_security",
+              "order": 4
+            },
+            {
+              "uid": "incident_response",
+              "name": "Incident Response",
+              "parent_uid": "cyber_security",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "quality_assurance",
+          "name": "Quality Assurance (QA)",
+          "parent_uid": "technology_and_development",
+          "order": 4,
+          "terms": [
+            {
+              "uid": "manual_testing",
+              "name": "Manual Testing",
+              "parent_uid": "quality_assurance",
+              "order": 1
+            },
+            {
+              "uid": "automation_testing",
+              "name": "Automation Testing",
+              "parent_uid": "quality_assurance",
+              "order": 2
+            },
+            {
+              "uid": "performance_testing",
+              "name": "Performance Testing",
+              "parent_uid": "quality_assurance",
+              "order": 3
+            },
+            {
+              "uid": "api_testing",
+              "name": "API Testing",
+              "parent_uid": "quality_assurance",
+              "order": 4
+            },
+            {
+              "uid": "mobile_testing",
+              "name": "Mobile Testing",
+              "parent_uid": "quality_assurance",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "ai_and_robotics",
+          "name": "AI & Robotics",
+          "parent_uid": "technology_and_development",
+          "order": 5,
+          "terms": [
+            {
+              "uid": "machine_learning_fundamentals",
+              "name": "Machine Learning Fundamentals",
+              "parent_uid": "ai_and_robotics",
+              "order": 1
+            },
+            {
+              "uid": "robotics_programming",
+              "name": "Robotics Programming",
+              "parent_uid": "ai_and_robotics",
+              "order": 2
+            },
+            {
+              "uid": "ai_ethics",
+              "name": "AI Ethics & Governance",
+              "parent_uid": "ai_and_robotics",
+              "order": 3
+            },
+            {
+              "uid": "generative_ai",
+              "name": "Generative AI",
+              "parent_uid": "ai_and_robotics",
+              "order": 4
+            },
+            {
+              "uid": "ai_integration",
+              "name": "AI Integration & APIs",
+              "parent_uid": "ai_and_robotics",
+              "order": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "uid": "business_and_leadership",
+      "name": "Business & Leadership",
+      "parent_uid": null,
+      "order": 2,
+      "terms": [
+        {
+          "uid": "management_and_strategy",
+          "name": "Management & Strategy",
+          "parent_uid": "business_and_leadership",
+          "order": 1,
+          "terms": [
+            {
+              "uid": "strategic_planning",
+              "name": "Strategic Planning",
+              "parent_uid": "management_and_strategy",
+              "order": 1
+            },
+            {
+              "uid": "operations_management",
+              "name": "Operations Management",
+              "parent_uid": "management_and_strategy",
+              "order": 2
+            },
+            {
+              "uid": "business_development",
+              "name": "Business Development",
+              "parent_uid": "management_and_strategy",
+              "order": 3
+            },
+            {
+              "uid": "organizational_design",
+              "name": "Organizational Design",
+              "parent_uid": "management_and_strategy",
+              "order": 4
+            },
+            {
+              "uid": "executive_leadership",
+              "name": "Executive Leadership",
+              "parent_uid": "management_and_strategy",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "finance_and_accounting",
+          "name": "Finance & Accounting",
+          "parent_uid": "business_and_leadership",
+          "order": 2,
+          "terms": [
+            {
+              "uid": "financial_analysis",
+              "name": "Financial Analysis",
+              "parent_uid": "finance_and_accounting",
+              "order": 1
+            },
+            {
+              "uid": "accounting_fundamentals",
+              "name": "Accounting Fundamentals",
+              "parent_uid": "finance_and_accounting",
+              "order": 2
+            },
+            {
+              "uid": "budgeting_forecasting",
+              "name": "Budgeting & Forecasting",
+              "parent_uid": "finance_and_accounting",
+              "order": 3
+            },
+            {
+              "uid": "investment_management",
+              "name": "Investment Management",
+              "parent_uid": "finance_and_accounting",
+              "order": 4
+            },
+            {
+              "uid": "tax_compliance",
+              "name": "Tax & Compliance",
+              "parent_uid": "finance_and_accounting",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "project_management",
+          "name": "Project Management",
+          "parent_uid": "business_and_leadership",
+          "order": 3,
+          "terms": [
+            {
+              "uid": "agile_scrum_kanban",
+              "name": "Agile (Scrum/Kanban)",
+              "parent_uid": "project_management",
+              "order": 1
+            },
+            {
+              "uid": "pmp_traditional",
+              "name": "PMP/Traditional",
+              "parent_uid": "project_management",
+              "order": 2
+            },
+            {
+              "uid": "product_management",
+              "name": "Product Management",
+              "parent_uid": "project_management",
+              "order": 3
+            },
+            {
+              "uid": "risk_management",
+              "name": "Risk Management",
+              "parent_uid": "project_management",
+              "order": 4
+            },
+            {
+              "uid": "stakeholder_communication",
+              "name": "Stakeholder Communication",
+              "parent_uid": "project_management",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "human_resources",
+          "name": "Human Resources (HR)",
+          "parent_uid": "business_and_leadership",
+          "order": 4,
+          "terms": [
+            {
+              "uid": "talent_acquisition",
+              "name": "Talent Acquisition & Recruiting",
+              "parent_uid": "human_resources",
+              "order": 1
+            },
+            {
+              "uid": "employee_engagement",
+              "name": "Employee Engagement",
+              "parent_uid": "human_resources",
+              "order": 2
+            },
+            {
+              "uid": "learning_and_development",
+              "name": "Learning & Development",
+              "parent_uid": "human_resources",
+              "order": 3
+            },
+            {
+              "uid": "compensation_benefits",
+              "name": "Compensation & Benefits",
+              "parent_uid": "human_resources",
+              "order": 4
+            },
+            {
+              "uid": "hr_compliance",
+              "name": "HR Compliance & Labor Law",
+              "parent_uid": "human_resources",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "sales_and_negotiation",
+          "name": "Sales & Negotiation",
+          "parent_uid": "business_and_leadership",
+          "order": 5,
+          "terms": [
+            {
+              "uid": "sales_fundamentals",
+              "name": "Sales Fundamentals",
+              "parent_uid": "sales_and_negotiation",
+              "order": 1
+            },
+            {
+              "uid": "b2b_sales",
+              "name": "B2B Sales",
+              "parent_uid": "sales_and_negotiation",
+              "order": 2
+            },
+            {
+              "uid": "negotiation_skills",
+              "name": "Negotiation Skills",
+              "parent_uid": "sales_and_negotiation",
+              "order": 3
+            },
+            {
+              "uid": "customer_relationship",
+              "name": "Customer Relationship Management",
+              "parent_uid": "sales_and_negotiation",
+              "order": 4
+            },
+            {
+              "uid": "sales_leadership",
+              "name": "Sales Leadership",
+              "parent_uid": "sales_and_negotiation",
+              "order": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "uid": "creative_and_communication",
+      "name": "Creative & Communication",
+      "parent_uid": null,
+      "order": 3,
+      "terms": [
+        {
+          "uid": "content_creation_and_writing",
+          "name": "Content Creation & Writing",
+          "parent_uid": "creative_and_communication",
+          "order": 1,
+          "terms": [
+            {
+              "uid": "technical_documentation",
+              "name": "Technical Documentation",
+              "parent_uid": "content_creation_and_writing",
+              "order": 1
+            },
+            {
+              "uid": "copywriting",
+              "name": "Copywriting",
+              "parent_uid": "content_creation_and_writing",
+              "order": 2
+            },
+            {
+              "uid": "blogging_seo_writing",
+              "name": "Blogging/SEO Writing",
+              "parent_uid": "content_creation_and_writing",
+              "order": 3
+            },
+            {
+              "uid": "creative_writing",
+              "name": "Creative Writing",
+              "parent_uid": "content_creation_and_writing",
+              "order": 4
+            },
+            {
+              "uid": "grant_writing",
+              "name": "Grant Writing",
+              "parent_uid": "content_creation_and_writing",
+              "order": 5
+            },
+            {
+              "uid": "editing_proofreading",
+              "name": "Editing & Proofreading",
+              "parent_uid": "content_creation_and_writing",
+              "order": 6
+            }
+          ]
+        },
+        {
+          "uid": "digital_marketing",
+          "name": "Digital Marketing",
+          "parent_uid": "creative_and_communication",
+          "order": 2,
+          "terms": [
+            {
+              "uid": "seo",
+              "name": "Search Engine Optimization (SEO)",
+              "parent_uid": "digital_marketing",
+              "order": 1
+            },
+            {
+              "uid": "social_media_marketing",
+              "name": "Social Media Marketing",
+              "parent_uid": "digital_marketing",
+              "order": 2
+            },
+            {
+              "uid": "email_marketing",
+              "name": "Email Marketing",
+              "parent_uid": "digital_marketing",
+              "order": 3
+            },
+            {
+              "uid": "paid_advertising",
+              "name": "Paid Advertising (PPC/SEM)",
+              "parent_uid": "digital_marketing",
+              "order": 4
+            },
+            {
+              "uid": "content_marketing",
+              "name": "Content Marketing",
+              "parent_uid": "digital_marketing",
+              "order": 5
+            },
+            {
+              "uid": "marketing_analytics",
+              "name": "Marketing Analytics",
+              "parent_uid": "digital_marketing",
+              "order": 6
+            }
+          ]
+        },
+        {
+          "uid": "design_and_ux_ui",
+          "name": "Design & UX/UI",
+          "parent_uid": "creative_and_communication",
+          "order": 3,
+          "terms": [
+            {
+              "uid": "user_experience_design",
+              "name": "User Experience (UX) Design",
+              "parent_uid": "design_and_ux_ui",
+              "order": 1
+            },
+            {
+              "uid": "user_interface_design",
+              "name": "User Interface (UI) Design",
+              "parent_uid": "design_and_ux_ui",
+              "order": 2
+            },
+            {
+              "uid": "graphic_design",
+              "name": "Graphic Design",
+              "parent_uid": "design_and_ux_ui",
+              "order": 3
+            },
+            {
+              "uid": "motion_graphics",
+              "name": "Motion Graphics",
+              "parent_uid": "design_and_ux_ui",
+              "order": 4
+            },
+            {
+              "uid": "design_tools",
+              "name": "Design Tools (Figma/Sketch/Adobe)",
+              "parent_uid": "design_and_ux_ui",
+              "order": 5
+            },
+            {
+              "uid": "accessibility_design",
+              "name": "Accessibility Design",
+              "parent_uid": "design_and_ux_ui",
+              "order": 6
+            }
+          ]
+        },
+        {
+          "uid": "photography_and_video",
+          "name": "Photography & Video",
+          "parent_uid": "creative_and_communication",
+          "order": 4,
+          "terms": [
+            {
+              "uid": "photography_fundamentals",
+              "name": "Photography Fundamentals",
+              "parent_uid": "photography_and_video",
+              "order": 1
+            },
+            {
+              "uid": "video_production",
+              "name": "Video Production",
+              "parent_uid": "photography_and_video",
+              "order": 2
+            },
+            {
+              "uid": "video_editing",
+              "name": "Video Editing",
+              "parent_uid": "photography_and_video",
+              "order": 3
+            },
+            {
+              "uid": "animation",
+              "name": "Animation & 3D",
+              "parent_uid": "photography_and_video",
+              "order": 4
+            },
+            {
+              "uid": "streaming_podcasting",
+              "name": "Streaming & Podcasting",
+              "parent_uid": "photography_and_video",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "communication_skills",
+          "name": "Communication Skills",
+          "parent_uid": "creative_and_communication",
+          "order": 5,
+          "terms": [
+            {
+              "uid": "public_speaking",
+              "name": "Public Speaking",
+              "parent_uid": "communication_skills",
+              "order": 1
+            },
+            {
+              "uid": "presentation_skills",
+              "name": "Presentation Skills",
+              "parent_uid": "communication_skills",
+              "order": 2
+            },
+            {
+              "uid": "business_writing",
+              "name": "Business Writing",
+              "parent_uid": "communication_skills",
+              "order": 3
+            },
+            {
+              "uid": "interpersonal_communication",
+              "name": "Interpersonal Communication",
+              "parent_uid": "communication_skills",
+              "order": 4
+            },
+            {
+              "uid": "cross_cultural_communication",
+              "name": "Cross-Cultural Communication",
+              "parent_uid": "communication_skills",
+              "order": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "uid": "data_and_analytics",
+      "name": "Data & Analytics",
+      "parent_uid": null,
+      "order": 4,
+      "terms": [
+        {
+          "uid": "data_science_and_ml",
+          "name": "Data Science & Machine Learning",
+          "parent_uid": "data_and_analytics",
+          "order": 1,
+          "terms": [
+            {
+              "uid": "deep_learning",
+              "name": "Deep Learning",
+              "parent_uid": "data_science_and_ml",
+              "order": 1
+            },
+            {
+              "uid": "nlp",
+              "name": "Natural Language Processing (NLP)",
+              "parent_uid": "data_science_and_ml",
+              "order": 2
+            },
+            {
+              "uid": "computer_vision",
+              "name": "Computer Vision",
+              "parent_uid": "data_science_and_ml",
+              "order": 3
+            },
+            {
+              "uid": "predictive_modeling",
+              "name": "Predictive Modeling",
+              "parent_uid": "data_science_and_ml",
+              "order": 4
+            },
+            {
+              "uid": "mlops",
+              "name": "Model Deployment (MLOps)",
+              "parent_uid": "data_science_and_ml",
+              "order": 5
+            },
+            {
+              "uid": "feature_engineering",
+              "name": "Feature Engineering",
+              "parent_uid": "data_science_and_ml",
+              "order": 6
+            }
+          ]
+        },
+        {
+          "uid": "data_engineering",
+          "name": "Data Engineering",
+          "parent_uid": "data_and_analytics",
+          "order": 2,
+          "terms": [
+            {
+              "uid": "etl_pipelines",
+              "name": "ETL Pipelines",
+              "parent_uid": "data_engineering",
+              "order": 1
+            },
+            {
+              "uid": "data_warehousing",
+              "name": "Data Warehousing",
+              "parent_uid": "data_engineering",
+              "order": 2
+            },
+            {
+              "uid": "big_data",
+              "name": "Big Data (Spark/Hadoop)",
+              "parent_uid": "data_engineering",
+              "order": 3
+            },
+            {
+              "uid": "streaming_data",
+              "name": "Streaming Data (Kafka)",
+              "parent_uid": "data_engineering",
+              "order": 4
+            },
+            {
+              "uid": "data_orchestration",
+              "name": "Data Orchestration (Airflow)",
+              "parent_uid": "data_engineering",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "business_intelligence",
+          "name": "Business Intelligence (BI)",
+          "parent_uid": "data_and_analytics",
+          "order": 3,
+          "terms": [
+            {
+              "uid": "tableau",
+              "name": "Tableau",
+              "parent_uid": "business_intelligence",
+              "order": 1
+            },
+            {
+              "uid": "power_bi",
+              "name": "Power BI",
+              "parent_uid": "business_intelligence",
+              "order": 2
+            },
+            {
+              "uid": "looker",
+              "name": "Looker",
+              "parent_uid": "business_intelligence",
+              "order": 3
+            },
+            {
+              "uid": "dashboard_design",
+              "name": "Dashboard Design",
+              "parent_uid": "business_intelligence",
+              "order": 4
+            },
+            {
+              "uid": "data_storytelling",
+              "name": "Data Storytelling",
+              "parent_uid": "business_intelligence",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "database_systems",
+          "name": "Database Systems",
+          "parent_uid": "data_and_analytics",
+          "order": 4,
+          "terms": [
+            {
+              "uid": "sql",
+              "name": "SQL & Relational Databases",
+              "parent_uid": "database_systems",
+              "order": 1
+            },
+            {
+              "uid": "nosql",
+              "name": "NoSQL Databases",
+              "parent_uid": "database_systems",
+              "order": 2
+            },
+            {
+              "uid": "database_design",
+              "name": "Database Design & Modeling",
+              "parent_uid": "database_systems",
+              "order": 3
+            },
+            {
+              "uid": "database_administration",
+              "name": "Database Administration",
+              "parent_uid": "database_systems",
+              "order": 4
+            },
+            {
+              "uid": "database_optimization",
+              "name": "Query Optimization",
+              "parent_uid": "database_systems",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "statistical_analysis",
+          "name": "Statistical Analysis",
+          "parent_uid": "data_and_analytics",
+          "order": 5,
+          "terms": [
+            {
+              "uid": "descriptive_statistics",
+              "name": "Descriptive Statistics",
+              "parent_uid": "statistical_analysis",
+              "order": 1
+            },
+            {
+              "uid": "inferential_statistics",
+              "name": "Inferential Statistics",
+              "parent_uid": "statistical_analysis",
+              "order": 2
+            },
+            {
+              "uid": "hypothesis_testing",
+              "name": "Hypothesis Testing",
+              "parent_uid": "statistical_analysis",
+              "order": 3
+            },
+            {
+              "uid": "regression_analysis",
+              "name": "Regression Analysis",
+              "parent_uid": "statistical_analysis",
+              "order": 4
+            },
+            {
+              "uid": "experimental_design",
+              "name": "Experimental Design (A/B Testing)",
+              "parent_uid": "statistical_analysis",
+              "order": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "uid": "personal_and_professional_development",
+      "name": "Personal & Professional Development",
+      "parent_uid": null,
+      "order": 5,
+      "terms": [
+        {
+          "uid": "leadership_skills",
+          "name": "Leadership Skills",
+          "parent_uid": "personal_and_professional_development",
+          "order": 1,
+          "terms": [
+            {
+              "uid": "coaching_mentoring",
+              "name": "Coaching & Mentoring",
+              "parent_uid": "leadership_skills",
+              "order": 1
+            },
+            {
+              "uid": "team_building",
+              "name": "Team Building",
+              "parent_uid": "leadership_skills",
+              "order": 2
+            },
+            {
+              "uid": "conflict_resolution",
+              "name": "Conflict Resolution",
+              "parent_uid": "leadership_skills",
+              "order": 3
+            },
+            {
+              "uid": "emotional_intelligence",
+              "name": "Emotional Intelligence",
+              "parent_uid": "leadership_skills",
+              "order": 4
+            },
+            {
+              "uid": "change_management",
+              "name": "Change Management",
+              "parent_uid": "leadership_skills",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "productivity_and_time_management",
+          "name": "Productivity & Time Management",
+          "parent_uid": "personal_and_professional_development",
+          "order": 2,
+          "terms": [
+            {
+              "uid": "time_management",
+              "name": "Time Management Techniques",
+              "parent_uid": "productivity_and_time_management",
+              "order": 1
+            },
+            {
+              "uid": "goal_setting",
+              "name": "Goal Setting & Planning",
+              "parent_uid": "productivity_and_time_management",
+              "order": 2
+            },
+            {
+              "uid": "focus_concentration",
+              "name": "Focus & Concentration",
+              "parent_uid": "productivity_and_time_management",
+              "order": 3
+            },
+            {
+              "uid": "productivity_tools",
+              "name": "Productivity Tools & Apps",
+              "parent_uid": "productivity_and_time_management",
+              "order": 4
+            },
+            {
+              "uid": "work_life_balance",
+              "name": "Work-Life Balance",
+              "parent_uid": "productivity_and_time_management",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "career_advancement",
+          "name": "Career Advancement",
+          "parent_uid": "personal_and_professional_development",
+          "order": 3,
+          "terms": [
+            {
+              "uid": "resume_building",
+              "name": "Resume & Portfolio Building",
+              "parent_uid": "career_advancement",
+              "order": 1
+            },
+            {
+              "uid": "interview_skills",
+              "name": "Interview Skills",
+              "parent_uid": "career_advancement",
+              "order": 2
+            },
+            {
+              "uid": "personal_branding",
+              "name": "Personal Branding",
+              "parent_uid": "career_advancement",
+              "order": 3
+            },
+            {
+              "uid": "networking",
+              "name": "Professional Networking",
+              "parent_uid": "career_advancement",
+              "order": 4
+            },
+            {
+              "uid": "salary_negotiation",
+              "name": "Salary Negotiation",
+              "parent_uid": "career_advancement",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "wellbeing_and_mindfulness",
+          "name": "Well-being & Mindfulness",
+          "parent_uid": "personal_and_professional_development",
+          "order": 4,
+          "terms": [
+            {
+              "uid": "stress_management",
+              "name": "Stress Management",
+              "parent_uid": "wellbeing_and_mindfulness",
+              "order": 1
+            },
+            {
+              "uid": "mindfulness_meditation",
+              "name": "Mindfulness & Meditation",
+              "parent_uid": "wellbeing_and_mindfulness",
+              "order": 2
+            },
+            {
+              "uid": "mental_health",
+              "name": "Mental Health Awareness",
+              "parent_uid": "wellbeing_and_mindfulness",
+              "order": 3
+            },
+            {
+              "uid": "resilience_building",
+              "name": "Resilience Building",
+              "parent_uid": "wellbeing_and_mindfulness",
+              "order": 4
+            },
+            {
+              "uid": "healthy_habits",
+              "name": "Healthy Habits & Routines",
+              "parent_uid": "wellbeing_and_mindfulness",
+              "order": 5
+            }
+          ]
+        },
+        {
+          "uid": "specialized_skills",
+          "name": "Specialized Skills",
+          "parent_uid": "personal_and_professional_development",
+          "order": 5,
+          "terms": [
+            {
+              "uid": "critical_thinking",
+              "name": "Critical Thinking",
+              "parent_uid": "specialized_skills",
+              "order": 1
+            },
+            {
+              "uid": "problem_solving",
+              "name": "Problem Solving",
+              "parent_uid": "specialized_skills",
+              "order": 2
+            },
+            {
+              "uid": "creativity_innovation",
+              "name": "Creativity & Innovation",
+              "parent_uid": "specialized_skills",
+              "order": 3
+            },
+            {
+              "uid": "decision_making",
+              "name": "Decision Making",
+              "parent_uid": "specialized_skills",
+              "order": 4
+            },
+            {
+              "uid": "adaptability",
+              "name": "Adaptability & Flexibility",
+              "parent_uid": "specialized_skills",
+              "order": 5
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+

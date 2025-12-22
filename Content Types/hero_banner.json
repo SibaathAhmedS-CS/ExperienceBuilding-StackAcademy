@@ -1,0 +1,36 @@
+{
+    "title": "Hero Block",
+    "uid": "hero_block",
+    "schema": [
+      { "uid": "badge_text", "data_type": "text", "display_name": "Badge Text" },
+      { "uid": "badge_icon", "data_type": "text", "display_name": "Badge Icon" },
+      { "uid": "headline", "data_type": "text", "display_name": "Headline", "mandatory": true },
+      { "uid": "highlight_text", "data_type": "text", "display_name": "Highlight Text" },
+      { "uid": "subtitle", "data_type": "text", "display_name": "Subtitle", "multiline": true },
+      { "uid": "primary_cta", "data_type": "link", "display_name": "Primary CTA" },
+      { "uid": "secondary_cta", "data_type": "link", "display_name": "Secondary CTA" },
+      { "uid": "image", "data_type": "file", "display_name": "Hero Image" },
+      {
+        "uid": "stats",
+        "data_type": "group",
+        "display_name": "Stats",
+        "multiple": true,
+        "schema": [
+          { "uid": "value", "data_type": "text", "display_name": "Value" },
+          { "uid": "label", "data_type": "text", "display_name": "Label" },
+          { "uid": "icon", "data_type": "text", "display_name": "Icon" }
+        ]
+      },
+      {
+        "uid": "floating_cards",
+        "data_type": "group",
+        "display_name": "Floating Cards",
+        "multiple": true,
+        "schema": [
+          { "uid": "icon", "data_type": "text", "display_name": "Icon" },
+          { "uid": "value", "data_type": "text", "display_name": "Value" },
+          { "uid": "label", "data_type": "text", "display_name": "Label" }
+        ]
+      }
+    ]
+  }
