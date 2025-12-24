@@ -22,6 +22,27 @@ interface VideoPlayerProps {
   onComplete?: () => void;
 }
 
+// Helper to detect YouTube URLs and extract video ID
+function getYouTubeVideoId(url: string): string | null {
+  // Handle various YouTube URL formats
+  const patterns = [
+    /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+    /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+    /(?:youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = url.match(pattern);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function isYouTubeUrl(url: string): boolean {
+  return url.includes('youtube.com') || url.includes('youtu.be');
+}
+
 export default function VideoPlayer({
   src,
   poster,
@@ -40,7 +61,14 @@ export default function VideoPlayer({
   const [showControls, setShowControls] = useState(true);
   const [isBuffering, setIsBuffering] = useState(false);
 
+  // Check if the source is a YouTube video
+  const youtubeVideoId = getYouTubeVideoId(src);
+  const isYouTube = isYouTubeUrl(src);
+
   useEffect(() => {
+    // Only attach video element listeners if it's not a YouTube video
+    if (isYouTube) return;
+    
     const video = videoRef.current;
     if (!video) return;
 
@@ -75,7 +103,7 @@ export default function VideoPlayer({
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('playing', handlePlaying);
     };
-  }, [onProgress, onComplete]);
+  }, [onProgress, onComplete, isYouTube]);
 
   // Hide controls after inactivity
   useEffect(() => {
@@ -158,6 +186,22 @@ export default function VideoPlayer({
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // YouTube embed player
+  if (isYouTube && youtubeVideoId) {
+    return (
+      <div ref={containerRef} className={styles.player}>
+        <iframe
+          className={styles.youtubeEmbed}
+          src={`https://www.youtube.com/embed/${youtubeVideoId}?rel=0&modestbranding=1&autoplay=0`}
+          title={title || 'Video'}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  // Standard video player for direct video files
   return (
     <div 
       ref={containerRef}

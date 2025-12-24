@@ -1,13 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, Filter, Grid, List, ChevronDown } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Search, Filter, Grid, List, ChevronDown, Check } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import CourseCard from '@/components/CourseCard';
 import CategoryCard from '@/components/CategoryCard';
 import { useHeader } from '@/hooks/useHeader';
+import { usePage } from '@/hooks/usePage';
+import { useCourses, transformCourseToCard } from '@/hooks/useCourses';
+import {
+  PageEntry,
+  CategoryEntry,
+  isSearchBlock,
+  isCategoryBlock,
+  normalizeArray,
+} from '@/types/contentstack';
 import styles from './page.module.css';
+
+// Sort options
+const sortOptions = [
+  { value: 'popular', label: 'Most Popular' },
+  { value: 'rating', label: 'Highest Rated' },
+  { value: 'newest', label: 'Newest' },
+];
 
 // Mock user
 const mockUser = {
@@ -27,15 +43,54 @@ const categories = [
   { uid: '6', title: 'Business', slug: 'business', icon: 'briefcase', courseCount: 180 },
 ];
 
+// Helper to extract data from page sections
+function extractCoursesPageData(pageData: PageEntry | null) {
+  if (!pageData?.section) return null;
+
+  let searchTitle = { title: '', description: '' };
+  let searchPlaceholder = '';
+  let categories: CategoryEntry[] = [];
+
+  for (const section of pageData.section) {
+    if (isSearchBlock(section)) {
+      searchTitle = {
+        title: section.search_block.search_title?.title || '',
+        description: section.search_block.search_title?.description || '',
+      };
+      searchPlaceholder = section.search_block.placeholder || '';
+    }
+    if (isCategoryBlock(section)) {
+      categories = normalizeArray(section.category_block.category);
+    }
+  }
+
+  return { searchTitle, searchPlaceholder, categories };
+}
+
+// All courses - using real CMS course slugs
 const allCourses = [
   {
-    uid: '1',
+    uid: 'blt6139b873994abedc',
+    title: 'Machine Learning with Python',
+    slug: 'machine-learning-python',
+    thumbnail: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=600',
+    instructorName: 'Michael Chen',
+    level: 'intermediate' as const,
+    duration: '38 hours',
+    rating: 4.8,
+    reviewsCount: 8900,
+    studentsEnrolled: 28000,
+    category: 'AI & ML',
+    isFeatured: true,
+  },
+  {
+    uid: 'blte66355d66dec039d',
     title: 'Complete React Developer Course',
-    slug: 'complete-react-developer',
+    slug: 'react-developer-course',
     thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600',
     instructorName: 'Sarah Johnson',
-    level: 'intermediate' as const,
-    duration: '42 hours',
+    level: 'beginner' as const,
+    duration: '35 hours',
     rating: 4.9,
     reviewsCount: 15600,
     studentsEnrolled: 68000,
@@ -43,96 +98,147 @@ const allCourses = [
     isPopular: true,
   },
   {
-    uid: '2',
-    title: 'Python for Data Science & ML',
-    slug: 'python-data-science-ml',
+    uid: 'bltab2bba525506ec98',
+    title: 'Python for Data Science',
+    slug: 'python-data-science',
     thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600',
-    instructorName: 'Michael Chen',
+    instructorName: 'Priya Sharma',
     level: 'beginner' as const,
-    duration: '55 hours',
+    duration: '40 hours',
     rating: 4.8,
     reviewsCount: 12400,
     studentsEnrolled: 52000,
     category: 'Data Science',
-    isFeatured: true,
   },
   {
-    uid: '3',
-    title: 'AWS Solutions Architect Pro',
-    slug: 'aws-solutions-architect-pro',
+    uid: 'blte671205ef0de57c1',
+    title: 'AWS Cloud Practitioner',
+    slug: 'aws-cloud-practitioner',
     thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600',
     instructorName: 'David Park',
-    level: 'advanced' as const,
-    duration: '48 hours',
+    level: 'intermediate' as const,
+    duration: '45 hours',
     rating: 4.9,
     reviewsCount: 8900,
     studentsEnrolled: 28000,
     category: 'Cloud',
   },
   {
-    uid: '4',
-    title: 'UI/UX Design Fundamentals',
-    slug: 'uiux-design-fundamentals',
+    uid: 'bltd97014c9501ad853',
+    title: 'UX/UI Design Fundamentals',
+    slug: 'ux-ui-design-fundamentals',
     thumbnail: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600',
     instructorName: 'Emma Wilson',
     level: 'beginner' as const,
-    duration: '32 hours',
+    duration: '35 hours',
     rating: 4.7,
     reviewsCount: 6800,
     studentsEnrolled: 24000,
     category: 'Design',
   },
   {
-    uid: '5',
-    title: 'Node.js & Express Masterclass',
-    slug: 'nodejs-express-masterclass',
+    uid: 'bltc50b57b3e30df2ff',
+    title: 'Node.js Backend Masterclass',
+    slug: 'nodejs-backend-masterclass',
     thumbnail: 'https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=600',
     instructorName: 'Alex Rivera',
     level: 'intermediate' as const,
-    duration: '38 hours',
+    duration: '42 hours',
     rating: 4.8,
     reviewsCount: 9200,
     studentsEnrolled: 35000,
     category: 'Development',
   },
   {
-    uid: '6',
-    title: 'Kubernetes in Production',
-    slug: 'kubernetes-production',
+    uid: 'blt71c92f2be109835e',
+    title: 'Docker and Kubernetes Mastery',
+    slug: 'docker-kubernetes-mastery',
     thumbnail: 'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=600',
     instructorName: 'James Liu',
-    level: 'advanced' as const,
-    duration: '28 hours',
+    level: 'intermediate' as const,
+    duration: '38 hours',
     rating: 4.9,
     reviewsCount: 4500,
     studentsEnrolled: 15000,
     category: 'Cloud',
   },
   {
-    uid: '7',
-    title: 'Digital Marketing Complete',
-    slug: 'digital-marketing-complete',
-    thumbnail: 'https://images.unsplash.com/photo-1432888622747-4eb9a8f5a070?w=600',
-    instructorName: 'Lisa Anderson',
-    level: 'beginner' as const,
-    duration: '45 hours',
-    rating: 4.6,
-    reviewsCount: 7800,
-    studentsEnrolled: 42000,
-    category: 'Business',
-  },
-  {
-    uid: '8',
-    title: 'Ethical Hacking Complete',
-    slug: 'ethical-hacking-complete',
+    uid: 'bltda7ebfbc6896546e',
+    title: 'Cybersecurity Essentials',
+    slug: 'cybersecurity-essentials',
     thumbnail: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600',
     instructorName: 'Ryan Martinez',
     level: 'intermediate' as const,
-    duration: '52 hours',
+    duration: '42 hours',
     rating: 4.8,
     reviewsCount: 11200,
     studentsEnrolled: 38000,
     category: 'Development',
+  },
+  {
+    uid: 'blt414230d56bd1814a',
+    title: 'TypeScript Complete Guide',
+    slug: 'typescript-complete-guide',
+    thumbnail: 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=600',
+    instructorName: 'Sarah Johnson',
+    level: 'intermediate' as const,
+    duration: '32 hours',
+    rating: 4.8,
+    reviewsCount: 7500,
+    studentsEnrolled: 29000,
+    category: 'Development',
+  },
+  {
+    uid: 'blt57a57969f61b47b6',
+    title: 'CSS Mastery - Modern Styling',
+    slug: 'css-mastery',
+    thumbnail: 'https://images.unsplash.com/photo-1523437113738-bbd3cc89fb19?w=600',
+    instructorName: 'Emma Wilson',
+    level: 'beginner' as const,
+    duration: '28 hours',
+    rating: 4.7,
+    reviewsCount: 5800,
+    studentsEnrolled: 21000,
+    category: 'Design',
+  },
+  {
+    uid: 'bltd1f8baf99413cc1b',
+    title: 'iOS App Development with Swift',
+    slug: 'ios-app-development-swift',
+    thumbnail: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?w=600',
+    instructorName: 'Jennifer Brown',
+    level: 'intermediate' as const,
+    duration: '40 hours',
+    rating: 4.8,
+    reviewsCount: 6200,
+    studentsEnrolled: 18000,
+    category: 'Development',
+  },
+  {
+    uid: 'blt86c43d873f1afca4',
+    title: 'Android Development with Kotlin',
+    slug: 'android-development-kotlin',
+    thumbnail: 'https://images.unsplash.com/photo-1607252650355-f7fd0460ccdb?w=600',
+    instructorName: 'Jennifer Brown',
+    level: 'intermediate' as const,
+    duration: '38 hours',
+    rating: 4.8,
+    reviewsCount: 5900,
+    studentsEnrolled: 17000,
+    category: 'Development',
+  },
+  {
+    uid: 'blt953da9493d887836',
+    title: 'SQL Database Mastery',
+    slug: 'sql-database-mastery',
+    thumbnail: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=600',
+    instructorName: 'Robert Kim',
+    level: 'beginner' as const,
+    duration: '30 hours',
+    rating: 4.7,
+    reviewsCount: 8100,
+    studentsEnrolled: 32000,
+    category: 'Data Science',
   },
 ];
 
@@ -142,9 +248,25 @@ export default function CoursesPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('popular');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
+  
+  // Fetch page data from Contentstack
+  const { pageData, isLoading } = usePage('Courses Page');
+  
+  // Fetch courses from CMS
+  const { courses: cmsCourses, isLoading: coursesLoading } = useCourses();
+  
+  // Transform CMS courses to card format
+  const cmsCoursesForCards = cmsCourses.map(transformCourseToCard);
+
+  // Extract page section data
+  const coursesPageData = extractCoursesPageData(pageData);
+  const hasCMSSearch = coursesPageData && coursesPageData.searchTitle.title;
+  const hasCMSCategories = coursesPageData && coursesPageData.categories.length > 0;
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -155,10 +277,39 @@ export default function CoursesPage() {
     }
   }, []);
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Convert CMS categories to display format with "All Courses" at front
+  const displayCategories = hasCMSCategories
+    ? [
+        { uid: '0', title: 'All Courses', slug: 'all', icon: 'code', courseCount: 1000 },
+        ...coursesPageData.categories.map((cat, index) => ({
+          uid: cat.uid,
+          title: cat.title,
+          slug: cat.taxonomies?.[0]?.term_uid || cat.title.toLowerCase().replace(/\s+/g, '-'),
+          icon: cat.category_icon || 'code',
+          courseCount: 100 + (index * 25),
+        })),
+      ]
+    : categories;
+
+  // Use CMS courses if available, otherwise fall back to static data
+  const displayCourses = cmsCoursesForCards.length > 0 ? cmsCoursesForCards : allCourses;
+  
   // Filter courses
-  const filteredCourses = allCourses.filter(course => {
+  const filteredCourses = displayCourses.filter(course => {
+    const courseCategory = course.category?.toLowerCase().replace(/[_ ]/g, '-') || '';
     const matchesCategory = selectedCategory === 'all' || 
-      course.category.toLowerCase().replace(' ', '-') === selectedCategory;
+      courseCategory.includes(selectedCategory.replace(/_/g, '-'));
     const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       course.instructorName.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -186,15 +337,23 @@ export default function CoursesPage() {
         {/* Hero Section */}
         <section className={styles.hero}>
           <div className="container">
-            <h1>Explore Our Courses</h1>
-            <p>Discover 1000+ courses to advance your skills and career</p>
+            <h1>
+              {hasCMSSearch ? coursesPageData.searchTitle.title : 'Explore Our Courses'}
+            </h1>
+            <p>
+              {hasCMSSearch 
+                ? coursesPageData.searchTitle.description 
+                : 'Discover 1000+ courses to advance your skills and career'}
+            </p>
             
             {/* Search Bar */}
             <div className={styles.searchWrapper}>
               <Search size={20} />
               <input
                 type="text"
-                placeholder="Search courses, instructors..."
+                placeholder={hasCMSSearch 
+                  ? coursesPageData.searchPlaceholder 
+                  : 'Search courses, instructors...'}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -207,7 +366,7 @@ export default function CoursesPage() {
           <div className="container">
             {/* Category Tabs */}
             <div className={styles.categoryTabs}>
-              {categories.map((category) => (
+              {displayCategories.map((category) => (
                 <CategoryCard
                   key={category.uid}
                   {...category}
@@ -226,17 +385,35 @@ export default function CoursesPage() {
 
               <div className={styles.controls}>
                 {/* Sort Dropdown */}
-                <div className={styles.sortDropdown}>
-                  <Filter size={18} />
-                  <select 
-                    value={sortBy} 
-                    onChange={(e) => setSortBy(e.target.value)}
+                <div className={styles.sortDropdown} ref={dropdownRef}>
+                  <button 
+                    className={styles.dropdownButton}
+                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                    type="button"
                   >
-                    <option value="popular">Most Popular</option>
-                    <option value="rating">Highest Rated</option>
-                    <option value="newest">Newest</option>
-                  </select>
-                  <ChevronDown size={16} />
+                    <Filter size={18} />
+                    <span>{sortOptions.find(o => o.value === sortBy)?.label}</span>
+                    <ChevronDown size={16} className={isDropdownOpen ? styles.rotated : ''} />
+                  </button>
+                  
+                  {isDropdownOpen && (
+                    <div className={styles.dropdownMenu}>
+                      {sortOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          className={`${styles.dropdownItem} ${sortBy === option.value ? styles.selected : ''}`}
+                          onClick={() => {
+                            setSortBy(option.value);
+                            setIsDropdownOpen(false);
+                          }}
+                          type="button"
+                        >
+                          <span>{option.label}</span>
+                          {sortBy === option.value && <Check size={16} />}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* View Toggle */}

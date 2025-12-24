@@ -9,10 +9,15 @@ import CategoryCard from '@/components/CategoryCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
+import { useCourses, transformCourseToCard } from '@/hooks/useCourses';
+import Link from 'next/link';
+import { ArrowRight } from 'lucide-react';
 import { 
   PageEntry, 
   IconEntry, 
   BannerEntry,
+  CategoryEntry,
+  Link as CMSLink,
   isCarouselBlock, 
   isCategoryBlock,
   isCardBlock,
@@ -71,15 +76,29 @@ const fallbackCategories = [
   { uid: '8', title: 'AI & ML', slug: 'ai-ml', icon: 'brain', courseCount: 110 },
 ];
 
-// Fallback courses data
+// Fallback courses data - Using real CMS course slugs
 const topCourses = [
   {
-    uid: '1',
+    uid: 'blt6139b873994abedc',
+    title: 'Machine Learning with Python',
+    slug: 'machine-learning-python',
+    thumbnail: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=600',
+    instructorName: 'Michael Chen',
+    level: 'intermediate' as const,
+    duration: '38 hours',
+    rating: 4.8,
+    reviewsCount: 8900,
+    studentsEnrolled: 28000,
+    category: 'AI & ML',
+    isFeatured: true,
+  },
+  {
+    uid: 'blte66355d66dec039d',
     title: 'Complete React Developer Course',
-    slug: 'complete-react-developer',
+    slug: 'react-developer-course',
     thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600',
     instructorName: 'Sarah Johnson',
-    level: 'intermediate' as const,
+    level: 'beginner' as const,
     duration: '42 hours',
     rating: 4.9,
     reviewsCount: 15600,
@@ -88,40 +107,26 @@ const topCourses = [
     isPopular: true,
   },
   {
-    uid: '2',
-    title: 'Python for Data Science & ML',
-    slug: 'python-data-science-ml',
-    thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600',
-    instructorName: 'Michael Chen',
-    level: 'beginner' as const,
-    duration: '55 hours',
-    rating: 4.8,
-    reviewsCount: 12400,
-    studentsEnrolled: 52000,
-    category: 'Data Science',
-    isFeatured: true,
-  },
-  {
-    uid: '3',
-    title: 'AWS Solutions Architect Pro',
-    slug: 'aws-solutions-architect-pro',
+    uid: 'blte671205ef0de57c1',
+    title: 'AWS Cloud Practitioner',
+    slug: 'aws-cloud-practitioner',
     thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600',
     instructorName: 'David Park',
-    level: 'advanced' as const,
-    duration: '48 hours',
+    level: 'intermediate' as const,
+    duration: '45 hours',
     rating: 4.9,
     reviewsCount: 8900,
     studentsEnrolled: 28000,
     category: 'Cloud',
   },
   {
-    uid: '4',
-    title: 'UI/UX Design Fundamentals',
-    slug: 'uiux-design-fundamentals',
+    uid: 'bltd97014c9501ad853',
+    title: 'UX/UI Design Fundamentals',
+    slug: 'ux-ui-design-fundamentals',
     thumbnail: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600',
     instructorName: 'Emma Wilson',
     level: 'beginner' as const,
-    duration: '32 hours',
+    duration: '35 hours',
     rating: 4.7,
     reviewsCount: 6800,
     studentsEnrolled: 24000,
@@ -131,52 +136,52 @@ const topCourses = [
 
 const recommendedCourses = [
   {
-    uid: '5',
-    title: 'Node.js & Express Masterclass',
-    slug: 'nodejs-express-masterclass',
+    uid: 'bltc50b57b3e30df2ff',
+    title: 'Node.js Backend Masterclass',
+    slug: 'nodejs-backend-masterclass',
     thumbnail: 'https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=600',
     instructorName: 'Alex Rivera',
     level: 'intermediate' as const,
-    duration: '38 hours',
+    duration: '42 hours',
     rating: 4.8,
     reviewsCount: 9200,
     studentsEnrolled: 35000,
     category: 'Development',
   },
   {
-    uid: '6',
-    title: 'Kubernetes in Production',
-    slug: 'kubernetes-production',
+    uid: 'blt71c92f2be109835e',
+    title: 'Docker and Kubernetes Mastery',
+    slug: 'docker-kubernetes-mastery',
     thumbnail: 'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=600',
     instructorName: 'James Liu',
-    level: 'advanced' as const,
-    duration: '28 hours',
+    level: 'intermediate' as const,
+    duration: '38 hours',
     rating: 4.9,
     reviewsCount: 4500,
     studentsEnrolled: 15000,
     category: 'DevOps',
   },
   {
-    uid: '7',
-    title: 'Digital Marketing Complete',
-    slug: 'digital-marketing-complete',
-    thumbnail: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600',
-    instructorName: 'Lisa Anderson',
+    uid: 'bltab2bba525506ec98',
+    title: 'Python for Data Science',
+    slug: 'python-data-science',
+    thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600',
+    instructorName: 'Priya Sharma',
     level: 'beginner' as const,
-    duration: '45 hours',
-    rating: 4.6,
+    duration: '40 hours',
+    rating: 4.7,
     reviewsCount: 7800,
     studentsEnrolled: 42000,
-    category: 'Marketing',
+    category: 'Data Science',
   },
   {
-    uid: '8',
-    title: 'Ethical Hacking Complete',
-    slug: 'ethical-hacking-complete',
+    uid: 'bltda7ebfbc6896546e',
+    title: 'Cybersecurity Essentials',
+    slug: 'cybersecurity-essentials',
     thumbnail: 'https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=600',
     instructorName: 'Ryan Martinez',
     level: 'intermediate' as const,
-    duration: '52 hours',
+    duration: '42 hours',
     rating: 4.8,
     reviewsCount: 11200,
     studentsEnrolled: 38000,
@@ -201,28 +206,42 @@ const fallbackFaqs = [
 // Card block types for mapping course sections
 type CardBlockType = 'top_courses' | 'recommended' | 'unknown';
 
+// Card block data with CTA
+interface CardBlockData {
+  type: CardBlockType;
+  title: string;
+  description: string;
+  ctaButton?: CMSLink;
+}
+
 // Helper to extract data from page sections
 function extractHomePageData(pageData: PageEntry | null) {
   if (!pageData?.section) return null;
 
   let banners: BannerEntry[] = [];
-  let categories: IconEntry[] = [];
+  let categories: CategoryEntry[] = [];
+  let legacyCategories: IconEntry[] = [];
   let carouselSettings = { interval: 5000, autoplay: true };
   let categoriesTitle = { title: '', description: '' };
   
   // Card blocks for course sections
-  const cardBlocks: { type: CardBlockType; title: string; description: string }[] = [];
+  const cardBlocks: CardBlockData[] = [];
 
   for (const section of pageData.section) {
     if (isCarouselBlock(section)) {
       banners = normalizeArray(section.carousel_block.banner);
+      // CMS stores interval in milliseconds (e.g., 6000), but check if it's small (seconds)
+      const rawInterval = section.carousel_block.interval || 5000;
+      const intervalMs = rawInterval < 100 ? rawInterval * 1000 : rawInterval;
       carouselSettings = {
-        interval: (section.carousel_block.interval || 5) * 1000, // Convert to ms
+        interval: intervalMs,
         autoplay: section.carousel_block.autoplay ?? true,
       };
     }
     if (isCategoryBlock(section)) {
-      categories = normalizeArray(section.category_block.icon);
+      // Check for new category reference first, fallback to legacy icon
+      categories = normalizeArray(section.category_block.category);
+      legacyCategories = normalizeArray(section.category_block.icon);
       categoriesTitle = {
         title: section.category_block.title_and_description?.title || '',
         description: section.category_block.title_and_description?.description || '',
@@ -231,6 +250,7 @@ function extractHomePageData(pageData: PageEntry | null) {
     if (isCardBlock(section)) {
       const title = section.card_block.title_and_description?.title || '';
       const description = section.card_block.title_and_description?.description || '';
+      const ctaButton = section.card_block.cta_button;
       
       // Determine card block type based on title
       let type: CardBlockType = 'unknown';
@@ -241,11 +261,11 @@ function extractHomePageData(pageData: PageEntry | null) {
         type = 'recommended';
       }
       
-      cardBlocks.push({ type, title, description });
+      cardBlocks.push({ type, title, description, ctaButton });
     }
   }
 
-  return { banners, categories, carouselSettings, categoriesTitle, cardBlocks };
+  return { banners, categories, legacyCategories, carouselSettings, categoriesTitle, cardBlocks };
 }
 
 export default function HomePage() {
@@ -257,13 +277,23 @@ export default function HomePage() {
   
   // Fetch page data from Contentstack
   const { pageData, isLoading } = usePage('Home Page');
+  
+  // Fetch courses from CMS
+  const { courses: cmsCourses, isLoading: coursesLoading } = useCourses();
+  
+  // Transform CMS courses to card format
+  const transformedCourses = cmsCourses.map(transformCourseToCard);
+  
+  // Split courses for different sections (first 4 for top, next 4 for recommended)
+  const cmsTopCourses = transformedCourses.slice(0, 4);
+  const cmsRecommendedCourses = transformedCourses.slice(4, 8);
 
   // Extract section data from CMS
   const homeData = extractHomePageData(pageData);
 
   // Determine what data to use
   const hasCMSBanners = homeData && homeData.banners.length > 0;
-  const hasCMSCategories = homeData && homeData.categories.length > 0;
+  const hasCMSCategories = homeData && (homeData.categories.length > 0 || homeData.legacyCategories.length > 0);
   const cardBlocks = homeData?.cardBlocks || [];
 
   useEffect(() => {
@@ -276,19 +306,36 @@ export default function HomePage() {
     }
   }, []);
 
+  // Use CMS courses for filtering by category
+  const allDisplayCourses = cmsTopCourses.length > 0 ? transformedCourses : [...topCourses, ...recommendedCourses];
   const filteredCourses = selectedCategory 
-    ? categoryCourses[selectedCategory] || topCourses 
+    ? allDisplayCourses.filter(course => 
+        course.category?.toLowerCase().includes(selectedCategory.replace(/-/g, '_')) ||
+        course.category?.toLowerCase().includes(selectedCategory.replace(/-/g, ' '))
+      )
     : null;
 
   // Convert CMS categories to CategoryCard format
+  // Support both new CategoryEntry and legacy IconEntry formats
   const displayCategories = hasCMSCategories
-    ? homeData.categories.map((cat, index) => ({
-        uid: cat.uid,
-        title: cat.icon_title || cat.title,
-        slug: cat.title.toLowerCase().replace(/\s+/g, '-'),
-        icon: cat.icon_name || 'code',
-        courseCount: 100 + (index * 25), // Placeholder count
-      }))
+    ? (homeData.categories.length > 0
+        // New CategoryEntry format
+        ? homeData.categories.map((cat, index) => ({
+            uid: cat.uid,
+            title: cat.title,
+            slug: cat.taxonomies?.[0]?.term_uid || cat.title.toLowerCase().replace(/\s+/g, '-'),
+            icon: cat.category_icon || 'code',
+            courseCount: 100 + (index * 25), // Placeholder count
+          }))
+        // Legacy IconEntry format (fallback)
+        : homeData.legacyCategories.map((cat, index) => ({
+            uid: cat.uid,
+            title: cat.icon_title || cat.title,
+            slug: cat.title.toLowerCase().replace(/\s+/g, '-'),
+            icon: cat.icon_name || 'code',
+            courseCount: 100 + (index * 25),
+          }))
+      )
     : fallbackCategories;
 
   // Find card blocks or use defaults
@@ -378,10 +425,16 @@ export default function HomePage() {
                   {topCoursesBlock?.description || 'Our highest-rated courses loved by students worldwide'}
                 </p>
               </div>
+              {topCoursesBlock?.ctaButton && (
+                <Link href={topCoursesBlock.ctaButton.href} className={styles.viewAllBtn}>
+                  {topCoursesBlock.ctaButton.title}
+                  <ArrowRight size={18} />
+                </Link>
+              )}
             </div>
             
             <div className={styles.coursesGrid}>
-              {topCourses.map((course) => (
+              {(cmsTopCourses.length > 0 ? cmsTopCourses : topCourses).map((course) => (
                 <CourseCard key={course.uid} {...course} />
               ))}
             </div>
@@ -400,10 +453,16 @@ export default function HomePage() {
                   {recommendedBlock?.description || 'Personalized course recommendations based on your interests'}
                 </p>
               </div>
+              {recommendedBlock?.ctaButton && (
+                <Link href={recommendedBlock.ctaButton.href} className={styles.viewAllBtn}>
+                  {recommendedBlock.ctaButton.title}
+                  <ArrowRight size={18} />
+                </Link>
+              )}
             </div>
             
             <div className={styles.coursesGrid}>
-              {recommendedCourses.map((course) => (
+              {(cmsRecommendedCourses.length > 0 ? cmsRecommendedCourses : recommendedCourses).map((course) => (
                 <CourseCard key={course.uid} {...course} />
               ))}
             </div>

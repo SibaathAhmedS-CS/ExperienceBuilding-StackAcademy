@@ -28,6 +28,7 @@ interface NormalizedSlide {
   ctaLabel: string;
   ctaUrl: string;
   backgroundColor: string;
+  textColor: string;
 }
 
 interface CarouselProps {
@@ -59,6 +60,7 @@ function normalizeBanners(
       ctaLabel: banner.button?.title || 'Learn More',
       ctaUrl: banner.button?.href || '#',
       backgroundColor: extractColor(banner.banner_color, defaultColors[index % defaultColors.length]),
+      textColor: extractColor(banner.banner_text_color, '#ffffff'),
     }));
   }
 
@@ -73,6 +75,7 @@ function normalizeBanners(
       ctaLabel: slide.ctaLabel,
       ctaUrl: slide.ctaUrl,
       backgroundColor: slide.backgroundColor || defaultColors[index % defaultColors.length],
+      textColor: '#ffffff',
     }));
   }
 
@@ -129,15 +132,15 @@ export default function Carousel({
           <div
             key={slide.uid}
             className={`${styles.slide} ${index === currentIndex ? styles.active : ''}`}
-            style={{ backgroundColor: slide.backgroundColor }}
+            style={{ 
+              backgroundColor: slide.backgroundColor,
+              color: slide.textColor,
+            }}
           >
             <div className={styles.slideContent}>
               <div className={styles.textContent}>
-                {slide.label && slide.label !== slide.title && (
-                  <span className={styles.slideLabel}>{slide.label}</span>
-                )}
-                <h2 className={styles.slideTitle}>{slide.title}</h2>
-                <p className={styles.slideDescription}>{slide.description}</p>
+                <h2 className={styles.slideTitle} style={{ color: slide.textColor }}>{slide.label}</h2>
+                <p className={styles.slideDescription} style={{ color: slide.textColor }}>{slide.description}</p>
                 <Link href={slide.ctaUrl} className={styles.ctaButton}>
                   {slide.ctaLabel}
                   <ArrowRight size={18} />
@@ -147,7 +150,7 @@ export default function Carousel({
                 {slide.image ? (
                   <Image
                     src={slide.image}
-                    alt={slide.title}
+                    alt={slide.label}
                     fill
                     className={styles.slideImage}
                     priority={index === 0}

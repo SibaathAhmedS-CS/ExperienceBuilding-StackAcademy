@@ -1,0 +1,81 @@
+{
+    "taxonomy": {
+      "uid": "course_categories",
+      "name": "Course Categories",
+      "description": "Main course categories for StackAcademy e-learning platform"
+    },
+    "terms": [
+      {
+        "uid": "development",
+        "name": "Development",
+        "parent_uid": null,
+        "order": 1
+      },
+      {
+        "uid": "data_science",
+        "name": "Data Science",
+        "parent_uid": null,
+        "order": 2
+      },
+      {
+        "uid": "cloud_computing",
+        "name": "Cloud Computing",
+        "parent_uid": null,
+        "order": 3
+      },
+      {
+        "uid": "design",
+        "name": "Design",
+        "parent_uid": null,
+        "order": 4
+      },
+      {
+        "uid": "business",
+        "name": "Business",
+        "parent_uid": null,
+        "order": 5
+      },
+      {
+        "uid": "cybersecurity",
+        "name": "Cybersecurity",
+        "parent_uid": null,
+        "order": 6
+      },
+      {
+        "uid": "mobile_apps",
+        "name": "Mobile Apps",
+        "parent_uid": null,
+        "order": 7
+      },
+      {
+        "uid": "ai_ml",
+        "name": "AI & ML",
+        "parent_uid": null,
+        "order": 8
+      },
+      {
+        "uid": "devops",
+        "name": "DevOps",
+        "parent_uid": null,
+        "order": 9
+      },
+      {
+        "uid": "marketing",
+        "name": "Marketing",
+        "parent_uid": null,
+        "order": 10
+      },
+      {
+        "uid": "finance",
+        "name": "Finance",
+        "parent_uid": null,
+        "order": 11
+      },
+      {
+        "uid": "personal_development",
+        "name": "Personal Development",
+        "parent_uid": null,
+        "order": 12
+      }
+    ]
+  }

@@ -33,10 +33,11 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   align-items: center;
+  gap: 32px;
   height: 100%;
   max-width: var(--container-max);
   margin: 0 auto;
-  padding: 0 60px;
+  padding: 0 100px;
 }
 
 .textContent {
@@ -111,8 +112,14 @@
 
 .imageContent {
   position: relative;
-  height: 100%;
+  height: 75%;
+  margin: auto 0;
+  margin-top: 20px;
+  margin-bottom: 50px;
+  border-radius: 20px;
+  overflow: hidden;
   animation: slideInRight 0.6s ease 0.3s both;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
 }
 
 .active .imageContent {
@@ -131,16 +138,16 @@
 }
 
 .slideImage {
-  object-fit: contain;
-  object-position: center right;
-  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.2));
+  object-fit: cover;
+  object-position: center;
+  border-radius: 20px;
 }
 
 .imagePlaceholder {
   width: 100%;
   height: 100%;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
 }
 
 /* Decorative Circles */
@@ -276,25 +283,31 @@
   }
 
   .slideContent {
-    padding: 0 40px;
+    padding: 0 80px;
+    gap: 24px;
   }
 
   .slideTitle {
     font-size: 2.5rem;
+  }
+  
+  .imageContent {
+    height: 70%;
+    margin-bottom: 45px;
   }
 }
 
 @media (max-width: 768px) {
   .carousel {
     height: auto;
-    min-height: 500px;
+    min-height: 520px;
   }
 
   .slideContent {
     grid-template-columns: 1fr;
     text-align: center;
     padding: 40px 24px;
-    gap: 30px;
+    gap: 24px;
   }
 
   .textContent {
@@ -303,7 +316,14 @@
 
   .imageContent {
     order: 2;
-    height: 200px;
+    height: 220px;
+    width: 90%;
+    margin: 0 auto;
+    border-radius: 16px;
+  }
+
+  .slideImage {
+    border-radius: 16px;
   }
 
   .slideTitle {

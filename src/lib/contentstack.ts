@@ -7,7 +7,11 @@ import {
   PageEntry,
   BannerEntry,
   TestimonialEntry,
-  HeroBlockEntry
+  HeroBlockEntry,
+  CategoryEntry,
+  CourseEntry,
+  ModuleEntry,
+  LessonEntry
 } from '@/types/contentstack';
 
 // Contentstack SDK Configuration
@@ -45,9 +49,11 @@ export const CONTENT_TYPES = {
   FAQ_QUESTION: 'faq_question',
   TESTIMONIAL: 'testimonial',
   AUTHOR: 'author',
-  COURSE: 'course',
-  MODULE: 'module',
-  CATEGORY: 'category',
+  COURSE: 'courses',  // Course content type
+  MODULE: 'module',   // Module content type
+  LESSON: 'lesson',   // Lesson content type
+  CATEGORY: 'categories_block',  // Updated to match new content type
+  CATEGORY_BLOCK: 'category_block',  // Singleton for referencing categories
   INSTRUCTOR: 'instructor',
 } as const;
 
@@ -165,17 +171,25 @@ export async function getPage(title: string): Promise<PageEntry | null> {
       .includeReference([
         'header',
         'header.icon',
-        'section.hero_block.hero_banner',
-        'section.carousel_block.banner',
-        'section.category_block.icon',
-        'section.feature_block.features',
-        'section.workflow_block.stage',
-        'section.testimonial_block.testimonial',
-        'section.testimonial_block.testimonial.author',
+        'section.hero_block.hero_banner',        // Hero Banner reference
+        'section.carousel_block.banner',          // Banner references for carousel
+        'section.category_block.icon',            // Legacy category icons
+        'section.category_block.category',        // New category references (categories_block)
+        'section.feature_block.features',         // Feature icons
+        'section.workflow_block.stage',           // Workflow stage icons
+        'section.testimonial_block.testimonial',  // Testimonial entries
+        'section.testimonial_block.testimonial.author', // Testimonial authors
       ]);
 
     const result = await query.toJSON().find();
-    return result[0]?.[0] as PageEntry || null;
+    const pageEntry = result[0]?.[0] as PageEntry || null;
+    
+    // Debug logging
+    if (pageEntry) {
+      console.log(`[CMS] Page "${title}" loaded with ${pageEntry.section?.length || 0} sections`);
+    }
+    
+    return pageEntry;
   } catch (error) {
     console.error(`Error fetching page: ${title}`, error);
     return null;
@@ -195,6 +209,7 @@ export async function getPageByUrl(url: string): Promise<PageEntry | null> {
         'header.icon',
         'section.carousel_block.banner',
         'section.category_block.icon',
+        'section.category_block.category',        // New category references
         'section.feature_block.features',
         'section.workflow_block.stage',
         'section.testimonial_block.testimonial',
@@ -206,6 +221,26 @@ export async function getPageByUrl(url: string): Promise<PageEntry | null> {
   } catch (error) {
     console.error(`Error fetching page by URL: ${url}`, error);
     return null;
+  }
+}
+
+// ============================================
+// Category Fetch Functions
+// ============================================
+
+/**
+ * Fetch all Category entries
+ */
+export async function getAllCategories(): Promise<CategoryEntry[]> {
+  try {
+    const result = await Stack.ContentType(CONTENT_TYPES.CATEGORY)
+      .Query()
+      .toJSON()
+      .find();
+    return (result[0] || []) as CategoryEntry[];
+  } catch (error) {
+    console.error('Error fetching categories', error);
+    return [];
   }
 }
 
@@ -356,6 +391,183 @@ export async function getAllTestimonials(): Promise<TestimonialEntry[]> {
   } catch (error) {
     console.error('Error fetching testimonials', error);
     return [];
+  }
+}
+
+// ============================================
+// Course Fetch Functions
+// ============================================
+
+/**
+ * Fetch all courses with author reference
+ */
+export async function getAllCourses(): Promise<CourseEntry[]> {
+  try {
+    const result = await Stack.ContentType(CONTENT_TYPES.COURSE)
+      .Query()
+      .includeReference(['author', 'modules'])
+      .toJSON()
+      .find();
+    return (result[0] || []) as CourseEntry[];
+  } catch (error) {
+    console.error('Error fetching courses', error);
+    return [];
+  }
+}
+
+/**
+ * Fetch a single course by slug with all nested references
+ */
+export async function getCourseBySlug(slug: string): Promise<CourseEntry | null> {
+  try {
+    const query = Stack.ContentType(CONTENT_TYPES.COURSE)
+      .Query()
+      .where('slug', slug)
+      .includeReference([
+        'author',
+        'modules',
+        'modules.lessons'
+      ]);
+
+    const result = await query.toJSON().find();
+    const course = result[0]?.[0] as CourseEntry || null;
+    
+    if (course) {
+      console.log(`[CMS] Course "${course.title}" loaded with ${Array.isArray(course.modules) ? course.modules.length : course.modules ? 1 : 0} modules`);
+    }
+    
+    return course;
+  } catch (error) {
+    console.error(`Error fetching course by slug: ${slug}`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch a single course by UID with all nested references
+ */
+export async function getCourseByUid(uid: string): Promise<CourseEntry | null> {
+  try {
+    const result = await Stack.ContentType(CONTENT_TYPES.COURSE)
+      .Entry(uid)
+      .includeReference([
+        'author',
+        'modules',
+        'modules.lessons'
+      ])
+      .toJSON()
+      .fetch();
+    return result as CourseEntry;
+  } catch (error) {
+    console.error(`Error fetching course by UID: ${uid}`, error);
+    return null;
+  }
+}
+
+// ============================================
+// Module Fetch Functions
+// ============================================
+
+/**
+ * Fetch a single module by UID with lessons
+ */
+export async function getModuleByUid(uid: string): Promise<ModuleEntry | null> {
+  try {
+    const result = await Stack.ContentType(CONTENT_TYPES.MODULE)
+      .Entry(uid)
+      .includeReference(['lessons'])
+      .toJSON()
+      .fetch();
+    return result as ModuleEntry;
+  } catch (error) {
+    console.error(`Error fetching module by UID: ${uid}`, error);
+    return null;
+  }
+}
+
+// ============================================
+// Lesson Fetch Functions
+// ============================================
+
+/**
+ * Fetch a single lesson by UID
+ */
+export async function getLessonByUid(uid: string): Promise<LessonEntry | null> {
+  try {
+    const result = await Stack.ContentType(CONTENT_TYPES.LESSON)
+      .Entry(uid)
+      .toJSON()
+      .fetch();
+    return result as LessonEntry;
+  } catch (error) {
+    console.error(`Error fetching lesson by UID: ${uid}`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch a single lesson by slug
+ */
+export async function getLessonBySlug(slug: string): Promise<LessonEntry | null> {
+  try {
+    const query = Stack.ContentType(CONTENT_TYPES.LESSON)
+      .Query()
+      .where('slug', slug);
+
+    const result = await query.toJSON().find();
+    return result[0]?.[0] as LessonEntry || null;
+  } catch (error) {
+    console.error(`Error fetching lesson by slug: ${slug}`, error);
+    return null;
+  }
+}
+
+/**
+ * Fetch course data for a given lesson (to get course context)
+ * Returns the course that contains this lesson
+ */
+export async function getCourseByLessonUid(lessonUid: string): Promise<CourseEntry | null> {
+  try {
+    // First, find which module contains this lesson
+    const modulesResult = await Stack.ContentType(CONTENT_TYPES.MODULE)
+      .Query()
+      .includeReference(['lessons'])
+      .toJSON()
+      .find();
+    
+    const modules = (modulesResult[0] || []) as ModuleEntry[];
+    let targetModuleUid: string | null = null;
+    
+    for (const module of modules) {
+      const lessons = Array.isArray(module.lessons) ? module.lessons : module.lessons ? [module.lessons] : [];
+      if (lessons.some(lesson => lesson.uid === lessonUid)) {
+        targetModuleUid = module.uid;
+        break;
+      }
+    }
+    
+    if (!targetModuleUid) return null;
+    
+    // Now find the course that contains this module
+    const coursesResult = await Stack.ContentType(CONTENT_TYPES.COURSE)
+      .Query()
+      .includeReference(['author', 'modules', 'modules.lessons'])
+      .toJSON()
+      .find();
+    
+    const courses = (coursesResult[0] || []) as CourseEntry[];
+    
+    for (const course of courses) {
+      const courseModules = Array.isArray(course.modules) ? course.modules : course.modules ? [course.modules] : [];
+      if (courseModules.some(m => m.uid === targetModuleUid)) {
+        return course;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error fetching course by lesson UID: ${lessonUid}`, error);
+    return null;
   }
 }
 

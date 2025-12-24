@@ -17,11 +17,21 @@ import {
   FileText,
   Play,
   Lock,
-  Award
+  Award,
+  ExternalLink
 } from 'lucide-react';
 import Header from '@/components/Header';
 import VideoPlayer from '@/components/VideoPlayer';
 import { useHeader } from '@/hooks/useHeader';
+import { getCourseByLessonUid, getLessonByUid } from '@/lib/contentstack';
+import { 
+  CourseEntry, 
+  ModuleEntry, 
+  LessonEntry, 
+  normalizeArray,
+  isFileResource,
+  isLinkResource
+} from '@/types/contentstack';
 import styles from './page.module.css';
 
 // Mock user data
@@ -32,104 +42,33 @@ const mockUser = {
   coursesInProgress: 3,
 };
 
-// Mock course and module data - Replace with Contentstack data
-const courseData = {
-  uid: 'course-1',
-  title: 'Machine Learning with Python',
-  slug: 'machine-learning-python',
-  modules: [
-    {
-      uid: 'mod-1',
-      title: 'Introduction to Machine Learning',
-      lessons: [
-        { 
-          uid: 'les-1', 
-          title: 'What is Machine Learning?', 
-          duration: '15:00', 
-          completed: true,
-          videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-          content: `
-            <h2>What is Machine Learning?</h2>
-            <p>Machine Learning (ML) is a subset of artificial intelligence (AI) that enables systems to learn and improve from experience without being explicitly programmed. It focuses on developing computer programs that can access data and use it to learn for themselves.</p>
-            
-            <h3>Key Concepts</h3>
-            <ul>
-              <li><strong>Training Data:</strong> The dataset used to train the model</li>
-              <li><strong>Features:</strong> The input variables used to make predictions</li>
-              <li><strong>Labels:</strong> The output variable we want to predict</li>
-              <li><strong>Model:</strong> The mathematical function that maps features to labels</li>
-            </ul>
-            
-            <h3>Types of Machine Learning</h3>
-            <p>There are three main types of machine learning:</p>
-            <ol>
-              <li><strong>Supervised Learning:</strong> Learning from labeled data</li>
-              <li><strong>Unsupervised Learning:</strong> Finding patterns in unlabeled data</li>
-              <li><strong>Reinforcement Learning:</strong> Learning through trial and error</li>
-            </ol>
-          `,
-          resources: [
-            { title: 'Lecture Slides', type: 'pdf', size: '2.5 MB' },
-            { title: 'Code Examples', type: 'zip', size: '1.2 MB' },
-          ],
-        },
-        { 
-          uid: 'les-2', 
-          title: 'Types of Machine Learning', 
-          duration: '20:00', 
-          completed: true,
-          videoUrl: 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-          content: '<h2>Types of Machine Learning</h2><p>This lesson covers supervised, unsupervised, and reinforcement learning in detail.</p>',
-          resources: [],
-        },
-        { 
-          uid: 'les-3', 
-          title: 'Setting Up Your Environment', 
-          duration: '25:00', 
-          completed: false,
-          videoUrl: '',
-          content: '<h2>Setting Up Your Environment</h2><p>Learn how to set up Python, Jupyter, and essential ML libraries.</p>',
-          resources: [],
-        },
-        { 
-          uid: 'les-4', 
-          title: 'Your First ML Model', 
-          duration: '30:00', 
-          completed: false,
-          videoUrl: '',
-          content: '<h2>Your First ML Model</h2><p>Build your first machine learning model step by step.</p>',
-          resources: [],
-        },
-      ],
-    },
-    {
-      uid: 'mod-2',
-      title: 'Supervised Learning',
-      lessons: [
-        { uid: 'les-5', title: 'Linear Regression', duration: '45:00', completed: false, videoUrl: '', content: '', resources: [] },
-        { uid: 'les-6', title: 'Logistic Regression', duration: '40:00', completed: false, videoUrl: '', content: '', resources: [] },
-        { uid: 'les-7', title: 'Decision Trees', duration: '35:00', completed: false, videoUrl: '', content: '', resources: [] },
-      ],
-    },
-    {
-      uid: 'mod-3',
-      title: 'Deep Learning Fundamentals',
-      lessons: [
-        { uid: 'les-8', title: 'Introduction to Neural Networks', duration: '50:00', completed: false, videoUrl: '', content: '', resources: [] },
-        { uid: 'les-9', title: 'Building Your First Neural Network', duration: '60:00', completed: false, videoUrl: '', content: '', resources: [] },
-      ],
-    },
-  ],
-};
+// Helper to format file size
+function formatFileSize(bytes?: number): string {
+  if (!bytes) return 'Unknown size';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
-interface Lesson {
+// Helper to get file type from content_type
+function getFileType(contentType?: string): string {
+  if (!contentType) return 'file';
+  if (contentType.includes('pdf')) return 'pdf';
+  if (contentType.includes('zip')) return 'zip';
+  if (contentType.includes('image')) return 'image';
+  if (contentType.includes('video')) return 'video';
+  return contentType.split('/')[1] || 'file';
+}
+
+interface ProcessedLesson {
   uid: string;
   title: string;
   duration: string;
   completed: boolean;
+  is_preview: boolean;
   videoUrl: string;
   content: string;
-  resources: { title: string; type: string; size: string }[];
+  resources: { title: string; type: string; size: string; url?: string; isLink?: boolean }[];
 }
 
 export default function ModulePage() {
@@ -140,50 +79,36 @@ export default function ModulePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'discussions'>('content');
   const [videoProgress, setVideoProgress] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [courseData, setCourseData] = useState<CourseEntry | null>(null);
+  const [currentLessonData, setCurrentLessonData] = useState<LessonEntry | null>(null);
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
 
-  // Find current lesson
-  let currentLesson: Lesson | null = null;
-  let currentModuleIndex = 0;
-  let currentLessonIndex = 0;
-  let prevLesson: { moduleIndex: number; lessonIndex: number } | null = null;
-  let nextLesson: { moduleIndex: number; lessonIndex: number } | null = null;
-
-  courseData.modules.forEach((module, mIndex) => {
-    module.lessons.forEach((lesson, lIndex) => {
-      if (lesson.uid === lessonId) {
-        currentLesson = lesson;
-        currentModuleIndex = mIndex;
-        currentLessonIndex = lIndex;
+  // Fetch course and lesson data from CMS
+  useEffect(() => {
+    async function fetchData() {
+      setIsLoading(true);
+      try {
+        // Fetch the lesson directly
+        const lesson = await getLessonByUid(lessonId);
+        setCurrentLessonData(lesson);
+        
+        // Fetch the course that contains this lesson
+        const course = await getCourseByLessonUid(lessonId);
+        setCourseData(course);
+      } catch (error) {
+        console.error('Error fetching lesson data:', error);
+      } finally {
+        setIsLoading(false);
       }
-    });
-  });
-
-  // Calculate prev/next lessons
-  const allLessons: { moduleIndex: number; lessonIndex: number; uid: string }[] = [];
-  courseData.modules.forEach((module, mIndex) => {
-    module.lessons.forEach((lesson, lIndex) => {
-      allLessons.push({ moduleIndex: mIndex, lessonIndex: lIndex, uid: lesson.uid });
-    });
-  });
-
-  const currentIndex = allLessons.findIndex(l => l.uid === lessonId);
-  if (currentIndex > 0) {
-    prevLesson = allLessons[currentIndex - 1];
-  }
-  if (currentIndex < allLessons.length - 1) {
-    nextLesson = allLessons[currentIndex + 1];
-  }
-
-  // Calculate progress
-  const totalLessons = allLessons.length;
-  const completedLessons = courseData.modules.reduce(
-    (acc, mod) => acc + mod.lessons.filter(l => l.completed).length,
-    0
-  );
-  const courseProgress = Math.round((completedLessons / totalLessons) * 100);
+    }
+    
+    if (lessonId) {
+      fetchData();
+    }
+  }, [lessonId]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -194,14 +119,86 @@ export default function ModulePage() {
     }
   }, []);
 
+  // Process course modules into flat lesson list
+  const modules = normalizeArray(courseData?.modules);
+  const allLessons: { moduleIndex: number; lessonIndex: number; uid: string; lesson: LessonEntry }[] = [];
+  
+  modules.forEach((module, mIndex) => {
+    const lessons = normalizeArray(module.lessons);
+    lessons.forEach((lesson, lIndex) => {
+      allLessons.push({ moduleIndex: mIndex, lessonIndex: lIndex, uid: lesson.uid, lesson });
+    });
+  });
+
+  // Find current lesson position
+  const currentIndex = allLessons.findIndex(l => l.uid === lessonId);
+  const currentLessonInfo = allLessons[currentIndex];
+  const currentModuleIndex = currentLessonInfo?.moduleIndex || 0;
+  const currentLessonIndex = currentLessonInfo?.lessonIndex || 0;
+  
+  // Get prev/next lessons
+  const prevLessonInfo = currentIndex > 0 ? allLessons[currentIndex - 1] : null;
+  const nextLessonInfo = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
+
+  // Calculate progress (dummy - will come from DB)
+  const totalLessons = allLessons.length;
+  const completedLessons = 2; // Dummy - from DB
+  const courseProgress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+
+  // Process current lesson for display
+  const currentLesson: ProcessedLesson | null = currentLessonData ? {
+    uid: currentLessonData.uid,
+    title: currentLessonData.title,
+    duration: currentLessonData.duration || '15:00',
+    completed: false, // From DB
+    is_preview: currentLessonData.is_preview || false,
+    videoUrl: currentLessonData.video_url?.href || '',
+    content: currentLessonData.lesson_content || '',
+    resources: (currentLessonData.resources || []).map(res => {
+      if (isFileResource(res)) {
+        return {
+          title: res.file_resource.resource_label || 'Resource',
+          type: getFileType(res.file_resource.resource_file?.content_type),
+          size: formatFileSize(res.file_resource.resource_file?.file_size as unknown as number),
+          url: res.file_resource.resource_file?.url,
+          isLink: false
+        };
+      } else if (isLinkResource(res)) {
+        return {
+          title: res.link_resource.resource_label || res.link_resource.resource_link?.title || 'Link',
+          type: 'link',
+          size: '',
+          url: res.link_resource.resource_link?.href,
+          isLink: true
+        };
+      }
+      return { title: 'Resource', type: 'unknown', size: '' };
+    })
+  } : null;
+
   const handleVideoProgress = (progress: number) => {
     setVideoProgress(progress);
   };
 
   const handleVideoComplete = () => {
-    // Mark lesson as complete
+    // Mark lesson as complete - will call DB API
     console.log('Video completed');
   };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <>
+        <Header variant="app" user={user} headerData={headerData} />
+        <div className={styles.moduleLayout}>
+          <div className={styles.loading}>
+            <div className={styles.spinner}></div>
+            <p>Loading lesson...</p>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   if (!currentLesson) {
     return (
@@ -225,15 +222,16 @@ export default function ModulePage() {
           {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
 
-        {/* Sidebar */}
+        {/* Sidebar - CMS Data */}
         <aside className={`${styles.sidebar} ${isSidebarOpen ? styles.open : ''}`}>
           <div className={styles.sidebarHeader}>
-            <Link href={`/course/${courseData.slug}`} className={styles.backLink}>
+            <Link href={`/course/${courseData?.slug || 'machine-learning-python'}`} className={styles.backLink}>
               <ChevronLeft size={20} />
               <span>Back to course</span>
             </Link>
-            <h2 className={styles.courseTitle}>{courseData.title}</h2>
+            <h2 className={styles.courseTitle}>{courseData?.title || 'Course'}</h2>
             
+            {/* Progress - DB Data (Dummy) */}
             <div className={styles.progressBar}>
               <div className={styles.progressTrack}>
                 <div 
@@ -248,38 +246,39 @@ export default function ModulePage() {
           </div>
 
           <div className={styles.modulesList}>
-            {courseData.modules.map((module, mIndex) => (
-              <div key={module.uid} className={styles.moduleGroup}>
-                <div className={styles.moduleHeader}>
-                  <h3>{module.title}</h3>
-                  <span className={styles.moduleProgress}>
-                    {module.lessons.filter(l => l.completed).length}/{module.lessons.length}
-                  </span>
+            {modules.map((module) => {
+              const moduleLessons = normalizeArray(module.lessons);
+              return (
+                <div key={module.uid} className={styles.moduleGroup}>
+                  <div className={styles.moduleHeader}>
+                    <h3>{module.title}</h3>
+                    <span className={styles.moduleProgress}>
+                      0/{moduleLessons.length}
+                    </span>
+                  </div>
+                  
+                  <div className={styles.lessonsList}>
+                    {moduleLessons.map((lesson) => (
+                      <Link
+                        key={lesson.uid}
+                        href={`/module/${lesson.uid}`}
+                        className={`${styles.lessonLink} ${lesson.uid === lessonId ? styles.active : ''}`}
+                      >
+                        <span className={styles.lessonStatus}>
+                          {lesson.uid === lessonId ? (
+                            <Play size={18} />
+                          ) : (
+                            <Circle size={18} />
+                          )}
+                        </span>
+                        <span className={styles.lessonTitle}>{lesson.title}</span>
+                        <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
+                      </Link>
+                    ))}
+                  </div>
                 </div>
-                
-                <div className={styles.lessonsList}>
-                  {module.lessons.map((lesson, lIndex) => (
-                    <Link
-                      key={lesson.uid}
-                      href={`/module/${lesson.uid}`}
-                      className={`${styles.lessonLink} ${lesson.uid === lessonId ? styles.active : ''} ${lesson.completed ? styles.completed : ''}`}
-                    >
-                      <span className={styles.lessonStatus}>
-                        {lesson.completed ? (
-                          <CheckCircle size={18} />
-                        ) : lesson.uid === lessonId ? (
-                          <Play size={18} />
-                        ) : (
-                          <Circle size={18} />
-                        )}
-                      </span>
-                      <span className={styles.lessonTitle}>{lesson.title}</span>
-                      <span className={styles.lessonDuration}>{lesson.duration}</span>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Certificate Banner */}
@@ -294,28 +293,23 @@ export default function ModulePage() {
 
         {/* Main Content */}
         <main className={styles.mainContent}>
-          {/* Video Player */}
-          <div className={styles.videoSection}>
-            {currentLesson.videoUrl ? (
+          {/* Video Player - Only show if lesson has a video */}
+          {currentLesson.videoUrl && (
+            <div className={styles.videoSection}>
               <VideoPlayer
                 src={currentLesson.videoUrl}
                 title={currentLesson.title}
                 onProgress={handleVideoProgress}
                 onComplete={handleVideoComplete}
               />
-            ) : (
-              <div className={styles.videoPlaceholder}>
-                <Lock size={48} />
-                <p>This lesson is locked. Complete previous lessons to unlock.</p>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Lesson Navigation */}
           <div className={styles.lessonNav}>
-            {prevLesson ? (
+            {prevLessonInfo ? (
               <Link
-                href={`/module/${courseData.modules[prevLesson.moduleIndex].lessons[prevLesson.lessonIndex].uid}`}
+                href={`/module/${prevLessonInfo.uid}`}
                 className={styles.navBtn}
               >
                 <ChevronLeft size={20} />
@@ -333,9 +327,9 @@ export default function ModulePage() {
               </p>
             </div>
 
-            {nextLesson ? (
+            {nextLessonInfo ? (
               <Link
-                href={`/module/${courseData.modules[nextLesson.moduleIndex].lessons[nextLesson.lessonIndex].uid}`}
+                href={`/module/${nextLessonInfo.uid}`}
                 className={`${styles.navBtn} ${styles.navBtnNext}`}
               >
                 <span>Next</span>
@@ -391,15 +385,34 @@ export default function ModulePage() {
                   {currentLesson.resources.length > 0 ? (
                     currentLesson.resources.map((resource, index) => (
                       <div key={index} className={styles.resourceItem}>
-                        <FileText size={24} />
+                        {resource.isLink ? <ExternalLink size={24} /> : <FileText size={24} />}
                         <div className={styles.resourceInfo}>
                           <h4>{resource.title}</h4>
-                          <span>{resource.type.toUpperCase()} • {resource.size}</span>
+                          <span>
+                            {resource.type.toUpperCase()}
+                            {resource.size && ` • ${resource.size}`}
+                          </span>
                         </div>
-                        <button className={styles.downloadBtn}>
-                          <Download size={18} />
-                          Download
-                        </button>
+                        {resource.isLink ? (
+                          <a 
+                            href={resource.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className={styles.downloadBtn}
+                          >
+                            <ExternalLink size={18} />
+                            Open
+                          </a>
+                        ) : (
+                          <a 
+                            href={resource.url} 
+                            download
+                            className={styles.downloadBtn}
+                          >
+                            <Download size={18} />
+                            Download
+                          </a>
+                        )}
                       </div>
                     ))
                   ) : (

@@ -24,18 +24,25 @@ import CourseCard from '@/components/CourseCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
+import { useCourses, transformCourseToCard } from '@/hooks/useCourses';
 import {
   PageEntry,
   IconEntry,
   TestimonialEntry,
   HeroBlockEntry,
+  Link as CMSLink,
   isHeroSectionBlock,
   isFeatureBlock,
   isWorkflowBlock,
   isPartnersBlock,
   isTestimonialBlock,
+  isCardBlock,
+  isCTABlock,
   normalizeArray,
   extractRating,
+  extractAuthorRole,
+  extractHeroStats,
+  extractFloatingCards,
 } from '@/types/contentstack';
 import styles from './page.module.css';
 
@@ -86,10 +93,10 @@ const fallbackTestimonials = [
 ];
 
 const popularCourses = [
-  { uid: '1', title: 'Complete Web Development Bootcamp', slug: 'complete-web-development', thumbnail: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600', instructorName: 'Sarah Johnson', level: 'beginner' as const, duration: '52 hours', rating: 4.9, reviewsCount: 12500, studentsEnrolled: 45000, isPopular: true },
-  { uid: '2', title: 'Machine Learning with Python', slug: 'machine-learning-python', thumbnail: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=600', instructorName: 'Michael Chen', level: 'intermediate' as const, duration: '38 hours', rating: 4.8, reviewsCount: 8900, studentsEnrolled: 28000, isFeatured: true },
-  { uid: '3', title: 'AWS Certified Solutions Architect', slug: 'aws-solutions-architect', thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600', instructorName: 'David Park', level: 'advanced' as const, duration: '45 hours', rating: 4.9, reviewsCount: 6700, studentsEnrolled: 19000 },
-  { uid: '4', title: 'UI/UX Design Masterclass', slug: 'uiux-design-masterclass', thumbnail: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600', instructorName: 'Emma Wilson', level: 'beginner' as const, duration: '28 hours', rating: 4.7, reviewsCount: 5200, studentsEnrolled: 15000 },
+  { uid: 'blte66355d66dec039d', title: 'Complete React Developer Course', slug: 'react-developer-course', thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600', instructorName: 'Sarah Johnson', level: 'beginner' as const, duration: '35 hours', rating: 4.9, reviewsCount: 12500, studentsEnrolled: 45000, isPopular: true },
+  { uid: 'blt6139b873994abedc', title: 'Machine Learning with Python', slug: 'machine-learning-python', thumbnail: 'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=600', instructorName: 'Michael Chen', level: 'intermediate' as const, duration: '38 hours', rating: 4.8, reviewsCount: 8900, studentsEnrolled: 28000, isFeatured: true },
+  { uid: 'blte671205ef0de57c1', title: 'AWS Cloud Practitioner', slug: 'aws-cloud-practitioner', thumbnail: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=600', instructorName: 'David Park', level: 'intermediate' as const, duration: '45 hours', rating: 4.9, reviewsCount: 6700, studentsEnrolled: 19000 },
+  { uid: 'bltd97014c9501ad853', title: 'UX/UI Design Fundamentals', slug: 'ux-ui-design-fundamentals', thumbnail: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=600', instructorName: 'Emma Wilson', level: 'beginner' as const, duration: '35 hours', rating: 4.7, reviewsCount: 5200, studentsEnrolled: 15000 },
 ];
 
 const fallbackFaqs = [
@@ -99,6 +106,13 @@ const fallbackFaqs = [
   { uid: '4', question: 'How long do I have access to the courses?', answer: 'Once you enroll in a course, you have lifetime access. Learn at your own pace and revisit the content whenever you need a refresher.' },
   { uid: '5', question: 'Can I get help if I\'m stuck on a topic?', answer: 'Yes! Each course has a Q&A section where you can ask questions. You can also join our community forums to connect with other learners and instructors.' },
 ];
+
+// Card block data with CTA
+interface CardBlockData {
+  title: string;
+  description: string;
+  ctaButton?: CMSLink;
+}
 
 // Helper to extract data from page sections
 function extractSectionData(pageData: PageEntry | null) {
@@ -112,6 +126,8 @@ function extractSectionData(pageData: PageEntry | null) {
   let featuresTitle = { title: '', description: '' };
   let workflowTitle = { title: '', description: '' };
   let testimonialsTitle = { title: '', description: '' };
+  let popularCoursesBlock: CardBlockData | null = null;
+  let ctaSectionBlock: CardBlockData | null = null;
 
   for (const section of pageData.section) {
     if (isHeroSectionBlock(section)) {
@@ -145,9 +161,24 @@ function extractSectionData(pageData: PageEntry | null) {
         description: section.testimonial_block.title_and_description?.description || '',
       };
     }
+    if (isCardBlock(section)) {
+      const title = section.card_block.title_and_description?.title || '';
+      const description = section.card_block.title_and_description?.description || '';
+      const ctaButton = section.card_block.cta_button;
+      
+      // For landing page, we only have one card block (Popular Courses)
+      popularCoursesBlock = { title, description, ctaButton };
+    }
+    if (isCTABlock(section)) {
+      ctaSectionBlock = {
+        title: section.cta_block.cta_title?.title || '',
+        description: section.cta_block.cta_title?.description || '',
+        ctaButton: section.cta_block.cta_button,
+      };
+    }
   }
 
-  return { heroBlock, features, workflow, partners, testimonials, featuresTitle, workflowTitle, testimonialsTitle };
+  return { heroBlock, features, workflow, partners, testimonials, featuresTitle, workflowTitle, testimonialsTitle, popularCoursesBlock, ctaSectionBlock };
 }
 
 export default function LandingPage() {
@@ -156,6 +187,12 @@ export default function LandingPage() {
   
   // Fetch page data from Contentstack
   const { pageData, isLoading } = usePage('Landing Page');
+  
+  // Fetch courses from CMS
+  const { courses: cmsCourses } = useCourses();
+  
+  // Transform CMS courses to card format
+  const cmsCoursesForCards = cmsCourses.slice(0, 4).map(transformCourseToCard);
 
   // Extract section data from CMS
   const sectionData = extractSectionData(pageData);
@@ -169,6 +206,10 @@ export default function LandingPage() {
 
   // Hero data (CMS or fallback)
   const hero = sectionData?.heroBlock;
+  
+  // Extract stats and floating cards using helper functions
+  const heroStats = hero ? extractHeroStats(hero.stats) : [];
+  const floatingCards = hero ? extractFloatingCards(hero.floating_cards) : [];
 
   return (
     <>
@@ -198,18 +239,25 @@ export default function LandingPage() {
               </div>
               
               <h1 className={styles.heroTitle}>
-                {hasCMSHero ? (
-                  <>
-                    {hero?.headline?.split(hero?.highlight_text || '').map((part, i, arr) => (
-                      <span key={i}>
-                        {part}
-                        {i < arr.length - 1 && hero?.highlight_text && (
-                          <span className={styles.highlight}>{hero.highlight_text}</span>
-                        )}
-                      </span>
-                    ))}
-                  </>
+                {hasCMSHero && hero?.headline ? (
+                  // If we have a highlight text, split and highlight it
+                  hero.highlight_text ? (
+                    <>
+                      {hero.headline.split(hero.highlight_text).map((part, i, arr) => (
+                        <span key={i}>
+                          {part}
+                          {i < arr.length - 1 && (
+                            <span className={styles.highlight}>{hero.highlight_text}</span>
+                          )}
+                        </span>
+                      ))}
+                    </>
+                  ) : (
+                    // No highlight text, just render the headline
+                    <>{hero.headline}</>
+                  )
                 ) : (
+                  // Fallback when no CMS data
                   <>
                     Learn a <span className={styles.highlight}>New Skill</span><br />
                     Everyday, Anytime,<br />
@@ -243,16 +291,13 @@ export default function LandingPage() {
 
               {/* Stats */}
               <div className={styles.stats}>
-                {hasCMSHero && hero?.stats && hero.stats.length > 0 ? (
-                  hero.stats.map((stat, index) => {
-                    const StatIcon = iconMap[stat.icon || 'star'] || Star;
-                    return (
-                      <div key={`stat-${index}`} className={styles.statItem}>
-                        <div className={styles.statValue}>{stat.value}</div>
-                        <div className={styles.statLabel}>{stat.label}</div>
-                      </div>
-                    );
-                  })
+                {hasCMSHero && heroStats.length > 0 ? (
+                  heroStats.map((stat, index) => (
+                    <div key={`stat-${index}`} className={styles.statItem}>
+                      <div className={styles.statValue}>{stat.value}</div>
+                      <div className={styles.statLabel}>{stat.label}</div>
+                    </div>
+                  ))
                 ) : (
                   fallbackStats.map((stat, index) => (
                     <div key={`stat-${index}`} className={styles.statItem}>
@@ -266,9 +311,9 @@ export default function LandingPage() {
 
             <div className={styles.heroImage}>
               <div className={styles.heroImageWrapper}>
-                {hasCMSHero && hero?.image?.url ? (
+                {hasCMSHero && hero?.hero_image?.url ? (
                   <Image
-                    src={hero.image.url}
+                    src={hero.hero_image.url}
                     alt={hero.headline || 'Students learning'}
                     fill
                     className={styles.heroImg}
@@ -284,32 +329,32 @@ export default function LandingPage() {
                   />
                 )}
                 
-                {/* Floating Cards */}
-                {hasCMSHero && hero?.floating_cards && hero.floating_cards.length >= 1 ? (
+                {/* Floating Cards - Using extracted data */}
+                {hasCMSHero && floatingCards.length >= 1 ? (
                   <>
                     <div className={styles.floatingCard1}>
                       <div className={styles.floatingIcon}>
                         {(() => {
-                          const CardIcon = iconMap[hero.floating_cards[0].icon] || TrendingUp;
+                          const CardIcon = iconMap[floatingCards[0].icon] || TrendingUp;
                           return <CardIcon size={24} />;
                         })()}
                       </div>
                       <div>
-                        <strong>{hero.floating_cards[0].value}</strong>
-                        <span>{hero.floating_cards[0].label}</span>
+                        <strong>{floatingCards[0].value}</strong>
+                        <span>{floatingCards[0].label}</span>
                       </div>
                     </div>
-                    {hero.floating_cards.length >= 2 && (
+                    {floatingCards.length >= 2 && (
                       <div className={styles.floatingCard2}>
                         <div className={styles.floatingIcon}>
                           {(() => {
-                            const CardIcon = iconMap[hero.floating_cards[1].icon] || Target;
+                            const CardIcon = iconMap[floatingCards[1].icon] || Target;
                             return <CardIcon size={24} />;
                           })()}
                         </div>
                         <div>
-                          <strong>{hero.floating_cards[1].value}</strong>
-                          <span>{hero.floating_cards[1].label}</span>
+                          <strong>{floatingCards[1].value}</strong>
+                          <span>{floatingCards[1].label}</span>
                         </div>
                       </div>
                     )}
@@ -417,20 +462,25 @@ export default function LandingPage() {
           <div className="container">
             <div className={styles.sectionHeader}>
               <div>
-                <h2 className="section-title">Popular Courses</h2>
+                <h2 className="section-title">
+                  {sectionData?.popularCoursesBlock?.title || 'Popular Courses'}
+                </h2>
                 <p className="section-subtitle">
-                  Explore our most popular courses and start learning today!
+                  {sectionData?.popularCoursesBlock?.description || 'Explore our most popular courses and start learning today!'}
                 </p>
               </div>
-              <Link href="/courses" className={styles.viewAllBtn}>
-                View All Courses
+              <Link 
+                href={sectionData?.popularCoursesBlock?.ctaButton?.href || '/courses'} 
+                className={styles.viewAllBtn}
+              >
+                {sectionData?.popularCoursesBlock?.ctaButton?.title || 'View All Courses'}
                 <ArrowRight size={18} />
               </Link>
             </div>
 
             <div className={styles.coursesGrid}>
-              {popularCourses.map((course) => (
-                <CourseCard key={course.uid} {...course} />
+              {(cmsCoursesForCards.length > 0 ? cmsCoursesForCards : popularCourses).map((course) => (
+                <CourseCard key={course.uid} {...course} redirectTo="/signup" />
               ))}
             </div>
           </div>
@@ -512,34 +562,35 @@ export default function LandingPage() {
                 sectionData.testimonials.map((testimonial) => {
                   const author = normalizeArray(testimonial.author)[0];
                   const rating = extractRating(testimonial.rating);
+                  const authorInfo = extractAuthorRole(author?.bio);
                   
                   return (
                     <div key={testimonial.uid} className={styles.testimonialCard}>
                       <div className={styles.testimonialRating}>
-                        {[...Array(rating)].map((_, i) => (
+                        {[...Array(Math.round(rating))].map((_, i) => (
                           <Star key={`star-${testimonial.uid}-${i}`} size={18} fill="var(--warning-500)" stroke="var(--warning-500)" />
                         ))}
                       </div>
                       <p className={styles.testimonialQuote}>"{testimonial.review}"</p>
                       <div className={styles.testimonialAuthor}>
                         <div className={styles.authorAvatar}>
-                          {author?.avatar?.url ? (
+                          {author?.picture?.url ? (
                             <Image 
-                              src={author.avatar.url} 
-                              alt={author?.name || testimonial.title} 
+                              src={author.picture.url} 
+                              alt={author?.title || testimonial.title} 
                               fill 
                             />
                           ) : (
                             <div className={styles.avatarPlaceholder}>
-                              {(author?.name || testimonial.title).charAt(0)}
+                              {(author?.title || testimonial.title).charAt(0)}
                             </div>
                           )}
                         </div>
                         <div className={styles.authorInfo}>
-                          <h4>{author?.name || testimonial.title}</h4>
+                          <h4>{author?.title || testimonial.title}</h4>
                           <p>
-                            {author?.designation || 'Student'}
-                            {author?.company && ` at ${author.company}`}
+                            {authorInfo.role}
+                            {authorInfo.company && ` at ${authorInfo.company}`}
                           </p>
                         </div>
                       </div>
@@ -580,15 +631,20 @@ export default function LandingPage() {
         <section className={styles.cta}>
           <div className="container">
             <div className={styles.ctaContent}>
-              <h2>Ready to Start Learning?</h2>
-              <p>Join over 50,000+ students who are already learning and growing with StackAcademy.</p>
+              <h2>
+                {sectionData?.ctaSectionBlock?.title || 'Ready to Start Learning?'}
+              </h2>
+              <p>
+                {sectionData?.ctaSectionBlock?.description || 
+                  'Join over 50,000+ students who are already learning and growing with StackAcademy.'}
+              </p>
               <div className={styles.ctaButtons}>
-                <Link href="/signup" className={styles.ctaPrimaryBtn}>
-                  Get Started
+                <Link 
+                  href={sectionData?.ctaSectionBlock?.ctaButton?.href || '/signup'} 
+                  className={styles.ctaPrimaryBtn}
+                >
+                  {sectionData?.ctaSectionBlock?.ctaButton?.title || 'Get Started'}
                   <ArrowRight size={20} />
-                </Link>
-                <Link href="/courses" className={styles.ctaSecondaryBtn}>
-                  Browse Courses
                 </Link>
               </div>
             </div>

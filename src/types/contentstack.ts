@@ -34,14 +34,33 @@ export interface IconEntry {
   description?: string;  // Description text for features, categories, etc.
 }
 
+// Category Entry (categories_block) - Used for category sections with taxonomy
+export interface CategoryEntry {
+  uid: string;
+  title: string;                    // Category name (e.g., "Development")
+  taxonomies?: {                    // Linked taxonomy term
+    taxonomy_uid: string;           // e.g., "course_categories"
+    term_uid: string;               // e.g., "development"
+  }[];
+  category_icon?: string;           // Icon name (e.g., "code")
+}
+
 // Author Content Type (referenced by Testimonial)
 export interface AuthorEntry {
   uid: string;
-  title: string;
-  name?: string;
-  designation?: string;
-  company?: string;
-  avatar?: Asset;
+  title: string;          // Full Name
+  url?: string;           // Author page URL
+  picture?: Asset;        // Legacy profile picture field
+  profile_image?: Asset;  // Profile picture (file/asset field)
+  profile_image_link?: Link;  // Profile picture URL (link field - alternative)
+  bio?: string;           // Short biography
+  experience?: number;    // Years of experience
+  social_links?: {
+    github_link?: Link;
+    x_link?: Link;
+    instagram_link?: Link;
+    portfolio_link?: Link;
+  };
 }
 
 // Banner Content Type - Updated with color picker
@@ -52,29 +71,40 @@ export interface BannerEntry {
   description?: string;
   banner_image?: Asset;
   button?: Link;
-  banner_color?: ColorPickerValue;  // Color picker extension
+  banner_color?: ColorPickerValue;       // Background color picker
+  banner_text_color?: ColorPickerValue;  // Text color picker
 }
 
-// Hero Block Content Type - For landing page hero section
+// Hero Banner Content Type - For landing page hero section
+// Note: Field naming in CMS has nested groups (stats_icon, floating_icon)
 export interface HeroBlockEntry {
   uid: string;
+  title?: string;
   badge_text?: string;
   badge_icon?: string;
-  headline: string;
+  headline?: string;
   highlight_text?: string;
   subtitle?: string;
   primary_cta?: Link;
   secondary_cta?: Link;
-  image?: Asset;
+  hero_image?: Asset;  // Note: field is hero_image, not image
+  // Stats have nested stats_icon group
   stats?: {
-    value: string;
-    label: string;
-    icon?: string;
+    stats_icon: {
+      icon: string;   // NOTE: In the CMS entry, icon contains the value (e.g., "100+")
+      label: string;  // Label (e.g., "Courses")
+      value: string;  // NOTE: In the CMS entry, value contains the icon name (e.g., "book-open")
+    };
+    _metadata?: { uid: string };
   }[];
+  // Floating cards have nested floating_icon group
   floating_cards?: {
-    icon: string;
-    value: string;
-    label: string;
+    floating_icon: {
+      icon: string;   // Icon name (e.g., "trending-up")
+      label: string;  // Label (e.g., "Success Rate")
+      value: string;  // Value (e.g., "95%")
+    };
+    _metadata?: { uid: string };
   }[];
 }
 
@@ -113,11 +143,12 @@ export interface CarouselBlock {
   };
 }
 
-// Category Block
+// Category Block - Updated to use CategoryEntry references
 export interface CategoryBlock {
   category_block: {
     title_and_description?: TitleAndDescription;
-    icon?: IconEntry | IconEntry[];
+    category?: CategoryEntry | CategoryEntry[];  // References to categories_block entries
+    icon?: IconEntry | IconEntry[];              // Legacy support
   };
 }
 
@@ -153,10 +184,27 @@ export interface TestimonialBlock {
   };
 }
 
-// Card Block (for course sections - uses fallback data)
+// Card Block (for course sections) - Updated with CTA button
 export interface CardBlock {
   card_block: {
     title_and_description?: TitleAndDescription;
+    cta_button?: Link;  // Optional CTA button link
+  };
+}
+
+// Search Block (for hero sections with search bar)
+export interface SearchBlock {
+  search_block: {
+    search_title?: TitleAndDescription;
+    placeholder?: string;
+  };
+}
+
+// CTA Block (for call-to-action sections)
+export interface CTABlock {
+  cta_block: {
+    cta_title?: TitleAndDescription;
+    cta_button?: Link;
   };
 }
 
@@ -169,7 +217,9 @@ export type PageSection =
   | WorkflowBlock 
   | PartnersBlock 
   | TestimonialBlock 
-  | CardBlock;
+  | CardBlock
+  | SearchBlock
+  | CTABlock;
 
 // Type guards for section blocks
 export function isHeroSectionBlock(section: PageSection): section is HeroSectionBlock {
@@ -202,6 +252,14 @@ export function isTestimonialBlock(section: PageSection): section is Testimonial
 
 export function isCardBlock(section: PageSection): section is CardBlock {
   return 'card_block' in section;
+}
+
+export function isSearchBlock(section: PageSection): section is SearchBlock {
+  return 'search_block' in section;
+}
+
+export function isCTABlock(section: PageSection): section is CTABlock {
+  return 'cta_block' in section;
 }
 
 // Page Content Type (modular_section) - Main page builder
@@ -355,7 +413,87 @@ export interface Instructor {
   }[];
 }
 
-// Module Content Type
+// ============================================
+// Course Learning Content Types (CMS)
+// ============================================
+
+// Resource types for lessons
+export interface FileResource {
+  file_resource: {
+    resource_label: string;
+    resource_file?: Asset;
+  };
+}
+
+export interface LinkResource {
+  link_resource: {
+    resource_label: string;
+    resource_link?: Link;
+  };
+}
+
+export type LessonResource = FileResource | LinkResource;
+
+// Lesson Entry (from CMS)
+export interface LessonEntry {
+  uid: string;
+  title: string;
+  slug?: string;
+  is_preview?: boolean;
+  order?: number;
+  duration?: string;
+  video_url?: Link;
+  lesson_content?: string;
+  resources?: LessonResource[];
+}
+
+// Module Entry (from CMS)
+export interface ModuleEntry {
+  uid: string;
+  title: string;
+  order?: number;
+  duration?: string;
+  total_lessons?: number;
+  lessons?: LessonEntry | LessonEntry[];
+}
+
+// Course Entry (from CMS)
+export interface CourseEntry {
+  uid: string;
+  title: string;
+  slug: string;
+  course_image?: Asset;
+  course_image_link?: Link; // URL-based thumbnail
+  taxonomies?: {
+    taxonomy_uid: string;
+    term_uid: string;
+  }[];
+  short_text?: string;
+  author?: AuthorEntry | AuthorEntry[];
+  duration?: number;
+  difficulty_level: 'Beginner' | 'Intermediate' | 'Advanced';
+  total_duration?: number;
+  total_modules?: number;
+  languages_supported?: string[];
+  about_the_course?: string;
+  learning_outcomes?: {
+    point?: string[];
+  };
+  requirements?: string;
+  modules?: ModuleEntry | ModuleEntry[];
+  updated_at?: string;
+}
+
+// Helper type guards for lesson resources
+export function isFileResource(resource: LessonResource): resource is FileResource {
+  return 'file_resource' in resource;
+}
+
+export function isLinkResource(resource: LessonResource): resource is LinkResource {
+  return 'link_resource' in resource;
+}
+
+// Module Content Type (Legacy)
 export interface Module {
   uid: string;
   title: string;
@@ -511,4 +649,53 @@ export function extractRating(rating: number | { value: number } | any): number 
 export function extractColor(color: ColorPickerValue | undefined, fallback: string = '#3b82f6'): string {
   if (!color) return fallback;
   return color.hex || fallback;
+}
+
+/**
+ * Extract role/company from author bio
+ * Format expected: "Role at Company. Additional info..."
+ */
+export function extractAuthorRole(bio?: string): { role: string; company: string } {
+  if (!bio) return { role: 'Student', company: '' };
+  
+  // Try to extract "Role at Company" from beginning of bio
+  const match = bio.match(/^([^.]+?)(?:\s+at\s+|\s+@\s+)([^.]+)/i);
+  if (match) {
+    return { role: match[1].trim(), company: match[2].trim() };
+  }
+  
+  // Fallback: use first sentence or first few words
+  const firstSentence = bio.split('.')[0];
+  if (firstSentence.length < 50) {
+    return { role: firstSentence.trim(), company: '' };
+  }
+  
+  return { role: 'Student', company: '' };
+}
+
+/**
+ * Extract stats from Hero Banner - handles the swapped icon/value fields
+ * In the CMS, icon contains the display value and value contains the icon name
+ */
+export function extractHeroStats(stats: HeroBlockEntry['stats']): { value: string; label: string; iconName: string }[] {
+  if (!stats) return [];
+  
+  return stats.map(stat => ({
+    value: stat.stats_icon.icon,      // Display value (e.g., "100+")
+    label: stat.stats_icon.label,     // Label (e.g., "Courses")
+    iconName: stat.stats_icon.value,  // Icon name (e.g., "book-open")
+  }));
+}
+
+/**
+ * Extract floating cards from Hero Banner
+ */
+export function extractFloatingCards(cards: HeroBlockEntry['floating_cards']): { icon: string; value: string; label: string }[] {
+  if (!cards) return [];
+  
+  return cards.map(card => ({
+    icon: card.floating_icon.icon,
+    value: card.floating_icon.value,
+    label: card.floating_icon.label,
+  }));
 }

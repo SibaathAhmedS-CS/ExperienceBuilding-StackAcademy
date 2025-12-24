@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { Star, Clock, Users, BookOpen, Play } from 'lucide-react';
+import { Star, Clock, Users, BookOpen } from 'lucide-react';
 import styles from './CourseCard.module.css';
 
 interface CourseCardProps {
@@ -22,6 +22,7 @@ interface CourseCardProps {
   isPopular?: boolean;
   progress?: number; // For enrolled courses
   variant?: 'default' | 'horizontal' | 'compact';
+  redirectTo?: string; // Override the default navigation (e.g., redirect to signup for non-logged-in users)
 }
 
 export default function CourseCard({
@@ -41,6 +42,7 @@ export default function CourseCard({
   isPopular,
   progress,
   variant = 'default',
+  redirectTo,
 }: CourseCardProps) {
   const levelColors = {
     beginner: 'var(--success-500)',
@@ -53,9 +55,12 @@ export default function CourseCard({
     return count.toString();
   };
 
+  // Use redirectTo if provided, otherwise navigate to course detail page
+  const href = redirectTo || `/course/${slug}`;
+
   return (
     <Link 
-      href={`/course/${slug}`} 
+      href={href} 
       className={`${styles.card} ${styles[variant]}`}
     >
       {/* Thumbnail */}
@@ -66,11 +71,6 @@ export default function CourseCard({
           fill
           className={styles.thumbnailImage}
         />
-        <div className={styles.overlay}>
-          <div className={styles.playButton}>
-            <Play size={24} fill="white" />
-          </div>
-        </div>
         
         {/* Badges */}
         <div className={styles.badges}>

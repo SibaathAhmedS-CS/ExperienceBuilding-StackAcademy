@@ -3,7 +3,7 @@
     "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_page_module_css-src_components_CourseCard_CourseCard_module_css-src_components_FA-3c1a3d.css",
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_pag-dfcf4c.css",
       "static/chunks/app/page.js"
     ],
     "/layout": [
@@ -11,6 +11,23 @@
       "static/chunks/main-app.js",
       "static/css/css-src_app_globals_css.css",
       "static/chunks/app/layout.js"
+    ],
+    "/(main)/courses/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_pag-dfcf4c.css",
+      "static/chunks/app/(main)/courses/page.js"
+    ],
+    "/(main)/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/layout.js"
+    ],
+    "/(main)/course/[slug]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_pag-dfcf4c.css",
+      "static/chunks/app/(main)/course/[slug]/page.js"
     ]
   }
 }
