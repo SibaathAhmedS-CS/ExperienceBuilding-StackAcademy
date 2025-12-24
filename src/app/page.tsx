@@ -239,25 +239,18 @@ export default function LandingPage() {
               </div>
               
               <h1 className={styles.heroTitle}>
-                {hasCMSHero && hero?.headline ? (
-                  // If we have a highlight text, split and highlight it
-                  hero.highlight_text ? (
-                    <>
-                      {hero.headline.split(hero.highlight_text).map((part, i, arr) => (
-                        <span key={i}>
-                          {part}
-                          {i < arr.length - 1 && (
-                            <span className={styles.highlight}>{hero.highlight_text}</span>
-                          )}
-                        </span>
-                      ))}
-                    </>
-                  ) : (
-                    // No highlight text, just render the headline
-                    <>{hero.headline}</>
-                  )
+                {hasCMSHero ? (
+                  <>
+                    {hero?.headline?.split(hero?.highlight_text || '').map((part, i, arr) => (
+                      <span key={i}>
+                        {part}
+                        {i < arr.length - 1 && hero?.highlight_text && (
+                          <span className={styles.highlight}>{hero.highlight_text}</span>
+                        )}
+                      </span>
+                    ))}
+                  </>
                 ) : (
-                  // Fallback when no CMS data
                   <>
                     Learn a <span className={styles.highlight}>New Skill</span><br />
                     Everyday, Anytime,<br />
@@ -292,12 +285,16 @@ export default function LandingPage() {
               {/* Stats */}
               <div className={styles.stats}>
                 {hasCMSHero && heroStats.length > 0 ? (
-                  heroStats.map((stat, index) => (
-                    <div key={`stat-${index}`} className={styles.statItem}>
-                      <div className={styles.statValue}>{stat.value}</div>
-                      <div className={styles.statLabel}>{stat.label}</div>
-                    </div>
-                  ))
+                  heroStats.map((stat, index) => {
+                    const StatIcon = iconMap[stat.iconName] || BookOpen;
+                    return (
+                      <div key={`stat-${index}`} className={styles.statItem}>
+                        <StatIcon size={24} className={styles.statIcon} />
+                        <div className={styles.statValue}>{stat.value}</div>
+                        <div className={styles.statLabel}>{stat.label}</div>
+                      </div>
+                    );
+                  })
                 ) : (
                   fallbackStats.map((stat, index) => (
                     <div key={`stat-${index}`} className={styles.statItem}>
@@ -328,60 +325,60 @@ export default function LandingPage() {
                     priority
                   />
                 )}
-                
-                {/* Floating Cards - Using extracted data */}
-                {hasCMSHero && floatingCards.length >= 1 ? (
-                  <>
-                    <div className={styles.floatingCard1}>
+              </div>
+              
+              {/* Floating Cards - Outside heroImageWrapper to avoid overflow:hidden clipping */}
+              {hasCMSHero && floatingCards.length >= 1 ? (
+                <>
+                  <div className={styles.floatingCard1}>
+                    <div className={styles.floatingIcon}>
+                      {(() => {
+                        const CardIcon = iconMap[floatingCards[0].icon] || TrendingUp;
+                        return <CardIcon size={24} />;
+                      })()}
+                    </div>
+                    <div>
+                      <strong>{floatingCards[0].value}</strong>
+                      <span>{floatingCards[0].label}</span>
+                    </div>
+                  </div>
+                  {floatingCards.length >= 2 && (
+                    <div className={styles.floatingCard2}>
                       <div className={styles.floatingIcon}>
                         {(() => {
-                          const CardIcon = iconMap[floatingCards[0].icon] || TrendingUp;
+                          const CardIcon = iconMap[floatingCards[1].icon] || Target;
                           return <CardIcon size={24} />;
                         })()}
                       </div>
                       <div>
-                        <strong>{floatingCards[0].value}</strong>
-                        <span>{floatingCards[0].label}</span>
+                        <strong>{floatingCards[1].value}</strong>
+                        <span>{floatingCards[1].label}</span>
                       </div>
                     </div>
-                    {floatingCards.length >= 2 && (
-                      <div className={styles.floatingCard2}>
-                        <div className={styles.floatingIcon}>
-                          {(() => {
-                            const CardIcon = iconMap[floatingCards[1].icon] || Target;
-                            return <CardIcon size={24} />;
-                          })()}
-                        </div>
-                        <div>
-                          <strong>{floatingCards[1].value}</strong>
-                          <span>{floatingCards[1].label}</span>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div className={styles.floatingCard1}>
-                      <div className={styles.floatingIcon}>
-                        <TrendingUp size={24} />
-                      </div>
-                      <div>
-                        <strong>95%</strong>
-                        <span>Success Rate</span>
-                      </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className={styles.floatingCard1}>
+                    <div className={styles.floatingIcon}>
+                      <TrendingUp size={24} />
                     </div>
-                    <div className={styles.floatingCard2}>
-                      <div className={styles.floatingIcon}>
-                        <Target size={24} />
-                      </div>
-                      <div>
-                        <strong>50K+</strong>
-                        <span>Goals Achieved</span>
-                      </div>
+                    <div>
+                      <strong>95%</strong>
+                      <span>Success Rate</span>
                     </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                  <div className={styles.floatingCard2}>
+                    <div className={styles.floatingIcon}>
+                      <Target size={24} />
+                    </div>
+                    <div>
+                      <strong>50K+</strong>
+                      <span>Goals Achieved</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </section>

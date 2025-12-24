@@ -681,9 +681,9 @@ export function extractHeroStats(stats: HeroBlockEntry['stats']): { value: strin
   if (!stats) return [];
   
   return stats.map(stat => ({
-    value: stat.stats_icon.icon,      // Display value (e.g., "100+")
+    value: stat.stats_icon.value,     // Display value (e.g., "1000+")
     label: stat.stats_icon.label,     // Label (e.g., "Courses")
-    iconName: stat.stats_icon.value,  // Icon name (e.g., "book-open")
+    iconName: stat.stats_icon.icon,   // Icon name (e.g., "book-open")
   }));
 }
 

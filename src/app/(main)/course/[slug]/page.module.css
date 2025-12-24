@@ -83,7 +83,7 @@
 
 .heroImage {
   object-fit: cover;
-  opacity: 0.7;
+  opacity: 0.4;
   transform: scale(1.02);
 }
 
@@ -93,13 +93,12 @@
   background: linear-gradient(
     to right,
     rgba(15, 15, 20, 0.95) 0%,
-    rgba(15, 15, 20, 0.8) 40%,
-    rgba(15, 15, 20, 0.4) 70%,
-    rgba(15, 15, 20, 0.2) 100%
+    rgba(15, 15, 20, 0.85) 50%,
+    rgba(15, 15, 20, 0.7) 100%
   );
 }
 
-/* Back Link - Plain text style */
+/* Back Link */
 .backLink {
   position: absolute;
   top: 20px;
@@ -112,14 +111,16 @@
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.2s ease;
-  background: none;
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.1);
   border: none;
-  padding: 0;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
 }
 
 .backLink:hover {
   color: white;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .backLink svg {
@@ -218,7 +219,6 @@
   font-weight: 800;
   line-height: 1.2;
   margin-bottom: 20px;
-  color: white;
 }
 
 .courseDescription {
