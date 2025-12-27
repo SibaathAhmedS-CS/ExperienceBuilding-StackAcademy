@@ -11,7 +11,8 @@ import {
   CategoryEntry,
   CourseEntry,
   ModuleEntry,
-  LessonEntry
+  LessonEntry,
+  OnboardingBlockEntry
 } from '@/types/contentstack';
 
 // Contentstack SDK Configuration
@@ -55,6 +56,7 @@ export const CONTENT_TYPES = {
   CATEGORY: 'categories_block',  // Updated to match new content type
   CATEGORY_BLOCK: 'category_block',  // Singleton for referencing categories
   INSTRUCTOR: 'instructor',
+  ONBOARDING: 'onboarding_block',  // Onboarding steps content type
 } as const;
 
 // ============================================
@@ -569,6 +571,108 @@ export async function getCourseByLessonUid(lessonUid: string): Promise<CourseEnt
     console.error(`Error fetching course by lesson UID: ${lessonUid}`, error);
     return null;
   }
+}
+
+// ============================================
+// Onboarding Fetch Functions
+// ============================================
+
+/**
+ * Fetch all onboarding steps
+ * Returns steps sorted by current_step
+ * Tries multiple content type names in case the exact name differs
+ */
+export async function getAllOnboardingSteps(): Promise<OnboardingBlockEntry[]> {
+  // Try different possible content type names
+  const possibleContentTypes = [
+    'onboarding_block',
+    'onboarding',
+    'onboarding_step',
+    'onboarding_steps',
+    'modular_section',  // Maybe stored as modular sections with specific pattern
+  ];
+
+  for (const contentType of possibleContentTypes) {
+    try {
+      let query = Stack.ContentType(contentType).Query();
+      
+      // If it's modular_section, filter for onboarding entries
+      if (contentType === 'modular_section') {
+        query = query.where('title', 'Onboarding Step');
+      } else {
+        // For onboarding-specific content types, include option references
+        query = query.includeReference('option');
+      }
+      
+      query = query.ascending('current_step');  // Sort by step number
+
+      const result = await query.toJSON().find();
+      const entries = (result[0] || []) as any[];
+      
+      console.log(`[CMS] Attempted ${contentType}: Found ${entries.length} entries`);
+      
+      if (entries.length > 0) {
+        // Filter and transform entries
+        const onboardingEntries: OnboardingBlockEntry[] = entries
+          .filter((entry: any) => {
+            // Check if entry has onboarding-related fields
+            return entry.current_step !== undefined || 
+                   entry.label_text !== undefined ||
+                   entry.title?.toLowerCase().includes('onboarding');
+          })
+          .map((entry: any) => {
+            // Transform to OnboardingBlockEntry format
+            return {
+              uid: entry.uid || entry._id || '',
+              title: entry.title,
+              current_step: entry.current_step || parseInt(entry.title?.match(/\d+/)?.[0] || '1'),
+              total_steps: entry.total_steps || 5,
+              label_text: entry.label_text || entry.title || '',
+              display_type: entry.display_type || 'Card Grid',
+              option: entry.option || [],
+              back_button_text: entry.back_button_text || 'Back',
+              next_button_text: entry.next_button_text || 'Continue',
+            } as OnboardingBlockEntry;
+          });
+        
+        if (onboardingEntries.length > 0) {
+          console.log(`[CMS] Successfully fetched ${onboardingEntries.length} onboarding steps from ${contentType}`);
+          return onboardingEntries.sort((a, b) => a.current_step - b.current_step);
+        }
+      }
+    } catch (error: any) {
+      // Log the error but continue trying other content types
+      console.log(`[CMS] Content type ${contentType} failed:`, error.message || error);
+      continue;
+    }
+  }
+
+  // If no content type found, try searching modular_section for any onboarding-related entries
+  try {
+    const query = Stack.ContentType(CONTENT_TYPES.PAGE)
+      .Query()
+      .includeReference(['section']);
+    
+    const result = await query.toJSON().find();
+    const pages = (result[0] || []) as PageEntry[];
+    
+    // Look for pages with "Onboarding" in title
+    const onboardingPages = pages.filter(page => 
+      page.title?.toLowerCase().includes('onboarding')
+    );
+    
+    if (onboardingPages.length > 0) {
+      console.log('[CMS] Found onboarding page(s), but need proper content type structure');
+    }
+  } catch (error) {
+    console.error('Error searching for onboarding page:', error);
+  }
+
+  console.warn('[CMS] No onboarding content type found. Please check:');
+  console.warn('1. Content type name in Contentstack (might be different)');
+  console.warn('2. Entries are published');
+  console.warn('3. API keys and environment are correct');
+  return [];
 }
 
 // Export the Stack for advanced usage

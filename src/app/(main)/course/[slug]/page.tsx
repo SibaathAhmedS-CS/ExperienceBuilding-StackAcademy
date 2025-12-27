@@ -19,7 +19,8 @@ import {
   ChevronDown,
   Lock,
   PlayCircle,
-  ArrowLeft
+  ChevronRight,
+  Home
 } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -343,15 +344,6 @@ export default function CoursePage() {
       <main className={styles.main}>
         {/* Hero Section */}
         <section className={styles.hero}>
-          {/* Back Link - positioned at top-left corner */}
-          <button 
-            onClick={() => window.location.href = "/courses"} 
-            className={styles.backLink}
-          >
-            <ArrowLeft size={16} />
-            <span>Back</span>
-          </button>
-
           <div className={styles.heroBackground}>
             <Image
               src={heroImage}
@@ -364,6 +356,17 @@ export default function CoursePage() {
 
           <div className={styles.heroContent}>
             <div className={styles.heroText}>
+              {/* Breadcrumb Navigation */}
+              <nav className={styles.breadcrumb}>
+                <Link href="/home">
+                  <Home size={16} />
+                </Link>
+                <ChevronRight size={14} className={styles.breadcrumbSeparator} />
+                <Link href="/courses">Courses</Link>
+                <ChevronRight size={14} className={styles.breadcrumbSeparator} />
+                <span className={styles.breadcrumbCurrent}>{courseData.title}</span>
+              </nav>
+
               <div className={styles.levelBadge}>
                 <span className={styles.badge}>{courseData.difficulty_level?.toLowerCase() || 'intermediate'}</span>
                 <span className={styles.lastUpdated}>Updated {lastUpdated}</span>

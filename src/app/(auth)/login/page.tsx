@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -10,44 +10,98 @@ import {
   EyeOff, 
   BookOpen,
   ArrowRight,
-  Github,
   Chrome
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import styles from '../auth.module.css';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const { hasCompletedOnboarding, loading: prefsLoading } = useUserPreferences();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Redirect if already authenticated
+  useEffect(() => {
+    // Only redirect if user exists AND has a profile (verified in database)
+    if (!authLoading && !prefsLoading && user && user.profile) {
+      if (!hasCompletedOnboarding()) {
+        router.push('/onboarding');
+      } else {
+        router.push('/home');
+      }
+    }
+  }, [user, user?.profile, authLoading, prefsLoading, hasCompletedOnboarding, router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
 
-    // Simulate login - Replace with actual authentication
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Validate credentials (mock)
-      if (email && password) {
-        // Store user session (mock)
-        localStorage.setItem('user', JSON.stringify({
-          name: 'John Doe',
-          email: email,
-          coursesCompleted: 5,
-          coursesInProgress: 3,
-        }));
-        router.push('/home');
-      } else {
-        setError('Please enter valid credentials');
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        setError(signInError.message || 'Login failed. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        // Update last_login_at
+        await supabase
+          .from('profiles')
+          .update({ last_login_at: new Date().toISOString() })
+          .eq('id', data.user.id);
+
+        // Check if user has preferences and if onboarding is completed
+        const { data: prefs, error: prefsError } = await supabase
+          .from('user_preferences')
+          .select('completed_at')
+          .eq('user_id', data.user.id)
+          .single();
+
+        // If no preferences entry OR completed_at is null (skipped), redirect to onboarding
+        if (prefsError?.code === 'PGRST116' || !prefs || !prefs.completed_at) {
+          router.push('/onboarding');
+        } else {
+          router.push('/home');
+        }
       }
     } catch (err) {
-      setError('Login failed. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (signInError) {
+        setError(signInError.message || 'Google login failed. Please try again.');
+        setIsLoading(false);
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }
   };
@@ -102,13 +156,13 @@ export default function LoginPage() {
 
           {/* Social Login */}
           <div className={styles.socialLogin}>
-            <button className={styles.socialBtn}>
+            <button 
+              className={styles.socialBtn}
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+            >
               <Chrome size={20} />
               <span>Continue with Google</span>
-            </button>
-            <button className={styles.socialBtn}>
-              <Github size={20} />
-              <span>Continue with GitHub</span>
             </button>
           </div>
 
@@ -166,13 +220,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className={styles.rememberMe}>
-              <label className={styles.checkbox}>
-                <input type="checkbox" />
-                <span className={styles.checkmark}></span>
-                <span>Remember me for 30 days</span>
-              </label>
-            </div>
 
             <button 
               type="submit" 

@@ -699,3 +699,28 @@ export function extractFloatingCards(cards: HeroBlockEntry['floating_cards']): {
     label: card.floating_icon.label,
   }));
 }
+
+// ============================================
+// Onboarding Content Types
+// ============================================
+
+// Onboarding Block Entry - Represents a single onboarding step
+export interface OnboardingBlockEntry {
+  uid: string;
+  title?: string;
+  current_step: number;
+  total_steps: number;
+  label_text: string;  // The question text
+  display_type: 'Card Grid' | 'Searchable Grid';
+  option: IconEntry | IconEntry[];  // Options/choices for this step
+  back_button_text?: string;
+  next_button_text?: string;
+}
+
+/**
+ * Extract onboarding options from entry (handles single object or array)
+ */
+export function extractOnboardingOptions(option: IconEntry | IconEntry[] | null | undefined): IconEntry[] {
+  if (!option) return [];
+  return Array.isArray(option) ? option : [option];
+}

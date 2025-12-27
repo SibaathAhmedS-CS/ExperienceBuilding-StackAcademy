@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { 
@@ -10,15 +10,20 @@ import {
   EyeOff, 
   BookOpen,
   ArrowRight,
-  Github,
   Chrome,
   User,
   CheckCircle
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/hooks/useAuth';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
+import toast from 'react-hot-toast';
 import styles from '../auth.module.css';
 
 export default function SignupPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const { hasCompletedOnboarding, loading: prefsLoading } = useUserPreferences();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -28,7 +33,17 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!authLoading && !prefsLoading && user) {
+      if (!hasCompletedOnboarding()) {
+        router.push('/onboarding');
+      } else {
+        router.push('/home');
+      }
+    }
+  }, [user, authLoading, prefsLoading, hasCompletedOnboarding, router]);
 
   const passwordRequirements = [
     { label: 'At least 8 characters', met: formData.password.length >= 8 },
@@ -53,28 +68,69 @@ export default function SignupPage() {
       return;
     }
 
-    if (!agreedToTerms) {
-      setError('Please agree to the terms and conditions');
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters');
       setIsLoading(false);
       return;
     }
 
-    // Simulate signup - Replace with actual registration
     try {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Store user session (mock)
-      localStorage.setItem('user', JSON.stringify({
-        name: formData.name,
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
-        coursesCompleted: 0,
-        coursesInProgress: 0,
-      }));
-      
-      router.push('/home');
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name,
+          },
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message || 'Registration failed. Please try again.');
+        setIsLoading(false);
+        return;
+      }
+
+      if (data.user) {
+        // Check if email confirmation is required
+        if (data.session) {
+          // User is immediately signed in (email confirmation disabled)
+          router.push('/onboarding');
+        } else {
+          // Email confirmation required
+          toast.success(
+            'Please check your email to verify your account. We sent a confirmation link to ' + formData.email,
+            { duration: 6000 }
+          );
+          // Still redirect to onboarding - they can complete it after verifying
+          router.push('/onboarding');
+        }
+      }
     } catch (err) {
-      setError('Registration failed. Please try again.');
+      setError('An unexpected error occurred. Please try again.');
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const { error: signUpError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message || 'Google signup failed. Please try again.');
+        setIsLoading(false);
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.');
       setIsLoading(false);
     }
   };
@@ -133,13 +189,13 @@ export default function SignupPage() {
 
           {/* Social Login */}
           <div className={styles.socialLogin}>
-            <button className={styles.socialBtn}>
+            <button 
+              className={styles.socialBtn}
+              onClick={handleGoogleSignup}
+              disabled={isLoading}
+            >
               <Chrome size={20} />
               <span>Sign up with Google</span>
-            </button>
-            <button className={styles.socialBtn}>
-              <Github size={20} />
-              <span>Sign up with GitHub</span>
             </button>
           </div>
 
@@ -239,22 +295,6 @@ export default function SignupPage() {
               ))}
             </div>
 
-            <div className={styles.rememberMe}>
-              <label className={styles.checkbox}>
-                <input 
-                  type="checkbox" 
-                  checked={agreedToTerms}
-                  onChange={(e) => setAgreedToTerms(e.target.checked)}
-                />
-                <span className={styles.checkmark}></span>
-                <span>
-                  I agree to the{' '}
-                  <Link href="/terms">Terms of Service</Link>
-                  {' '}and{' '}
-                  <Link href="/privacy">Privacy Policy</Link>
-                </span>
-              </label>
-            </div>
 
             <button 
               type="submit" 

@@ -30,6 +30,13 @@ const nextConfig = {
     CONTENTSTACK_ENVIRONMENT: process.env.CONTENTSTACK_ENVIRONMENT,
     CONTENTSTACK_BRANCH: process.env.CONTENTSTACK_BRANCH || 'main',
   },
+  // Suppress CSS preload warnings - this is a Next.js optimization warning
+  // The warning appears when CSS is preloaded but not immediately used
+  // It's safe to ignore in development
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
 };
 
 module.exports = nextConfig;
