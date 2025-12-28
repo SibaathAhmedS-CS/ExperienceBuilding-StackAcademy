@@ -1,4 +1,4 @@
-// File: /Users/sibaath.ahmed/Desktop/Experience Building/stack-academy/src/app/page.tsx
+// File: /Users/sibaath.ahmed/Desktop/Experience Building/ExperienceBuilding-StackAcademy/src/app/page.tsx
 import * as entry from '../../../src/app/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 

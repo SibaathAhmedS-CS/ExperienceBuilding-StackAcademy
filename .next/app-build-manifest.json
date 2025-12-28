@@ -15,7 +15,7 @@
     "/(auth)/login/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_auth_auth_module_css.css",
+      "static/css/css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css.css",
       "static/chunks/app/(auth)/login/page.js"
     ],
     "/(auth)/layout": [
@@ -26,7 +26,7 @@
     "/(auth)/onboarding/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_auth_onboarding_onboarding_module_css.css",
+      "static/css/css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css.css",
       "static/chunks/app/(auth)/onboarding/page.js"
     ],
     "/(main)/home/page": [
@@ -39,6 +39,12 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(main)/layout.js"
+    ],
+    "/(auth)/signup/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css.css",
+      "static/chunks/app/(auth)/signup/page.js"
     ]
   }
 }

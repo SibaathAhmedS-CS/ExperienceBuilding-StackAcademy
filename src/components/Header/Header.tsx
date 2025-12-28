@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
 import { 
   Search, 
   User, 
@@ -239,9 +240,25 @@ export default function Header({ variant = 'landing', user, headerData }: Header
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    window.location.href = '/';
+  const router = useRouter();
+  const supabase = createClient();
+
+  const handleLogout = async () => {
+    try {
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear any local storage
+      localStorage.removeItem('user');
+      localStorage.removeItem('skipped_onboarding');
+      
+      // Redirect to login page
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      // Still redirect even if there's an error
+      router.push('/login');
+    }
   };
 
   return (
