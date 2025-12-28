@@ -195,6 +195,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { Mail, Lock, Eye, EyeOff, BookOpen, ArrowRight, Chrome } from 'lucide-react';
+import { useAuthBranding } from '@/hooks/useAuthBranding';
+import { IconEntry, normalizeArray } from '@/types/contentstack';
 import styles from '../auth.module.css';
 import onboardingStyles from '../onboarding/onboarding.module.css';
 
@@ -213,14 +215,14 @@ export default function LoginPage() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { user } } = await supabase.auth.getUser();
         
-        if (session?.user) {
+        if (user) {
           // User is already logged in - check preferences
           const { data: prefs } = await supabase
             .from('user_preferences')
             .select('id')
-            .eq('user_id', session.user.id)
+            .eq('user_id', user.id)
             .maybeSingle();
 
           if (prefs) {
@@ -259,6 +261,12 @@ export default function LoginPage() {
       return;
     }
 
+    // Update last_login_at timestamp in profiles table
+    await supabase
+      .from('profiles')
+      .update({ last_login_at: new Date().toISOString() })
+      .eq('id', data.user.id);
+
     // CASE 1.1 & 1.2: Check if preferences exist
     const { data: prefs } = await supabase
       .from('user_preferences')
@@ -280,12 +288,60 @@ export default function LoginPage() {
     });
   };
 
+  // Fetch auth branding data from Contentstack
+  const { brandingData, isLoading: brandingLoading } = useAuthBranding('login');
+
+  // Extract brand side data from CMS
+  // stats is IconEntry reference(s) - use icon_title as number, description as label
+  let statsArray: IconEntry[] = [];
+  
+  if (brandingData?.stats) {
+    const stats = brandingData.stats;
+    // Handle both expanded references (full objects) and unexpanded references (just UIDs)
+    if (Array.isArray(stats)) {
+      statsArray = stats.filter((stat: any) => {
+        // Check if it's an expanded icon entry (has icon_name, icon_title, etc.)
+        return stat && (stat.icon_name || stat.icon_title || stat.title);
+      }) as IconEntry[];
+    } else if (stats && typeof stats === 'object' && (stats.icon_name || stats.icon_title || stats.title)) {
+      statsArray = [stats as IconEntry];
+    }
+  }
+
+  console.log('Login branding data:', brandingData);
+  console.log('Stats array:', statsArray);
+  console.log('Branding content:', brandingData?.branding_content);
+
+  const brandData = {
+    headline: brandingData?.headline || 'Welcome Back!',
+    subtitle: brandingData?.subtitle || 'Continue your learning journey and unlock new skills.',
+    brandingContent: brandingData?.branding_content || '',  // Rich text HTML
+    stats: statsArray.length > 0
+      ? statsArray.map((stat: IconEntry) => ({
+          number: stat.icon_title || stat.title || '',
+          text: stat.description || stat.title || '',
+          iconName: stat.icon_name || 'book-open',
+        }))
+      : [
+          { number: '1000+', text: 'Courses', iconName: 'book-open' },
+          { number: '50K+', text: 'Students', iconName: 'users' },
+          { number: '200+', text: 'Instructors', iconName: 'graduation-cap' },
+        ],
+  };
+
   // Show loading while checking session - use same "Curating Content" animation
-  if (checkingSession) {
+  if (checkingSession || brandingLoading) {
     return (
       <div className={onboardingStyles.loadingContainer}>
         <div className={onboardingStyles.curatingSpinner}>
-          <BookOpen size={48} color="white" />
+          <div className={onboardingStyles.curatingIcon}>
+            <BookOpen size={48} style={{ color: 'white', opacity: 1 }} />
+          </div>
+          <div className={onboardingStyles.curatingDots}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
         </div>
         <h2 className={onboardingStyles.curatingTitle}>Curating Your Experience</h2>
         <p className={onboardingStyles.curatingSubtitle}>Loading your personalized content...</p>
@@ -295,52 +351,140 @@ export default function LoginPage() {
 
   return (
     <div className={styles.authPage}>
+      {/* Left Side - Branding */}
       <div className={styles.brandSide}>
         <div className={styles.brandContent}>
           <Link href="/" className={styles.logo}>
-            <div className={styles.logoIcon}><BookOpen size={28} /></div>
+            <div className={styles.logoIcon}>
+              <BookOpen size={28} />
+            </div>
             <span className={styles.logoText}>StackAcademy</span>
           </Link>
+
           <div className={styles.brandMessage}>
-            <h1>Welcome Back!</h1>
-            <p>Continue your learning journey.</p>
+            <h1>{brandData.headline}</h1>
+            <p>{brandData.subtitle}</p>
+            {brandData.brandingContent && (
+              <div 
+                className={styles.brandingContent}
+                dangerouslySetInnerHTML={{ __html: brandData.brandingContent }}
+              />
+            )}
+          </div>
+
+          <div className={styles.brandStats}>
+            {brandData.stats.map((stat: { number: string; text: string; iconName?: string }, index: number) => (
+              <div key={index} className={styles.brandStat}>
+                <span className={styles.statNumber}>{stat.number}</span>
+                <span className={styles.statText}>{stat.text}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className={styles.decorElements}>
+            <div className={styles.decorCircle1} />
+            <div className={styles.decorCircle2} />
+            <div className={styles.decorCircle3} />
           </div>
         </div>
       </div>
 
+      {/* Right Side - Form */}
       <div className={styles.formSide}>
         <div className={styles.formContainer}>
-          <div className={styles.formHeader}><h2>Sign In</h2></div>
+          <div className={styles.formHeader}>
+            <h2>Sign In</h2>
+            <p>Enter your credentials to access your account</p>
+          </div>
+
+          {/* Social Login */}
           <div className={styles.socialLogin}>
-            <button className={styles.socialBtn} onClick={handleGoogleLogin} disabled={isLoading}>
-              <Chrome size={20} /><span>Continue with Google</span>
+            <button 
+              className={styles.socialBtn}
+              onClick={handleGoogleLogin}
+              disabled={isLoading}
+            >
+              <Chrome size={20} />
+              <span>Continue with Google</span>
             </button>
           </div>
-          <div className={styles.divider}><span>or continue with email</span></div>
+
+          <div className={styles.divider}>
+            <span>or continue with email</span>
+          </div>
+
+          {/* Login Form */}
           <form onSubmit={handleSubmit} className={styles.form}>
-            {error && <div className={styles.errorMessage}>{error}</div>}
+            {error && (
+              <div className={styles.errorMessage}>
+                {error}
+              </div>
+            )}
+
             <div className={styles.inputGroup}>
-              <label>Email Address</label>
+              <label htmlFor="email">Email Address</label>
               <div className={styles.inputWrapper}>
                 <Mail size={20} className={styles.inputIcon} />
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={isLoading} />
+                <input
+                  type="email"
+                  id="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
               </div>
             </div>
+
             <div className={styles.inputGroup}>
-              <label>Password</label>
+              <div className={styles.labelRow}>
+                <label htmlFor="password">Password</label>
+                <Link href="/forgot-password" className={styles.forgotLink}>
+                  Forgot password?
+                </Link>
+              </div>
               <div className={styles.inputWrapper}>
                 <Lock size={20} className={styles.inputIcon} />
-                <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} required disabled={isLoading} />
-                <button type="button" className={styles.togglePassword} onClick={() => setShowPassword(!showPassword)}>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  className={styles.togglePassword}
+                  onClick={() => setShowPassword(!showPassword)}
+                >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
-            <button type="submit" className={styles.submitBtn} disabled={isLoading}>
-              {isLoading ? <div className={styles.spinner} /> : 'Sign In'}
+
+            <button 
+              type="submit" 
+              className={styles.submitBtn}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className={styles.spinner} />
+              ) : (
+                <>
+                  Sign In
+                  <ArrowRight size={20} />
+                </>
+              )}
             </button>
           </form>
-          <p className={styles.switchAuth}>Don't have an account? <Link href="/signup">Sign up</Link></p>
+
+          <p className={styles.switchAuth}>
+            Don't have an account?{' '}
+            <Link href="/signup">Sign up for free</Link>
+          </p>
         </div>
       </div>
     </div>

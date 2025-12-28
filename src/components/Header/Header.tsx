@@ -245,6 +245,66 @@ export default function Header({ variant = 'landing', user, headerData }: Header
 
   const handleLogout = async () => {
     try {
+      // Create full-screen logout loading overlay
+      const logoutOverlay = document.createElement('div');
+      logoutOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        background: var(--neutral-50, #f9fafb);
+        z-index: 99999;
+      `;
+      
+      logoutOverlay.innerHTML = `
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 24px; margin-bottom: 8px;">
+          <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%); border-radius: 16px; display: flex; align-items: center; justify-content: center; color: white; animation: pulse 2s ease-in-out infinite; box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="color: white;">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4m7 14l5-5-5-5M16 21h5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+        </div>
+        <h2 style="font-size: 1.75rem; font-weight: 700; color: #111827; margin: 0; font-family: var(--font-heading, system-ui); animation: fadeIn 0.5s ease-in;">Logging Out</h2>
+        <p style="font-size: 1rem; color: #4b5563; margin: 0; animation: fadeIn 0.5s ease-in 0.2s both;">See you soon!</p>
+      `;
+      
+      // Add animations
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(1);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.3);
+          }
+          50% {
+            transform: scale(1.05);
+            box-shadow: 0 12px 32px rgba(59, 130, 246, 0.4);
+          }
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `;
+      document.head.appendChild(style);
+      document.body.appendChild(logoutOverlay);
+
+      // Wait a moment to show the loading screen
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       // Sign out from Supabase
       await supabase.auth.signOut();
       
@@ -252,12 +312,20 @@ export default function Header({ variant = 'landing', user, headerData }: Header
       localStorage.removeItem('user');
       localStorage.removeItem('skipped_onboarding');
       
-      // Redirect to login page
-      router.push('/login');
+      // Clean up
+      if (document.body.contains(logoutOverlay)) {
+        document.body.removeChild(logoutOverlay);
+      }
+      if (document.head.contains(style)) {
+        document.head.removeChild(style);
+      }
+      
+      // Redirect to landing page
+      router.push('/');
     } catch (error) {
       console.error('Error signing out:', error);
       // Still redirect even if there's an error
-      router.push('/login');
+      router.push('/');
     }
   };
 

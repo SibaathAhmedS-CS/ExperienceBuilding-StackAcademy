@@ -717,6 +717,19 @@ export interface OnboardingBlockEntry {
   next_button_text?: string;
 }
 
+// Auth Branding Entry - For login/signup page side panels
+// Matches Contentstack schema: auth_branding content type
+export interface AuthBrandingEntry {
+  uid: string;
+  title: string;  // Entry title
+  page_type?: 'Sign In' | 'Sign Up';  // Dropdown: "Sign In" or "Sign Up"
+  headline?: string;  // Main heading (e.g., "Welcome Back!")
+  subtitle?: string;  // Subheading/description (field name is "subtitle" not "description")
+  branding_content?: string;  // Rich text content (HTML)
+  stats?: IconEntry | IconEntry[];  // Reference(s) to icon content type (can be single or multiple)
+  background_image?: Link;  // Background image link
+}
+
 /**
  * Extract onboarding options from entry (handles single object or array)
  */

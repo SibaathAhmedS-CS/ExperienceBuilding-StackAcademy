@@ -30,6 +30,12 @@ export async function GET(request: Request) {
         return NextResponse.redirect(new URL('/login?error=profile_not_found', requestUrl.origin));
       }
 
+      // Update last_login_at timestamp in profiles table
+      await supabase
+        .from('profiles')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('id', data.session.user.id);
+
       // Check if user has preferences (any row means user has been to onboarding)
       const { data: prefs } = await supabase
         .from('user_preferences')

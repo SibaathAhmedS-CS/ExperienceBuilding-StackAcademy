@@ -53,6 +53,35 @@
   margin-bottom: 48px;
 }
 
+.auth_brandingContent__hmAa4 {
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.auth_brandingContent__hmAa4 p {
+  margin-bottom: 12px;
+}
+
+.auth_brandingContent__hmAa4 ul,
+.auth_brandingContent__hmAa4 ol {
+  margin-left: 20px;
+  margin-bottom: 12px;
+}
+
+.auth_brandingContent__hmAa4 li {
+  margin-bottom: 8px;
+}
+
+.auth_brandingContent__hmAa4 strong {
+  font-weight: 600;
+}
+
+.auth_brandingContent__hmAa4 em {
+  font-style: italic;
+}
+
 .auth_brandMessage__4qBPV h1 {
   font-size: 3rem;
   font-weight: 800;

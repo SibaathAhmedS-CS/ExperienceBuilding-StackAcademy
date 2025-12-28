@@ -348,12 +348,66 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import Link from 'next/link';
-import { BookOpen, ArrowLeft, ArrowRight, Check } from 'lucide-react';
+import {
+  BookOpen,
+  ArrowLeft,
+  ArrowRight,
+  Search,
+  Check,
+  Rocket,
+  Shuffle,
+  TrendingUp,
+  Glasses,
+  Zap,
+  Cpu,
+  Layers,
+  Code,
+  BarChart2,
+  Palette,
+  Shield,
+  Cloud,
+  GitBranch,
+  Briefcase,
+  Book,
+  Award,
+  GraduationCap,
+  Terminal,
+  Globe,
+  Smartphone,
+  Clock,
+  LucideIcon,
+} from 'lucide-react';
 import styles from './onboarding.module.css';
 import { useOnboarding } from '@/hooks/useOnboarding';
+
+// Comprehensive icon map
+const iconMap: Record<string, LucideIcon> = {
+  'rocket': Rocket,
+  'shuffle': Shuffle,
+  'trending-up': TrendingUp,
+  'glasses': Glasses,
+  'zap': Zap,
+  'cpu': Cpu,
+  'layers': Layers,
+  'code': Code,
+  'bar-chart-2': BarChart2,
+  'palette': Palette,
+  'shield': Shield,
+  'cloud': Cloud,
+  'git-branch': GitBranch,
+  'briefcase': Briefcase,
+  'book': Book,
+  'book-open': BookOpen,
+  'award': Award,
+  'graduation-cap': GraduationCap,
+  'terminal': Terminal,
+  'globe': Globe,
+  'smartphone': Smartphone,
+  'clock': Clock,
+};
 
 export default function OnboardingPage() {
   const supabase = createClient();
@@ -410,18 +464,58 @@ export default function OnboardingPage() {
   }, []); // Only run once on mount
 
   const currentStep = steps[currentStepIndex];
+  const totalSteps = steps.length || 5;
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter options based on search query
+  const filteredOptions = useMemo(() => {
+    if (!currentStep) return [];
+    if (!searchQuery.trim()) return currentStep.options;
+    
+    const query = searchQuery.toLowerCase();
+    return currentStep.options.filter(opt => 
+      opt.label.toLowerCase().includes(query) || 
+      opt.description.toLowerCase().includes(query)
+    );
+  }, [currentStep, searchQuery]);
 
   const handleSelect = (optionId: string) => {
-    const currentSelections = selections[currentStepIndex] || [];
-    if (currentStepIndex === 3) { // Topics - Multiple
+    const stepNum = currentStepIndex;
+    const currentSelections = selections[stepNum] || [];
+    
+    // For most steps, allow single selection. For topics, allow multiple
+    if (currentStepIndex === 3) {
+      // Step 4: Topics - allow multiple selections
+      if (currentSelections.includes(optionId)) {
+        setSelections({
+          ...selections,
+          [stepNum]: currentSelections.filter(id => id !== optionId),
+        });
+      } else {
+        setSelections({
+          ...selections,
+          [stepNum]: [...currentSelections, optionId],
+        });
+      }
+    } else {
+      // Single selection for other steps
       setSelections({
         ...selections,
-        [currentStepIndex]: currentSelections.includes(optionId) 
-          ? currentSelections.filter(id => id !== optionId) 
-          : [...currentSelections, optionId]
+        [stepNum]: [optionId],
       });
-    } else { // Others - Single
-      setSelections({ ...selections, [currentStepIndex]: [optionId] });
+    }
+  };
+
+  const isSelected = (optionId: string) => {
+    return (selections[currentStepIndex] || []).includes(optionId);
+  };
+
+  const canProceed = (selections[currentStepIndex] || []).length > 0;
+
+  const handleBack = () => {
+    if (currentStepIndex > 0) {
+      setCurrentStepIndex(currentStepIndex - 1);
+      setSearchQuery('');
     }
   };
 
@@ -498,6 +592,7 @@ export default function OnboardingPage() {
   const handleNext = async () => {
     if (currentStepIndex < steps.length - 1) {
       setCurrentStepIndex(currentStepIndex + 1);
+      setSearchQuery('');
     } else {
       await handleSavePreferences();
     }
@@ -579,44 +674,157 @@ export default function OnboardingPage() {
     setTimeout(() => { window.location.href = '/home'; }, 1500);
   };
 
-  if (checkingPreferences || stepsLoading || isRedirecting || !currentStep) {
+  if (checkingPreferences || stepsLoading) {
     return (
       <div className={styles.loadingContainer}>
-        <div className={styles.curatingSpinner}><BookOpen size={48} color="white" /></div>
-        <h2 className={styles.curatingTitle}>{isRedirecting ? 'Curating Your Experience' : 'Loading...'}</h2>
+        <div className={styles.spinner} />
+        <p>Preparing your personalized experience...</p>
+      </div>
+    );
+  }
+
+  if (isRedirecting) {
+    return (
+      <div className={styles.loadingContainer} style={{ zIndex: 9999 }}>
+        <div className={styles.curatingSpinner}>
+          <div className={styles.curatingIcon}>
+            <BookOpen size={48} style={{ color: 'white', opacity: 1 }} />
+          </div>
+          <div className={styles.curatingDots}>
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        <h2 className={styles.curatingTitle}>Curating Content</h2>
+        <p className={styles.curatingSubtitle}>According to your preferences...</p>
+      </div>
+    );
+  }
+
+  if (!currentStep) {
+    return (
+      <div className={styles.errorContainer}>
+        <p>Unable to load onboarding. Please try again.</p>
+        <button onClick={() => window.location.href = '/home'} className={styles.skipBtn}>
+          Skip to Home
+        </button>
       </div>
     );
   }
 
   return (
     <div className={styles.onboardingPage}>
+      {/* Header */}
       <header className={styles.header}>
-        <span className={styles.logoText}>StackAcademy</span>
-        <button onClick={handleSkip} className={styles.skipBtn}>Skip for now</button>
+        <Link href="/" className={styles.logo}>
+          <div className={styles.logoIcon}>
+            <BookOpen size={24} />
+          </div>
+          <span className={styles.logoText}>StackAcademy</span>
+        </Link>
+        <button 
+          onClick={handleSkip} 
+          className={styles.skipBtn}
+          disabled={isRedirecting}
+        >
+          {isRedirecting ? 'Redirecting...' : 'Skip for now'}
+        </button>
       </header>
 
+      {/* Progress Bar */}
+      <div className={styles.progressContainer}>
+        <div className={styles.progressBar}>
+          <div 
+            className={styles.progressFill} 
+            style={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }}
+          />
+        </div>
+        <span className={styles.progressText}>
+          Step {currentStepIndex + 1} of {totalSteps}
+        </span>
+      </div>
+
+      {/* Main Content */}
       <main className={styles.content}>
         <div className={styles.stepContent}>
-          <h1>{currentStep.question}</h1>
-          <div className={styles.optionsGrid}>
-            {currentStep.options.map((opt) => (
-              <button 
-                key={opt.id} 
-                className={`${styles.optionCard} ${(selections[currentStepIndex] || []).includes(opt.id) ? styles.selected : ''}`}
-                onClick={() => handleSelect(opt.id)}
-              >
-                <span>{opt.label}</span>
-                {(selections[currentStepIndex] || []).includes(opt.id) && <Check size={16} />}
-              </button>
-            ))}
+          <h1 className={styles.question}>{currentStep.question}</h1>
+          
+          {currentStepIndex === 3 ? (
+            <p className={styles.subtitle}>Select all topics that interest you</p>
+          ) : (
+            <p className={styles.subtitle}>Choose the option that best describes you</p>
+          )}
+
+          {/* Search Bar for Searchable Grid */}
+          {currentStep.displayType === 'Searchable Grid' && (
+            <div className={styles.searchWrapper}>
+              <Search size={20} className={styles.searchIcon} />
+              <input
+                type="text"
+                placeholder="Search options..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className={styles.searchInput}
+              />
+            </div>
+          )}
+
+          {/* Options Grid */}
+          <div className={`${styles.optionsGrid} ${currentStep.displayType === 'Card Grid' ? styles.cardGrid : styles.searchableGrid}`}>
+            {filteredOptions.map((option) => {
+              const IconComponent = iconMap[option.iconName] || Zap;
+              const selected = isSelected(option.id);
+              
+              return (
+                <button
+                  key={option.id}
+                  className={`${styles.optionCard} ${selected ? styles.selected : ''}`}
+                  onClick={() => handleSelect(option.id)}
+                >
+                  <div className={styles.optionIconWrapper}>
+                    <IconComponent size={28} style={{ color: 'white', opacity: 1 }} />
+                  </div>
+                  <div className={styles.optionContent}>
+                    <span className={styles.optionLabel}>{option.label}</span>
+                    {option.description && (
+                      <span className={styles.optionDescription}>{option.description}</span>
+                    )}
+                  </div>
+                  {selected && (
+                    <div className={styles.checkmark}>
+                      <Check size={16} />
+                    </div>
+                  )}
+                </button>
+              );
+            })}
           </div>
+
+          {filteredOptions.length === 0 && searchQuery && (
+            <p className={styles.noResults}>No results found for &quot;{searchQuery}&quot;</p>
+          )}
         </div>
       </main>
 
+      {/* Footer Navigation */}
       <footer className={styles.footer}>
-        <button onClick={() => setCurrentStepIndex(i => i - 1)} disabled={currentStepIndex === 0}>Back</button>
-        <button className={styles.nextBtn} onClick={handleNext} disabled={(selections[currentStepIndex] || []).length === 0}>
-          {currentStepIndex === steps.length - 1 ? 'Finish' : 'Next'} <ArrowRight size={20} />
+        <button
+          className={styles.backBtn}
+          onClick={handleBack}
+          disabled={currentStepIndex === 0}
+        >
+          <ArrowLeft size={20} />
+          {currentStep.backButtonText}
+        </button>
+        
+        <button
+          className={styles.nextBtn}
+          onClick={handleNext}
+          disabled={!canProceed || isRedirecting}
+        >
+          {isRedirecting ? 'Saving...' : currentStep.nextButtonText}
+          <ArrowRight size={20} />
         </button>
       </footer>
     </div>

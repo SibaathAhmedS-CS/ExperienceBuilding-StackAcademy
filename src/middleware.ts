@@ -54,19 +54,19 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup')
   const isOnboardingPage = request.nextUrl.pathname.startsWith('/onboarding')
   const isHomePage = request.nextUrl.pathname.startsWith('/home')
 
-  // CASE 2: User has session
-  if (session) {
+  // CASE 2: User is authenticated
+  if (user) {
     // Check if preferences exist (any row means user has been to onboarding)
     const { data: prefs } = await supabase
       .from('user_preferences')
       .select('id')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .single()
 
     // Check if user skipped onboarding in this session

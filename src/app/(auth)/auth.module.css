@@ -50,6 +50,35 @@
   margin-bottom: 48px;
 }
 
+.brandingContent {
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.brandingContent :global(p) {
+  margin-bottom: 12px;
+}
+
+.brandingContent :global(ul),
+.brandingContent :global(ol) {
+  margin-left: 20px;
+  margin-bottom: 12px;
+}
+
+.brandingContent :global(li) {
+  margin-bottom: 8px;
+}
+
+.brandingContent :global(strong) {
+  font-weight: 600;
+}
+
+.brandingContent :global(em) {
+  font-style: italic;
+}
+
 .brandMessage h1 {
   font-size: 3rem;
   font-weight: 800;
