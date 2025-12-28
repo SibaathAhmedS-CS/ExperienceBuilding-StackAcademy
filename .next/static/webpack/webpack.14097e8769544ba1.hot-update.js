@@ -11,7 +11,7 @@ self["webpackHotUpdate_N_E"]("webpack",{},
 /******/ function(__webpack_require__) { // webpackRuntimeModules
 /******/ /* webpack/runtime/getFullHash */
 /******/ !function() {
-/******/ 	__webpack_require__.h = function() { return "ba5c9d98c3f2033e"; }
+/******/ 	__webpack_require__.h = function() { return "1006335dffaae8a0"; }
 /******/ }();
 /******/ 
 /******/ /* webpack/runtime/jsonp chunk loading */
@@ -23,8 +23,9 @@ self["webpackHotUpdate_N_E"]("webpack",{},
 /******/ 	// [resolve, reject, Promise] = chunk loading, 0 = chunk loaded
 /******/ 	var installedChunks = __webpack_require__.hmrS_jsonp = __webpack_require__.hmrS_jsonp || {
 /******/ 		"webpack": 0,
-/******/ 		"css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css": 0,
-/******/ 		"css-src_app_globals_css": 0
+/******/ 		"css-src_app_main_home_page_module_css-src_app_page_module_css-src_components_Carousel_Carouse-1e66fb": 0,
+/******/ 		"css-src_app_globals_css": 0,
+/******/ 		"css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css": 0
 /******/ 	};
 /******/ 	
 /******/ 	__webpack_require__.f.j = function(chunkId, promises) {
@@ -36,7 +37,7 @@ self["webpackHotUpdate_N_E"]("webpack",{},
 /******/ 				if(installedChunkData) {
 /******/ 					promises.push(installedChunkData[2]);
 /******/ 				} else {
-/******/ 					if(/^(app(\/(\(auth\)\/((login|signup)\/page|layout)|layout)|\-pages\-internals)|main\-app)$/.test(chunkId)) {
+/******/ 					if(/^(app(\/(\((auth\)\/((login|onboarding|signup)\/page|layout)|main\)\/(home\/page|layout))|layout|page)|\-pages\-internals)|main\-app)$/.test(chunkId)) {
 /******/ 						// setup Promise in chunk cache
 /******/ 						var promise = new Promise(function(resolve, reject) { installedChunkData = installedChunks[chunkId] = [resolve, reject]; });
 /******/ 						promises.push(installedChunkData[2] = promise);

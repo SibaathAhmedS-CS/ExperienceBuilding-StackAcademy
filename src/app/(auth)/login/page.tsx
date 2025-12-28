@@ -207,6 +207,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [checkingSession, setCheckingSession] = useState(true);
+  const [redirectingToHome, setRedirectingToHome] = useState(false);
   
   const supabase = createClient();
   const router = useRouter();
@@ -275,9 +276,14 @@ export default function LoginPage() {
       .maybeSingle();
 
     if (prefs) {
-      router.push('/home'); // Case 1.1: Preferences exist -> home
+      // Case 1.1: Preferences exist -> show curating content animation and redirect to home
+      setRedirectingToHome(true);
+      setTimeout(() => {
+        router.push('/home');
+      }, 2000);
     } else {
-      router.push('/onboarding'); // Case 1.2: No preferences -> onboarding
+      // Case 1.2: No preferences -> redirect to onboarding (normal redirect, no special animation)
+      router.push('/onboarding');
     }
   };
 
@@ -329,8 +335,8 @@ export default function LoginPage() {
         ],
   };
 
-  // Show loading while checking session - use same "Curating Content" animation
-  if (checkingSession || brandingLoading) {
+  // Show "Curating Content" animation only when redirecting to home after login
+  if (redirectingToHome) {
     return (
       <div className={onboardingStyles.loadingContainer}>
         <div className={onboardingStyles.curatingSpinner}>
@@ -345,6 +351,35 @@ export default function LoginPage() {
         </div>
         <h2 className={onboardingStyles.curatingTitle}>Curating Your Experience</h2>
         <p className={onboardingStyles.curatingSubtitle}>Loading your personalized content...</p>
+      </div>
+    );
+  }
+
+  // Show normal loading screen for checking session or loading branding
+  if (checkingSession || brandingLoading) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column',
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh',
+        gap: '16px'
+      }}>
+        <div style={{
+          width: '48px',
+          height: '48px',
+          border: '3px solid #e5e7eb',
+          borderTopColor: '#3b82f6',
+          borderRadius: '50%',
+          animation: 'spin 1s linear infinite'
+        }} />
+        <style jsx>{`
+          @keyframes spin {
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+        <p style={{ color: '#6b7280', fontSize: '1rem' }}>Loading...</p>
       </div>
     );
   }

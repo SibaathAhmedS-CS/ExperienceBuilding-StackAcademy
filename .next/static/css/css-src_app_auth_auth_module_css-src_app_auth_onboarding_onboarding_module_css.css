@@ -58,6 +58,7 @@
   color: rgba(255, 255, 255, 0.9);
   font-size: 1rem;
   line-height: 1.6;
+  text-align: left;
 }
 
 .auth_brandingContent__hmAa4 p {
@@ -119,20 +120,63 @@
 
 .auth_features__g1lFb {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex-direction: row;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 24px;
 }
 
 .auth_featureItem__kLtZR {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.95);
+  gap: 6px;
+  padding: 12px 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-md);
+  min-width: 100px;
+  max-width: 130px;
+  flex: 1 1;
+  transition: all 0.3s ease;
 }
 
-.auth_featureItem__kLtZR svg {
-  color: rgba(255, 255, 255, 0.8);
+.auth_featureItem__kLtZR:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.auth_featureIcon__oTAvB {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  color: white;
+  flex-shrink: 0;
+}
+
+.auth_featureIcon__oTAvB svg {
+  color: white;
+}
+
+.auth_featureTitle__0b4MQ {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.auth_featureDescription__xpb_W {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+  line-height: 1.3;
 }
 
 /* Decorative Elements */

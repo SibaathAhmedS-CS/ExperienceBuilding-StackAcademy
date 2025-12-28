@@ -321,15 +321,16 @@ export default function SignupPage() {
     brandingContent: brandingData?.branding_content || '',  // Rich text HTML
     features: statsArray.length > 0
       ? statsArray.map((stat: IconEntry) => ({
-          text: stat.icon_title || stat.description || stat.title || '',
           iconName: stat.icon_name || 'check-circle',
+          iconTitle: stat.icon_title || stat.title || '',
+          iconDescription: stat.description || '',
           icon: stat,
         }))
       : [
-          { text: 'Access to 1000+ courses', iconName: 'book-open', icon: null },
-          { text: 'Learn from industry experts', iconName: 'graduation-cap', icon: null },
-          { text: 'Earn verified certificates', iconName: 'award', icon: null },
-          { text: 'Lifetime access to content', iconName: 'clock', icon: null },
+          { iconName: 'book-open', iconTitle: '1000+ Courses', iconDescription: 'Access to expert-led courses', icon: null },
+          { iconName: 'graduation-cap', iconTitle: 'Expert Instructors', iconDescription: 'Learn from industry experts', icon: null },
+          { iconName: 'award', iconTitle: 'Certificates', iconDescription: 'Earn verified certificates', icon: null },
+          { iconName: 'clock', iconTitle: 'Lifetime Access', iconDescription: 'Access content forever', icon: null },
         ],
   };
 
@@ -419,13 +420,18 @@ export default function SignupPage() {
           </div>
 
           <div className={styles.features}>
-            {brandData.features.map((feature: { text: string; iconName: string; icon: IconEntry | null }, index: number) => {
+            {brandData.features.map((feature: { iconName: string; iconTitle: string; iconDescription: string; icon: IconEntry | null }, index: number) => {
               const IconComponent = iconMap[feature.iconName] || CheckCircle;
               
               return (
                 <div key={index} className={styles.featureItem}>
-                  <IconComponent size={20} />
-                  <span>{feature.text}</span>
+                  <div className={styles.featureIcon}>
+                    <IconComponent size={20} />
+                  </div>
+                  <div className={styles.featureTitle}>{feature.iconTitle}</div>
+                  {feature.iconDescription && (
+                    <div className={styles.featureDescription}>{feature.iconDescription}</div>
+                  )}
                 </div>
               );
             })}
