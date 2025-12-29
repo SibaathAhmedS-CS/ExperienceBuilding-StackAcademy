@@ -181,15 +181,20 @@
 .startBtn {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 28px;
+  gap: 8px;
+  padding: 12px 18px;
   background: var(--primary-500);
   color: white;
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
-  border-radius: var(--radius-full);
+  border: none;
+  border-radius: 24px;
+  text-decoration: none;
   transition: all 0.2s ease;
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+  cursor: pointer;
+  width: auto;
+  max-width: none;
 }
 
 .startBtn:hover {
@@ -198,13 +203,39 @@
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
 }
 
+.startBtn.enrollBtn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 12px 26px;
+  border-radius: 999px; /* pill shape */
+  width: fit-content;
+  min-width: unset;
+  box-shadow: 0 6px 18px rgba(102, 126, 234, 0.35);
+}
+
+.startBtn.enrollBtn:hover {
+  background: linear-gradient(135deg, #7c8ef5 0%, #8a5fb8 100%);
+  transform: translateY(-2px);
+}
+
+/* Continue Learning button - green */
+.startBtn.continueLearningBtn {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4);
+}
+
+.startBtn.continueLearningBtn:hover {
+  background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
 .breadcrumb {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.9rem;
-  color: var(--neutral-400);
-  margin-bottom: 20px;
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 12px;
+  transform: translate(-6px, -8px); /* LEFT & UP */
 }
 
 .breadcrumb a:hover {
@@ -219,7 +250,7 @@
   font-size: 2.75rem;
   font-weight: 800;
   line-height: 1.2;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   color: white;
 }
 
@@ -340,18 +371,19 @@
 
 /* Card content styles */
 
-.enrollBtn {
+.cardContent .enrollBtn {
   width: 100%;
   padding: 16px;
   background: var(--gradient-primary);
   color: white;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 600;
-  border-radius: var(--radius-md);
+  border-radius: 14px;
   margin-bottom: 12px;
   transition: all var(--transition-fast);
   box-shadow: var(--shadow-md);
 }
+
 
 .enrollBtn:hover {
   transform: translateY(-2px);

@@ -1671,7 +1671,7 @@ eval(__webpack_require__.ts("__webpack_require__.r(__webpack_exports__);\n/* har
 },
 /******/ function(__webpack_require__) { // webpackRuntimeModules
 /******/ var __webpack_exec__ = function(moduleId) { return __webpack_require__(__webpack_require__.s = moduleId); }
-/******/ __webpack_require__.O(0, ["css-src_app_main_home_page_module_css-src_app_page_module_css-src_components_Carousel_Carouse-1e66fb","main-app"], function() { return __webpack_exec__("(app-pages-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-client-entry-loader.js?modules=%7B%22request%22%3A%22%2FUsers%2Fsibaath.ahmed%2FDesktop%2FExperience%20Building%2FExperienceBuilding-StackAcademy%2Fsrc%2Fapp%2Fpage.tsx%22%2C%22ids%22%3A%5B%5D%7D&server=false!"); });
+/******/ __webpack_require__.O(0, ["css-src_app_main_course_slug_page_module_css-src_app_main_home_page_module_css-src_app_main_m-8067c5","main-app"], function() { return __webpack_exec__("(app-pages-browser)/./node_modules/next/dist/build/webpack/loaders/next-flight-client-entry-loader.js?modules=%7B%22request%22%3A%22%2FUsers%2Fsibaath.ahmed%2FDesktop%2FExperience%20Building%2FExperienceBuilding-StackAcademy%2Fsrc%2Fapp%2Fpage.tsx%22%2C%22ids%22%3A%5B%5D%7D&server=false!"); });
 /******/ var __webpack_exports__ = __webpack_require__.O();
 /******/ _N_E = __webpack_exports__;
 /******/ }

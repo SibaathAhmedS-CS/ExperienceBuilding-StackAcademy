@@ -184,6 +184,7 @@ export default function CoursePage() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [courseData, setCourseData] = useState<CourseEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState(false); // TODO: Check from database
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
@@ -401,10 +402,20 @@ export default function CoursePage() {
 
               {/* Hero Actions */}
               <div className={styles.heroActions}>
-                <Link href={firstPreviewLesson ? `/module/${firstPreviewLesson.uid}` : '#'} className={styles.startBtn}>
-                  <Play size={20} />
-                  Start Learning
-                </Link>
+                {isEnrolled ? (
+                  <Link href={firstPreviewLesson ? `/module/${firstPreviewLesson.uid}` : '#'} className={`${styles.startBtn} ${styles.continueLearningBtn}`}>
+                    <Play size={20} />
+                    Continue Learning
+                  </Link>
+                ) : (
+                  <button 
+                    onClick={() => router.push(`/course/${slug}/enroll-success`)}
+                    className={`${styles.startBtn} ${styles.enrollBtn}`}
+                  >
+                    <Play size={20} />
+                    Enroll Now
+                  </button>
+                )}
               </div>
             </div>
           </div>
