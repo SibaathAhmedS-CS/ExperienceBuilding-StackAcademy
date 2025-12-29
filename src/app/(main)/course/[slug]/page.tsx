@@ -29,6 +29,7 @@ import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
+import { createClient } from '@/utils/supabase/client';
 import styles from './page.module.css';
 
 // Mock user data
@@ -177,6 +178,7 @@ export default function CoursePage() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
+  const supabase = createClient();
   
   const [user, setUser] = useState<typeof mockUser | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>('about');
@@ -184,7 +186,8 @@ export default function CoursePage() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [courseData, setCourseData] = useState<CourseEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isEnrolled, setIsEnrolled] = useState(false); // TODO: Check from database
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [enrollmentProgress, setEnrollmentProgress] = useState(0);
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
@@ -202,7 +205,7 @@ export default function CoursePage() {
     { id: 'reviews' as TabType, label: 'Reviews', ref: reviewsRef },
   ];
 
-  // Fetch course data from CMS
+  // Fetch course data from CMS and check enrollment
   useEffect(() => {
     async function fetchCourse() {
       setIsLoading(true);
@@ -215,6 +218,19 @@ export default function CoursePage() {
           if (modules.length > 0) {
             setExpandedModules([modules[0].uid]);
           }
+          
+          // Check enrollment status
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (currentUser && course.uid) {
+            const enrolledData = localStorage.getItem(`enrolled_courses_${currentUser.id}`);
+            const enrolled = enrolledData ? JSON.parse(enrolledData) : [];
+            const enrollment = enrolled.find((e: any) => e.course_uid === course.uid);
+            
+            if (enrollment) {
+              setIsEnrolled(true);
+              setEnrollmentProgress(enrollment.progress || 0);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching course:', error);
@@ -226,7 +242,7 @@ export default function CoursePage() {
     if (slug) {
       fetchCourse();
     }
-  }, [slug]);
+  }, [slug, supabase]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle, Sparkles, BookOpen, Play, Star } from 'lucide-react';
 import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, normalizeArray, LessonEntry } from '@/types/contentstack';
+import { createClient } from '@/utils/supabase/client';
 import styles from './page.module.css';
 
 export default function EnrollmentSuccessPage() {
@@ -16,12 +17,36 @@ export default function EnrollmentSuccessPage() {
   const [animationStage, setAnimationStage] = useState<'loading' | 'success' | 'redirecting'>('loading');
   const [confettiActive, setConfettiActive] = useState(false);
 
+  const supabase = createClient();
+
   useEffect(() => {
     async function fetchCourse() {
       try {
         const course = await getCourseBySlug(slug);
         if (course) {
           setCourseData(course);
+          
+          // Save enrollment to localStorage (temporary solution)
+          // TODO: Replace with Supabase table insert
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && course.uid) {
+            const enrolledData = localStorage.getItem(`enrolled_courses_${user.id}`);
+            const enrolled = enrolledData ? JSON.parse(enrolledData) : [];
+            
+            // Check if already enrolled
+            const existingIndex = enrolled.findIndex((e: any) => e.course_uid === course.uid);
+            
+            if (existingIndex === -1) {
+              // Add new enrollment
+              enrolled.push({
+                course_uid: course.uid,
+                progress: 0,
+                enrolled_at: new Date().toISOString(),
+                last_accessed_at: new Date().toISOString(),
+              });
+              localStorage.setItem(`enrolled_courses_${user.id}`, JSON.stringify(enrolled));
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching course:', error);
@@ -31,7 +56,7 @@ export default function EnrollmentSuccessPage() {
     if (slug) {
       fetchCourse();
     }
-  }, [slug]);
+  }, [slug, supabase]);
 
   useEffect(() => {
     // Stage 1: Loading animation (1.5 seconds) - no progress bar
