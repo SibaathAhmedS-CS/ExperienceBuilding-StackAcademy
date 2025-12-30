@@ -106,7 +106,8 @@
   gap: 8px;
   font-size: 0.9rem;
   color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  align-self: flex-start;
 }
 
 .breadcrumb a {
@@ -138,6 +139,8 @@
   max-width: var(--container-max);
   margin: 0 auto;
   padding: 0 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .heroText {
@@ -690,6 +693,29 @@
   border-color: var(--primary-300);
 }
 
+.moduleItem.moduleLocked {
+  opacity: 0.5;
+  pointer-events: none;
+  background: var(--neutral-50);
+  border-color: var(--neutral-200);
+}
+
+.moduleItem.moduleLocked .moduleHeader {
+  cursor: not-allowed;
+}
+
+.moduleLockIcon {
+  display: inline-block;
+  margin-right: 8px;
+  color: var(--neutral-400);
+  vertical-align: middle;
+}
+
+.moduleProgress {
+  color: var(--primary-600);
+  font-weight: 600;
+}
+
 .moduleHeader {
   width: 100%;
   display: flex;
@@ -755,7 +781,27 @@
 
 .lessonItem.locked {
   color: var(--neutral-400);
-  cursor: default;
+  cursor: not-allowed;
+  opacity: 0.6;
+  position: relative;
+}
+
+.lessonItem.locked::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  z-index: 1;
+}
+
+.lessonItem.completed {
+  background: var(--success-50);
+  border-left: 3px solid var(--success-500);
+}
+
+.lessonItem.completed .lessonTitle {
+  color: var(--neutral-700);
+  font-weight: 500;
 }
 
 .lessonItem svg {
@@ -765,6 +811,20 @@
 
 .lessonItem.locked svg {
   color: var(--neutral-300);
+}
+
+.completedIcon {
+  color: var(--success-600) !important;
+}
+
+.completedBadge {
+  padding: 3px 8px;
+  background: var(--success-100);
+  color: var(--success-700);
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
 }
 
 .lessonTitle {

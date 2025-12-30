@@ -1,6 +1,5 @@
 {
-  "/(main)/home/page": "app/(main)/home/page.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/(main)/course/[slug]/page": "app/(main)/course/[slug]/page.js",
-  "/(main)/course/[slug]/enroll-success/page": "app/(main)/course/[slug]/enroll-success/page.js",
   "/(main)/module/[id]/page": "app/(main)/module/[id]/page.js"
 }

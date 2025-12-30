@@ -416,17 +416,6 @@ export default function Header({ variant = 'landing', user, headerData }: Header
                         </div>
                       </div>
 
-                      <div className={styles.profileStats}>
-                        <div className={styles.stat}>
-                          <Award size={16} />
-                          <span>{user.coursesCompleted} Completed</span>
-                        </div>
-                        <div className={styles.stat}>
-                          <BookOpen size={16} />
-                          <span>{user.coursesInProgress} In Progress</span>
-                        </div>
-                      </div>
-
                       <div className={styles.profileMenu}>
                         {profileMenuItems.map((item, index) => {
                           const ItemIcon = iconMap[item.icon] || User;

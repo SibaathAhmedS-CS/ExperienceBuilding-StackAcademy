@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { CheckCircle, Sparkles, BookOpen, Play, Star } from 'lucide-react';
 import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, normalizeArray, LessonEntry } from '@/types/contentstack';
+import { createClient } from '@/utils/supabase/client';
 import styles from './page.module.css';
 
 export default function EnrollmentSuccessPage() {
@@ -16,12 +17,85 @@ export default function EnrollmentSuccessPage() {
   const [animationStage, setAnimationStage] = useState<'loading' | 'success' | 'redirecting'>('loading');
   const [confettiActive, setConfettiActive] = useState(false);
 
+  const supabase = createClient();
+
   useEffect(() => {
-    async function fetchCourse() {
+    async function fetchCourseAndEnroll() {
       try {
         const course = await getCourseBySlug(slug);
         if (course) {
           setCourseData(course);
+          
+          // Get current user
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (!user) {
+            // Redirect to login if not authenticated
+            router.push('/login');
+            return;
+          }
+          
+          if (course.uid) {
+            // Create enrollment in Supabase enrollments table
+            console.log('Attempting to create enrollment:', {
+              user_id: user.id,
+              course_id: course.uid,
+              status: 'enrolled'
+            });
+            
+            // Use upsert with proper conflict resolution
+            const { data: enrollment, error } = await supabase
+              .from('enrollments')
+              .upsert(
+                {
+                  user_id: user.id,
+                  course_id: course.uid,
+                  status: 'enrolled',
+                  enrolled_at: new Date().toISOString(),
+                },
+                {
+                  onConflict: 'user_id,course_id',
+                  ignoreDuplicates: false
+                }
+              )
+              .select();
+            
+            if (error) {
+              console.error('❌ Error creating enrollment:', error);
+              console.error('Error details:', {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint
+              });
+              
+              // Try alternative: direct insert (in case upsert doesn't work)
+              console.log('Trying direct insert as fallback...');
+              const { data: insertData, error: insertError } = await supabase
+                .from('enrollments')
+                .insert({
+                  user_id: user.id,
+                  course_id: course.uid,
+                  status: 'enrolled',
+                  enrolled_at: new Date().toISOString(),
+                })
+                .select();
+              
+              if (insertError) {
+                console.error('❌ Direct insert also failed:', insertError);
+                // Check if it's a duplicate key error (which is actually OK)
+                if (insertError.code === '23505') {
+                  console.log('✅ Enrollment already exists (duplicate key error is OK)');
+                } else {
+                  alert(`Failed to enroll: ${insertError.message}. Please check browser console for details.`);
+                }
+              } else {
+                console.log('✅ Enrollment created via direct insert:', insertData);
+              }
+            } else {
+              console.log('✅ Enrollment created/updated successfully:', enrollment);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching course:', error);
@@ -29,9 +103,9 @@ export default function EnrollmentSuccessPage() {
     }
 
     if (slug) {
-      fetchCourse();
+      fetchCourseAndEnroll();
     }
-  }, [slug]);
+  }, [slug, supabase, router]);
 
   useEffect(() => {
     // Stage 1: Loading animation (1.5 seconds) - no progress bar

@@ -24,6 +24,7 @@ import Header from '@/components/Header';
 import VideoPlayer from '@/components/VideoPlayer';
 import { useHeader } from '@/hooks/useHeader';
 import { getCourseByLessonUid, getLessonByUid } from '@/lib/contentstack';
+import { createClient } from '@/utils/supabase/client';
 import { 
   CourseEntry, 
   ModuleEntry, 
@@ -82,15 +83,26 @@ export default function ModulePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [courseData, setCourseData] = useState<CourseEntry | null>(null);
   const [currentLessonData, setCurrentLessonData] = useState<LessonEntry | null>(null);
+  const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  
+  const supabase = createClient();
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
 
-  // Fetch course and lesson data from CMS
+  // Fetch course and lesson data from CMS, and lesson progress from DB
   useEffect(() => {
     async function fetchData() {
       setIsLoading(true);
       try {
+        // Get current user
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          setCurrentUserId(authUser.id);
+        }
+        
         // Fetch the lesson directly
         const lesson = await getLessonByUid(lessonId);
         setCurrentLessonData(lesson);
@@ -98,6 +110,32 @@ export default function ModulePage() {
         // Fetch the course that contains this lesson
         const course = await getCourseByLessonUid(lessonId);
         setCourseData(course);
+        
+        // Check enrollment status
+        if (authUser && course?.uid) {
+          const { data: enrollment } = await supabase
+            .from('enrollments')
+            .select('id, status')
+            .eq('user_id', authUser.id)
+            .eq('course_id', course.uid)
+            .maybeSingle();
+          
+          if (enrollment) {
+            setIsEnrolled(true);
+          }
+          
+          // Fetch completed lessons from DB
+          const { data: lessonProgress } = await supabase
+            .from('lesson_progress')
+            .select('lesson_id')
+            .eq('user_id', authUser.id)
+            .eq('course_id', course.uid)
+            .eq('is_completed', true);
+          
+          if (lessonProgress) {
+            setCompletedLessonIds(lessonProgress.map(lp => lp.lesson_id));
+          }
+        }
       } catch (error) {
         console.error('Error fetching lesson data:', error);
       } finally {
@@ -108,7 +146,27 @@ export default function ModulePage() {
     if (lessonId) {
       fetchData();
     }
-  }, [lessonId]);
+  }, [lessonId, supabase]);
+
+  // Refresh completed lessons when a lesson is marked as complete
+  useEffect(() => {
+    async function refreshProgress() {
+      if (!currentUserId || !courseData?.uid) return;
+      
+      const { data: lessonProgress } = await supabase
+        .from('lesson_progress')
+        .select('lesson_id')
+        .eq('user_id', currentUserId)
+        .eq('course_id', courseData.uid)
+        .eq('is_completed', true);
+      
+      if (lessonProgress) {
+        setCompletedLessonIds(lessonProgress.map(lp => lp.lesson_id));
+      }
+    }
+    
+    refreshProgress();
+  }, [currentUserId, courseData?.uid, supabase]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -130,19 +188,110 @@ export default function ModulePage() {
     });
   });
 
+  // Helper: Check if a module is unlocked (first module or previous module is 100% complete)
+  const isModuleUnlocked = (moduleIndex: number): boolean => {
+    if (!isEnrolled || !currentUserId) {
+      // If not enrolled, only preview lessons are accessible
+      return false;
+    }
+    if (moduleIndex === 0) return true; // First module is always unlocked
+    
+    // Check if previous module is 100% complete
+    const previousModule = modules[moduleIndex - 1];
+    if (!previousModule) return false;
+    
+    const previousModuleLessons = normalizeArray(previousModule.lessons);
+    const previousModuleCompletedCount = previousModuleLessons.filter(
+      l => completedLessonIds.includes(l.uid)
+    ).length;
+    
+    return previousModuleCompletedCount === previousModuleLessons.length;
+  };
+
+  // Helper: Check if a lesson is accessible
+  const isLessonAccessible = (lesson: LessonEntry, moduleIndex: number): boolean => {
+    // Preview lessons are always accessible
+    if (lesson.is_preview) return true;
+    
+    // If not enrolled, only preview lessons are accessible
+    if (!isEnrolled || !currentUserId) return false;
+    
+    // Check if the module is unlocked
+    return isModuleUnlocked(moduleIndex);
+  };
+
   // Find current lesson position
   const currentIndex = allLessons.findIndex(l => l.uid === lessonId);
   const currentLessonInfo = allLessons[currentIndex];
   const currentModuleIndex = currentLessonInfo?.moduleIndex || 0;
   const currentLessonIndex = currentLessonInfo?.lessonIndex || 0;
   
-  // Get prev/next lessons
-  const prevLessonInfo = currentIndex > 0 ? allLessons[currentIndex - 1] : null;
-  const nextLessonInfo = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null;
+  // Get prev/next lessons (only accessible ones)
+  const getAccessiblePrevNext = () => {
+    let prev: typeof allLessons[0] | null = null;
+    let next: typeof allLessons[0] | null = null;
+    
+    // Find previous accessible lesson
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      const lessonInfo = allLessons[i];
+      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex)) {
+        prev = lessonInfo;
+        break;
+      }
+    }
+    
+    // Find next accessible lesson
+    for (let i = currentIndex + 1; i < allLessons.length; i++) {
+      const lessonInfo = allLessons[i];
+      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex)) {
+        next = lessonInfo;
+        break;
+      }
+    }
+    
+    return { prev, next };
+  };
 
-  // Calculate progress (dummy - will come from DB)
+  const { prev: prevLessonInfo, next: nextLessonInfo } = getAccessiblePrevNext();
+
+  // Check if current lesson is the last lesson of its module
+  const currentModule = modules[currentModuleIndex];
+  const currentModuleLessons = currentModule ? normalizeArray(currentModule.lessons) : [];
+  const isLastLessonInModule = currentLessonIndex === currentModuleLessons.length - 1;
+  
+  // Check if current module is the last module
+  const isLastModule = currentModuleIndex === modules.length - 1;
+  
+  // Check if this is the very last lesson of the entire course
+  const isLastLessonOfCourse = isLastModule && isLastLessonInModule;
+  
+  // Get next module's first lesson (if exists and is accessible)
+  const getNextModuleFirstLesson = (): typeof allLessons[0] | null => {
+    if (isLastModule) return null;
+    
+    const nextModuleIndex = currentModuleIndex + 1;
+    if (nextModuleIndex >= modules.length) return null;
+    
+    const nextModule = modules[nextModuleIndex];
+    const nextModuleLessons = normalizeArray(nextModule.lessons);
+    
+    if (nextModuleLessons.length > 0) {
+      const firstLesson = nextModuleLessons[0];
+      const firstLessonInfo = allLessons.find(l => l.uid === firstLesson.uid);
+      
+      if (firstLessonInfo && isLessonAccessible(firstLessonInfo.lesson, nextModuleIndex)) {
+        return firstLessonInfo;
+      }
+    }
+    
+    return null;
+  };
+
+  const nextModuleFirstLesson = getNextModuleFirstLesson();
+
+  // Calculate progress from DB
   const totalLessons = allLessons.length;
-  const completedLessons = 2; // Dummy - from DB
+  const completedLessons = completedLessonIds.length;
   const courseProgress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
   // Process current lesson for display
@@ -150,7 +299,7 @@ export default function ModulePage() {
     uid: currentLessonData.uid,
     title: currentLessonData.title,
     duration: currentLessonData.duration || '15:00',
-    completed: false, // From DB
+    completed: completedLessonIds.includes(currentLessonData.uid),
     is_preview: currentLessonData.is_preview || false,
     videoUrl: currentLessonData.video_url?.href || '',
     content: currentLessonData.lesson_content || '',
@@ -180,9 +329,80 @@ export default function ModulePage() {
     setVideoProgress(progress);
   };
 
-  const handleVideoComplete = () => {
-    // Mark lesson as complete - will call DB API
-    console.log('Video completed');
+  const markLessonAsCompleted = async (lessonUid: string) => {
+    if (!currentUserId || !courseData) return;
+    
+    // Don't mark again if already completed
+    if (completedLessonIds.includes(lessonUid)) {
+      return;
+    }
+    
+    try {
+      // Find the module containing this lesson
+      const modules = normalizeArray(courseData.modules);
+      let moduleId = '';
+      
+      for (const module of modules) {
+        const lessons = normalizeArray(module.lessons);
+        if (lessons.some(l => l.uid === lessonUid)) {
+          moduleId = module.uid;
+          break;
+        }
+      }
+      
+      if (!moduleId) {
+        console.error('Module not found for lesson');
+        return;
+      }
+      
+      // Upsert lesson progress
+      const { error } = await supabase
+        .from('lesson_progress')
+        .upsert({
+          user_id: currentUserId,
+          course_id: courseData.uid,
+          module_id: moduleId,
+          lesson_id: lessonUid,
+          is_completed: true,
+          completed_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id,lesson_id'
+        });
+      
+      if (error) {
+        console.error('Error marking lesson as completed:', error);
+      } else {
+        // Update local state immediately for UI feedback
+        setCompletedLessonIds(prev => {
+          if (!prev.includes(lessonUid)) {
+            return [...prev, lessonUid];
+          }
+          return prev;
+        });
+        console.log('✅ Lesson marked as completed:', lessonUid);
+      }
+    } catch (error) {
+      console.error('Error in markLessonAsCompleted:', error);
+    }
+  };
+
+  const handleVideoComplete = async () => {
+    // Mark lesson as complete when video ends or user skips to last second
+    if (currentLessonData && currentLessonData.video_url?.href) {
+      await markLessonAsCompleted(currentLessonData.uid);
+    }
+  };
+
+  const handleNextLesson = async () => {
+    // For text-based courses, mark as complete when Next is pressed
+    if (currentLessonData && !currentLessonData.video_url?.href) {
+      await markLessonAsCompleted(currentLessonData.uid);
+    }
+    
+    // Navigate to next lesson if available
+    if (nextLessonInfo) {
+      // Navigation will happen via Link href
+    }
   };
 
   // Loading state
@@ -209,6 +429,31 @@ export default function ModulePage() {
     );
   }
 
+  // Check if current lesson is accessible
+  const currentLessonInfoForAccess = allLessons.find(l => l.uid === lessonId);
+  const isCurrentLessonAccessible = currentLessonInfoForAccess 
+    ? isLessonAccessible(currentLessonInfoForAccess.lesson, currentLessonInfoForAccess.moduleIndex)
+    : false;
+
+  // If lesson is not accessible and not a preview, redirect or show locked message
+  if (!isCurrentLessonAccessible && currentLessonInfoForAccess && !currentLessonInfoForAccess.lesson.is_preview) {
+    return (
+      <>
+        <Header variant="app" user={user} headerData={headerData} />
+        <div className={styles.moduleLayout}>
+          <div className={styles.notFound}>
+            <Lock size={48} style={{ color: 'var(--neutral-400)', marginBottom: '16px' }} />
+            <h1>Lesson Locked</h1>
+            <p>You need to complete the previous module to access this lesson.</p>
+            <Link href={`/course/${courseData?.slug || 'machine-learning-python'}`} className={styles.backToCourseBtn}>
+              Back to Course
+            </Link>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <Header variant="app" user={user} headerData={headerData} />
@@ -231,7 +476,7 @@ export default function ModulePage() {
             </Link>
             <h2 className={styles.courseTitle}>{courseData?.title || 'Course'}</h2>
             
-            {/* Progress - DB Data (Dummy) */}
+            {/* Progress - From DB */}
             <div className={styles.progressBar}>
               <div className={styles.progressTrack}>
                 <div 
@@ -246,35 +491,60 @@ export default function ModulePage() {
           </div>
 
           <div className={styles.modulesList}>
-            {modules.map((module) => {
+            {modules.map((module, moduleIndex) => {
               const moduleLessons = normalizeArray(module.lessons);
+              const moduleCompletedCount = moduleLessons.filter(l => completedLessonIds.includes(l.uid)).length;
+              const isUnlocked = isModuleUnlocked(moduleIndex);
+              const isModuleLocked = isEnrolled && currentUserId && !isUnlocked;
+              
               return (
-                <div key={module.uid} className={styles.moduleGroup}>
+                <div 
+                  key={module.uid} 
+                  className={`${styles.moduleGroup} ${isModuleLocked ? styles.moduleLocked : ''}`}
+                >
                   <div className={styles.moduleHeader}>
-                    <h3>{module.title}</h3>
+                    <h3>
+                      {isModuleLocked && <Lock size={14} className={styles.moduleLockIcon} />}
+                      {module.title}
+                    </h3>
                     <span className={styles.moduleProgress}>
-                      0/{moduleLessons.length}
+                      {moduleCompletedCount}/{moduleLessons.length}
                     </span>
                   </div>
                   
                   <div className={styles.lessonsList}>
-                    {moduleLessons.map((lesson) => (
-                      <Link
-                        key={lesson.uid}
-                        href={`/module/${lesson.uid}`}
-                        className={`${styles.lessonLink} ${lesson.uid === lessonId ? styles.active : ''}`}
-                      >
-                        <span className={styles.lessonStatus}>
-                          {lesson.uid === lessonId ? (
-                            <Play size={18} />
-                          ) : (
-                            <Circle size={18} />
-                          )}
-                        </span>
-                        <span className={styles.lessonTitle}>{lesson.title}</span>
-                        <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
-                      </Link>
-                    ))}
+                    {moduleLessons.map((lesson) => {
+                      const isCompleted = completedLessonIds.includes(lesson.uid);
+                      const isCurrent = lesson.uid === lessonId;
+                      const isAccessible = isLessonAccessible(lesson, moduleIndex);
+                      
+                      return (
+                        <Link
+                          key={lesson.uid}
+                          href={isAccessible ? `/module/${lesson.uid}` : '#'}
+                          className={`${styles.lessonLink} ${isCurrent ? styles.active : ''} ${isCompleted ? styles.completed : ''} ${!isAccessible ? styles.locked : ''}`}
+                          onClick={(e) => {
+                            if (!isAccessible) {
+                              e.preventDefault();
+                            }
+                          }}
+                        >
+                          <span className={styles.lessonStatus}>
+                            {isCompleted ? (
+                              <CheckCircle size={18} className={styles.completedIcon} />
+                            ) : !isAccessible ? (
+                              <Lock size={18} />
+                            ) : isCurrent ? (
+                              <Play size={18} />
+                            ) : (
+                              <Circle size={18} />
+                            )}
+                          </span>
+                          <span className={styles.lessonTitle}>{lesson.title}</span>
+                          <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
               );
@@ -327,16 +597,49 @@ export default function ModulePage() {
               </p>
             </div>
 
-            {nextLessonInfo ? (
+            {isLastLessonOfCourse ? (
+              // Last lesson of last module - Show "Complete Course"
+              <button 
+                className={`${styles.navBtn} ${styles.navBtnComplete}`}
+                onClick={async () => {
+                  if (currentLessonData) {
+                    await markLessonAsCompleted(currentLessonData.uid);
+                  }
+                }}
+              >
+                <Award size={20} />
+                <span>Complete Course</span>
+              </button>
+            ) : isLastLessonInModule && nextModuleFirstLesson ? (
+              // Last lesson of module (but not last module) - Show "Move to Next Module"
+              <Link
+                href={`/module/${nextModuleFirstLesson.uid}`}
+                className={`${styles.navBtn} ${styles.navBtnNextModule}`}
+                onClick={handleNextLesson}
+              >
+                <span>Move to Next Module</span>
+                <ChevronRight size={20} />
+              </Link>
+            ) : nextLessonInfo ? (
+              // Regular next lesson - Show "Next Lesson"
               <Link
                 href={`/module/${nextLessonInfo.uid}`}
                 className={`${styles.navBtn} ${styles.navBtnNext}`}
+                onClick={handleNextLesson}
               >
-                <span>Next</span>
+                <span>Next Lesson</span>
                 <ChevronRight size={20} />
               </Link>
             ) : (
-              <button className={`${styles.navBtn} ${styles.navBtnComplete}`}>
+              // Fallback - should not happen, but show complete course
+              <button 
+                className={`${styles.navBtn} ${styles.navBtnComplete}`}
+                onClick={async () => {
+                  if (currentLessonData) {
+                    await markLessonAsCompleted(currentLessonData.uid);
+                  }
+                }}
+              >
                 <Award size={20} />
                 <span>Complete Course</span>
               </button>
