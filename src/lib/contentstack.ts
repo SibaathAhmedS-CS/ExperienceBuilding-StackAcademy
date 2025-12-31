@@ -66,15 +66,30 @@ export const CONTENT_TYPES = {
 // ============================================
 
 /**
+ * Get current locale from localStorage (client-side) or default
+ */
+function getCurrentLocale(): string {
+  if (typeof window !== 'undefined') {
+    return localStorage.getItem('selectedLanguage') || 'en-us';
+  }
+  return 'en-us';
+}
+
+/**
  * Fetch single entry by content type and UID
  */
 export async function getEntry<T = ContentstackEntry>(
   contentType: string,
   entryUid: string,
-  referenceFields: string[] = []
+  referenceFields: string[] = [],
+  locale?: string
 ): Promise<T | null> {
   try {
     const query = Stack.ContentType(contentType).Entry(entryUid);
+    
+    // Set locale if provided
+    const targetLocale = locale || getCurrentLocale();
+    query.language(targetLocale);
     
     referenceFields.forEach((field) => {
       query.includeReference(field);
@@ -98,12 +113,17 @@ export async function getEntries<T = ContentstackEntry>(
     limit?: number;
     skip?: number;
     orderBy?: string;
+    locale?: string;
     orderDirection?: 'asc' | 'desc';
     where?: Record<string, any>;
   } = {}
 ): Promise<T[]> {
   try {
     const query = Stack.ContentType(contentType).Query();
+    
+    // Set locale if provided
+    const targetLocale = options.locale || getCurrentLocale();
+    query.language(targetLocale);
     
     if (options.referenceFields) {
       options.referenceFields.forEach((field) => {
@@ -256,12 +276,16 @@ export async function getAllCategories(): Promise<CategoryEntry[]> {
  * Fetch Header entry by title
  * @param title - "Landing Header" or "App Header"
  */
-export async function getHeader(title: string): Promise<HeaderEntry | null> {
+export async function getHeader(title: string, locale?: string): Promise<HeaderEntry | null> {
   try {
     const query = Stack.ContentType(CONTENT_TYPES.HEADER)
       .Query()
       .where('title', title)
       .includeReference('icon');
+
+    // Set locale if provided
+    const targetLocale = locale || getCurrentLocale();
+    query.language(targetLocale);
 
     const result = await query.toJSON().find();
     return result[0]?.[0] as HeaderEntry || null;
@@ -405,13 +429,17 @@ export async function getAllTestimonials(): Promise<TestimonialEntry[]> {
 /**
  * Fetch all courses with author reference
  */
-export async function getAllCourses(): Promise<CourseEntry[]> {
+export async function getAllCourses(locale?: string): Promise<CourseEntry[]> {
   try {
-    const result = await Stack.ContentType(CONTENT_TYPES.COURSE)
+    const query = Stack.ContentType(CONTENT_TYPES.COURSE)
       .Query()
-      .includeReference(['author', 'modules'])
-      .toJSON()
-      .find();
+      .includeReference(['author', 'modules']);
+    
+    // Set locale if provided
+    const targetLocale = locale || getCurrentLocale();
+    query.language(targetLocale);
+    
+    const result = await query.toJSON().find();
     return (result[0] || []) as CourseEntry[];
   } catch (error) {
     console.error('Error fetching courses', error);
@@ -422,7 +450,7 @@ export async function getAllCourses(): Promise<CourseEntry[]> {
 /**
  * Fetch a single course by slug with all nested references
  */
-export async function getCourseBySlug(slug: string): Promise<CourseEntry | null> {
+export async function getCourseBySlug(slug: string, locale?: string): Promise<CourseEntry | null> {
   try {
     const query = Stack.ContentType(CONTENT_TYPES.COURSE)
       .Query()
@@ -432,6 +460,10 @@ export async function getCourseBySlug(slug: string): Promise<CourseEntry | null>
         'modules',
         'modules.lessons'
       ]);
+
+    // Set locale if provided
+    const targetLocale = locale || getCurrentLocale();
+    query.language(targetLocale);
 
     const result = await query.toJSON().find();
     const course = result[0]?.[0] as CourseEntry || null;
@@ -450,17 +482,21 @@ export async function getCourseBySlug(slug: string): Promise<CourseEntry | null>
 /**
  * Fetch a single course by UID with all nested references
  */
-export async function getCourseByUid(uid: string): Promise<CourseEntry | null> {
+export async function getCourseByUid(uid: string, locale?: string): Promise<CourseEntry | null> {
   try {
-    const result = await Stack.ContentType(CONTENT_TYPES.COURSE)
+    const query = Stack.ContentType(CONTENT_TYPES.COURSE)
       .Entry(uid)
       .includeReference([
         'author',
         'modules',
         'modules.lessons'
-      ])
-      .toJSON()
-      .fetch();
+      ]);
+    
+    // Set locale if provided
+    const targetLocale = locale || getCurrentLocale();
+    query.language(targetLocale);
+    
+    const result = await query.toJSON().fetch();
     return result as CourseEntry;
   } catch (error) {
     console.error(`Error fetching course by UID: ${uid}`, error);

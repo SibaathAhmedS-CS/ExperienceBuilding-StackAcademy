@@ -283,6 +283,7 @@ export interface HeaderEntry {
   navigation: {
     link: Link[];
   };
+  languages?: string[];  // Supported languages from dropdown
   search_visibility: boolean;
   components: HeaderComponent[];
 }

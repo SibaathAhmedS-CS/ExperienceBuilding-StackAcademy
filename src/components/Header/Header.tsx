@@ -17,6 +17,7 @@ import {
   GraduationCap,
   Library,
   School,
+  Globe,
   LucideIcon
 } from 'lucide-react';
 import styles from './Header.module.css';
@@ -27,6 +28,7 @@ import {
   isProfileBlock,
   ProfileDropdownItem 
 } from '@/types/contentstack';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // Icon mapping - maps CMS icon names to Lucide components
 const iconMap: Record<string, LucideIcon> = {
@@ -99,8 +101,18 @@ export default function Header({ variant = 'landing', user, headerData }: Header
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const pathname = usePathname();
+  
+  // Get languages from headerData
+  const supportedLanguages = headerData?.languages || [];
+  const { selectedLanguage, setSelectedLanguage, supportedLanguages: languageOptions } = useLanguage();
+  
+  // Filter language options to only show supported languages from CMS if available
+  const displayLanguages = supportedLanguages.length > 0
+    ? languageOptions.filter(lang => supportedLanguages.includes(lang.code))
+    : languageOptions;
 
   const isHomePage = pathname === '/home';
 
@@ -112,6 +124,30 @@ export default function Header({ variant = 'landing', user, headerData }: Header
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (
+        isLanguageOpen &&
+        !target.closest(`.${styles.languageWrapper}`)
+      ) {
+        setIsLanguageOpen(false);
+      }
+      if (
+        isProfileOpen &&
+        !target.closest(`.${styles.profileWrapper}`)
+      ) {
+        setIsProfileOpen(false);
+      }
+    };
+
+    if (isLanguageOpen || isProfileOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isLanguageOpen, isProfileOpen]);
 
   // Get logo data from CMS or fallback (icon is a reference)
   const { iconName: logoIconName, iconText: logoText } = getIconData(headerData?.icon);
@@ -355,6 +391,55 @@ export default function Header({ variant = 'landing', user, headerData }: Header
 
         {/* Right Section */}
         <div className={styles.rightSection}>
+          {/* Language Selector */}
+          {supportedLanguages.length > 0 && (
+            <div className={styles.languageWrapper}>
+              <button
+                className={`${styles.languageButton} ${isLanguageOpen ? styles.active : ''}`}
+                onClick={() => {
+                  setIsLanguageOpen(!isLanguageOpen);
+                  setIsProfileOpen(false);
+                }}
+                aria-label="Select language"
+                title="Change language"
+              >
+                <Globe size={20} />
+              </button>
+
+              {/* Language Dropdown */}
+              {isLanguageOpen && (
+                <div className={styles.languageDropdown}>
+                  <div className={styles.languageDropdownHeader}>
+                    <Globe size={16} />
+                    <span>Select Language</span>
+                  </div>
+                  <div className={styles.languageOptionsList}>
+                    {displayLanguages.map((lang) => (
+                      <button
+                        key={lang.code}
+                        className={`${styles.languageOption} ${selectedLanguage === lang.code ? styles.active : ''}`}
+                        onClick={() => {
+                          setSelectedLanguage(lang.code);
+                          setIsLanguageOpen(false);
+                        }}
+                      >
+                        <div className={styles.languageOptionContent}>
+                          <span className={styles.languageName}>{lang.name}</span>
+                          <span className={styles.languageCodeSmall}>{lang.code.toUpperCase()}</span>
+                        </div>
+                        {selectedLanguage === lang.code && (
+                          <div className={styles.checkmarkWrapper}>
+                            <div className={styles.checkmarkIcon}>✓</div>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Search Bar */}
           {showSearch && (
             <form onSubmit={handleSearch} className={styles.searchBar}>
@@ -387,7 +472,10 @@ export default function Header({ variant = 'landing', user, headerData }: Header
                 <div className={styles.profileWrapper}>
                   <button
                     className={styles.profileButton}
-                    onClick={() => setIsProfileOpen(!isProfileOpen)}
+                    onClick={() => {
+                      setIsProfileOpen(!isProfileOpen);
+                      setIsLanguageOpen(false);
+                    }}
                   >
                     <div className={styles.avatar}>
                       {user.avatar ? (
