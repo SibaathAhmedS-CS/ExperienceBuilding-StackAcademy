@@ -23,6 +23,7 @@ export default function CertificatePage() {
   const [certificateData, setCertificateData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [html2pdfLoaded, setHtml2pdfLoaded] = useState(false);
+  const [courseSlug, setCourseSlug] = useState<string | null>(null);
 
   const supabase = createClient();
 
@@ -36,6 +37,7 @@ export default function CertificatePage() {
         const course = await getCourseByUid(courseId);
         
         if (course) {
+          setCourseSlug(course.slug);
           setCertificateData({
             userName: profile?.full_name || user.email?.split('@')[0] || 'Student',
             courseTitle: course.title,
@@ -118,7 +120,16 @@ export default function CertificatePage() {
       
       <div className={styles.pageContainer}>
         <div className={styles.controls}>
-          <button onClick={() => router.back()} className={styles.backButton}>
+          <button 
+            onClick={() => {
+              if (courseSlug) {
+                router.push(`/course/${courseSlug}`);
+              } else {
+                router.push('/courses');
+              }
+            }} 
+            className={styles.backButton}
+          >
             <ArrowLeft size={18} /> Back
           </button>
           <button 

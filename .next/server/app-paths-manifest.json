@@ -1,7 +1,6 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
+  "/(main)/module/[id]/page": "app/(main)/module/[id]/page.js",
   "/(main)/course/[slug]/page": "app/(main)/course/[slug]/page.js",
-  "/(main)/certificate/[courseId]/page": "app/(main)/certificate/[courseId]/page.js",
-  "/(main)/home/page": "app/(main)/home/page.js",
-  "/(main)/my-courses/page": "app/(main)/my-courses/page.js"
+  "/(main)/course/[slug]/completion-success/page": "app/(main)/course/[slug]/completion-success/page.js",
+  "/(main)/certificate/[courseId]/page": "app/(main)/certificate/[courseId]/page.js"
 }

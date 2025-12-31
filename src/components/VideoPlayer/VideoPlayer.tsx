@@ -226,6 +226,15 @@ export default function VideoPlayer({
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // Use refs to store callbacks to prevent re-initialization
+  const onProgressRef = useRef(onProgress);
+  const onCompleteRef = useRef(onComplete);
+
+  useEffect(() => {
+    onProgressRef.current = onProgress;
+    onCompleteRef.current = onComplete;
+  }, [onProgress, onComplete]);
+
   // YouTube IFrame API integration for completion tracking
   useEffect(() => {
     if (!isYouTube || !youtubeVideoId || !containerRef.current) return;
@@ -233,9 +242,10 @@ export default function VideoPlayer({
     let player: any = null;
     let progressInterval: NodeJS.Timeout | null = null;
     let completionTriggered = false;
+    let isInitialized = false;
 
     const initializePlayer = () => {
-      if (!containerRef.current) return;
+      if (!containerRef.current || isInitialized) return;
 
       const playerId = `youtube-player-${youtubeVideoId}`;
       const playerDiv = containerRef.current.querySelector(`#${playerId}`) as HTMLElement;
@@ -245,7 +255,22 @@ export default function VideoPlayer({
         return;
       }
 
+      // Check if player already exists
+      if ((window as any).YT && (window as any).YT.get) {
+        try {
+          const existingPlayer = (window as any).YT.get(playerId);
+          if (existingPlayer) {
+            // Player already exists, don't recreate
+            isInitialized = true;
+            return;
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      }
+
       try {
+        isInitialized = true;
         player = new (window as any).YT.Player(playerId, {
           videoId: youtubeVideoId,
           playerVars: {
@@ -254,6 +279,7 @@ export default function VideoPlayer({
             autoplay: 0,
             controls: 1,
             enablejsapi: 1,
+            origin: window.location.origin,
           },
           events: {
             onReady: () => {
@@ -267,13 +293,13 @@ export default function VideoPlayer({
                   
                   if (duration > 0 && currentTime !== undefined) {
                     const progress = (currentTime / duration) * 100;
-                    onProgress?.(progress);
+                    onProgressRef.current?.(progress);
                     
                     // Check if video is near the end (within 2 seconds) or at the end
                     const timeRemaining = duration - currentTime;
                     if (timeRemaining <= 2 && timeRemaining >= 0 && !completionTriggered) {
                       completionTriggered = true;
-                      onComplete?.();
+                      onCompleteRef.current?.();
                       if (progressInterval) {
                         clearInterval(progressInterval);
                         progressInterval = null;
@@ -289,7 +315,7 @@ export default function VideoPlayer({
               // State 0 = ENDED
               if (event.data === 0 && !completionTriggered) {
                 completionTriggered = true;
-                onComplete?.();
+                onCompleteRef.current?.();
                 if (progressInterval) {
                   clearInterval(progressInterval);
                   progressInterval = null;
@@ -300,30 +326,39 @@ export default function VideoPlayer({
         });
       } catch (error) {
         console.error('Error initializing YouTube player:', error);
+        isInitialized = false;
       }
     };
 
     // Load YouTube IFrame API script if not already loaded
     if (window.YT && (window as any).YT.Player) {
-      initializePlayer();
+      // Small delay to ensure DOM is ready
+      setTimeout(() => {
+        initializePlayer();
+      }, 100);
     } else {
-      // Load the script
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      const firstScriptTag = document.getElementsByTagName('script')[0];
-      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      // Load the script only if not already loading
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+      }
 
       // Set up callback
       const originalCallback = (window as any).onYouTubeIframeAPIReady;
       (window as any).onYouTubeIframeAPIReady = () => {
         if (originalCallback) originalCallback();
-        initializePlayer();
+        setTimeout(() => {
+          initializePlayer();
+        }, 100);
       };
     }
 
     return () => {
       if (progressInterval) {
         clearInterval(progressInterval);
+        progressInterval = null;
       }
       if (player && typeof player.destroy === 'function') {
         try {
@@ -332,14 +367,19 @@ export default function VideoPlayer({
           // Ignore destroy errors
         }
       }
+      isInitialized = false;
     };
-  }, [isYouTube, youtubeVideoId, onProgress, onComplete]);
+  }, [isYouTube, youtubeVideoId]); // Removed onProgress and onComplete from dependencies
 
   // YouTube embed player
   if (isYouTube && youtubeVideoId) {
     return (
       <div ref={containerRef} className={styles.player}>
-        <div id={`youtube-player-${youtubeVideoId}`} style={{ width: '100%', height: '100%' }} />
+        <div 
+          key={`youtube-player-${youtubeVideoId}`}
+          id={`youtube-player-${youtubeVideoId}`} 
+          style={{ width: '100%', height: '100%' }} 
+        />
       </div>
     );
   }

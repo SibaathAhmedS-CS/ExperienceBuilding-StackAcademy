@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ChevronLeft,
   ChevronRight,
@@ -74,6 +74,7 @@ interface ProcessedLesson {
 
 export default function ModulePage() {
   const params = useParams();
+  const router = useRouter();
   const lessonId = params.id as string;
 
   const [user, setUser] = useState<typeof mockUser | null>(null);
@@ -270,6 +271,18 @@ export default function ModulePage() {
   // Check if this is the very last lesson of the entire course
   const isLastLessonOfCourse = isLastModule && isLastLessonInModule;
   
+  // Check if all lessons except the current one are completed (required to show Complete Course button)
+  const allOtherLessonsCompleted = isLastLessonOfCourse && currentLessonData 
+    ? allLessons.filter(l => l.uid !== currentLessonData.uid)
+        .every(l => completedLessonIds.includes(l.uid))
+    : false;
+  
+  // Show Complete Course button only if:
+  // 1. It's the last lesson of the course
+  // 2. All other lessons are completed
+  // 3. Course is not already completed
+  const canCompleteCourse = isLastLessonOfCourse && allOtherLessonsCompleted && !isCourseCompleted;
+  
   // Get next module's first lesson (if exists and is accessible)
   const getNextModuleFirstLesson = (): typeof allLessons[0] | null => {
     if (isLastModule) return null;
@@ -335,7 +348,8 @@ export default function ModulePage() {
   };
 
   // Check if course is completed and update enrollment status
-  const checkAndUpdateCourseCompletion = async () => {
+  // This should ONLY be called when the user clicks "Complete Course" button
+  const checkAndUpdateCourseCompletion = async (shouldRedirect: boolean = false) => {
     if (!currentUserId || !courseData) return false;
     
     try {
@@ -345,7 +359,7 @@ export default function ModulePage() {
         totalLessons += normalizeArray(module.lessons).length;
       });
 
-      // Get completed lessons count
+      // Get completed lessons count (including the current lesson that was just marked)
       const { data: lessonProgress } = await supabase
         .from('lesson_progress')
         .select('lesson_id')
@@ -354,10 +368,11 @@ export default function ModulePage() {
         .eq('is_completed', true);
 
       const completedLessons = lessonProgress?.length || 0;
-      const isCourseCompleted = totalLessons > 0 && completedLessons === totalLessons;
+      const wasAlreadyCompleted = isCourseCompleted;
+      const isCourseCompletedNow = totalLessons > 0 && completedLessons === totalLessons;
 
-      // Update enrollment status if course is completed
-      if (isCourseCompleted) {
+      // Only update enrollment status if course is completed AND it wasn't already completed
+      if (isCourseCompletedNow && !wasAlreadyCompleted) {
         const { error: enrollmentError } = await supabase
           .from('enrollments')
           .update({ 
@@ -369,12 +384,25 @@ export default function ModulePage() {
 
         if (enrollmentError) {
           console.error('Error updating enrollment status:', enrollmentError);
+          return false;
         } else {
           console.log('✅ Course completed! Enrollment status updated to completed.');
+          setIsCourseCompleted(true);
+          
+          // Redirect to completion success page if redirect is requested
+          if (shouldRedirect && courseData.slug) {
+            setTimeout(() => {
+              router.push(`/course/${courseData.slug}/completion-success`);
+            }, 500); // Small delay to ensure state is updated
+          }
+          return true;
         }
+      } else if (isCourseCompletedNow) {
+        setIsCourseCompleted(true);
+        return true;
       }
 
-      return isCourseCompleted;
+      return false;
     } catch (error) {
       console.error('Error checking course completion:', error);
       return false;
@@ -432,9 +460,6 @@ export default function ModulePage() {
           return prev;
         });
         console.log('✅ Lesson marked as completed:', lessonUid);
-        
-        // Check if course is now completed and update enrollment status
-        await checkAndUpdateCourseCompletion();
       }
     } catch (error) {
       console.error('Error in markLessonAsCompleted:', error);
@@ -652,25 +677,35 @@ export default function ModulePage() {
               </p>
             </div>
 
-            {isLastLessonOfCourse && !isCourseCompleted ? (
-              // Last lesson of last module - Show "Complete Course" (only if not already completed)
-              <button 
-                className={`${styles.navBtn} ${styles.navBtnComplete}`}
-                onClick={async () => {
-                  if (currentLessonData) {
-                    await markLessonAsCompleted(currentLessonData.uid);
-                  }
-                }}
-              >
-                <Award size={20} />
-                <span>Complete Course</span>
-              </button>
-            ) : isLastLessonOfCourse && isCourseCompleted ? (
-              // Course already completed - Show nothing or a message
+            {isLastLessonOfCourse && isCourseCompleted ? (
+              // Course already completed - Show message
               <div className={styles.courseCompletedMessage}>
                 <Award size={20} />
                 <span>Course Completed!</span>
               </div>
+            ) : isLastLessonOfCourse ? (
+              // Last lesson of last module - Show "Complete Course" button (enabled or disabled)
+              <button 
+                className={`${styles.navBtn} ${styles.navBtnComplete} ${!allOtherLessonsCompleted ? styles.disabled : ''}`}
+                disabled={!allOtherLessonsCompleted}
+                onClick={async () => {
+                  if (currentLessonData && allOtherLessonsCompleted) {
+                    // First, mark the current lesson as completed
+                    await markLessonAsCompleted(currentLessonData.uid);
+                    
+                    // Wait a bit for the database update to complete
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Then check if all lessons are completed and update enrollment/redirect
+                    // Since we already verified all other lessons are completed, this should succeed
+                    await checkAndUpdateCourseCompletion(true);
+                  }
+                }}
+                title={!allOtherLessonsCompleted ? "Complete all lessons to complete the course" : ""}
+              >
+                <Award size={20} />
+                <span>Complete Course</span>
+              </button>
             ) : isLastLessonInModule && nextModuleFirstLesson ? (
               // Last lesson of module (but not last module) - Show "Move to Next Module"
               <Link
@@ -692,18 +727,8 @@ export default function ModulePage() {
                 <ChevronRight size={20} />
               </Link>
             ) : (
-              // Fallback - should not happen, but show complete course
-              <button 
-                className={`${styles.navBtn} ${styles.navBtnComplete}`}
-                onClick={async () => {
-                  if (currentLessonData) {
-                    await markLessonAsCompleted(currentLessonData.uid);
-                  }
-                }}
-              >
-                <Award size={20} />
-                <span>Complete Course</span>
-              </button>
+              // Fallback - no navigation available
+              <div />
             )}
           </div>
 
