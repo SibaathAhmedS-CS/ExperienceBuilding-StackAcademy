@@ -1,15 +1,10 @@
 {
   "pages": {
-    "/(main)/certificate/[courseId]/page": [
+    "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_certificate_courseId_page_module_css.css",
-      "static/chunks/app/(main)/certificate/[courseId]/page.js"
-    ],
-    "/(main)/layout": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(main)/layout.js"
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_home_page_module_css-src_app_main_m-d4257d.css",
+      "static/chunks/app/page.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -17,11 +12,45 @@
       "static/css/css-src_app_globals_css.css",
       "static/chunks/app/layout.js"
     ],
+    "/(auth)/login/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css.css",
+      "static/chunks/app/(auth)/login/page.js"
+    ],
+    "/(auth)/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(auth)/layout.js"
+    ],
+    "/(main)/home/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_home_page_module_css-src_app_main_m-d4257d.css",
+      "static/chunks/app/(main)/home/page.js"
+    ],
+    "/(main)/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/layout.js"
+    ],
     "/(main)/my-courses/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_my-courses_page_module_css-src_components_CourseCard_CourseCard_module_css-s-aaae0c.css",
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_home_page_module_css-src_app_main_m-d4257d.css",
       "static/chunks/app/(main)/my-courses/page.js"
+    ],
+    "/(main)/course/[slug]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_home_page_module_css-src_app_main_m-d4257d.css",
+      "static/chunks/app/(main)/course/[slug]/page.js"
+    ],
+    "/(main)/certificate/[courseId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/css/css-src_app_main_certificate_courseId_page_module_css.css",
+      "static/chunks/app/(main)/certificate/[courseId]/page.js"
     ],
     "/_not-found/page": [
       "static/chunks/webpack.js",
