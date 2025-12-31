@@ -1,8 +1,8 @@
-// File: /Users/sibaath.ahmed/Desktop/Experience Building 2/ExperienceBuilding-StackAcademy/src/app/(main)/course/[slug]/page.tsx
-import * as entry from '../../../../../../src/app/(main)/course/[slug]/page.js'
+// File: /Users/sibaath.ahmed/Desktop/Experience Building/ExperienceBuilding-StackAcademy/src/app/(main)/my-courses/page.tsx
+import * as entry from '../../../../../src/app/(main)/my-courses/page.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
-type TEntry = typeof import('../../../../../../src/app/(main)/course/[slug]/page.js')
+type TEntry = typeof import('../../../../../src/app/(main)/my-courses/page.js')
 
 // Check that the entry is a valid entry
 checkFields<Diff<{

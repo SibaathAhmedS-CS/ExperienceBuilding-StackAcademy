@@ -11,7 +11,7 @@ self["webpackHotUpdate_N_E"]("webpack",{},
 /******/ function(__webpack_require__) { // webpackRuntimeModules
 /******/ /* webpack/runtime/getFullHash */
 /******/ !function() {
-/******/ 	__webpack_require__.h = function() { return "e4ddacf925791a90"; }
+/******/ 	__webpack_require__.h = function() { return "8c82f2cf5ee68a49"; }
 /******/ }();
 /******/ 
 /******/ /* webpack/runtime/jsonp chunk loading */
@@ -23,8 +23,9 @@ self["webpackHotUpdate_N_E"]("webpack",{},
 /******/ 	// [resolve, reject, Promise] = chunk loading, 0 = chunk loaded
 /******/ 	var installedChunks = __webpack_require__.hmrS_jsonp = __webpack_require__.hmrS_jsonp || {
 /******/ 		"webpack": 0,
-/******/ 		"css-src_app_main_course_slug_page_module_css-src_components_CourseCard_CourseCard_module_css--ac7500": 0,
-/******/ 		"css-src_app_globals_css": 0
+/******/ 		"css-src_app_main_certificate_courseId_page_module_css": 0,
+/******/ 		"css-src_app_globals_css": 0,
+/******/ 		"css-src_app_main_my-courses_page_module_css-src_components_CourseCard_CourseCard_module_css-s-aaae0c": 0
 /******/ 	};
 /******/ 	
 /******/ 	__webpack_require__.f.j = function(chunkId, promises) {
@@ -36,7 +37,7 @@ self["webpackHotUpdate_N_E"]("webpack",{},
 /******/ 				if(installedChunkData) {
 /******/ 					promises.push(installedChunkData[2]);
 /******/ 				} else {
-/******/ 					if(/^(app(\/(\(main\)\/(course\/\[slug\]\/page|layout)|_not\-found\/page|layout)|\-pages\-internals)|main\-app)$/.test(chunkId)) {
+/******/ 					if(/^(app(\/(\(main\)\/((certificate\/\[courseId\]|my\-courses)\/page|layout)|_not\-found\/page|layout)|\-pages\-internals)|main\-app)$/.test(chunkId)) {
 /******/ 						// setup Promise in chunk cache
 /******/ 						var promise = new Promise(function(resolve, reject) { installedChunkData = installedChunks[chunkId] = [resolve, reject]; });
 /******/ 						promises.push(installedChunkData[2] = promise);

@@ -23,7 +23,7 @@ interface EnrolledCourse {
 export default function MyCoursesPage() {
   const router = useRouter();
   const supabase = createClient();
-  const { headerData } = useHeader();
+  const { headerData } = useHeader('App Header');
   
   const [user, setUser] = useState<any>(null);
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([]);
@@ -43,12 +43,12 @@ export default function MyCoursesPage() {
 
         setUser(currentUser);
 
-        // Fetch enrolled courses from Supabase enrollments table
+        // Fetch enrolled courses from Supabase enrollments table (including completed)
         const { data: enrollments, error: enrollmentsError } = await supabase
           .from('enrollments')
           .select('course_id, enrolled_at, status')
           .eq('user_id', currentUser.id)
-          .eq('status', 'enrolled');
+          .in('status', ['enrolled', 'completed']);
 
         if (enrollmentsError) {
           console.error('Error fetching enrollments:', enrollmentsError);
@@ -78,7 +78,11 @@ export default function MyCoursesPage() {
               });
               
               const completedLessons = lessonProgress?.length || 0;
-              const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+              // If enrollment status is 'completed', set progress to 100
+              // Otherwise calculate based on completed lessons
+              const progress = enrollment.status === 'completed' 
+                ? 100 
+                : (totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0);
               
               return {
                 course_uid: enrollment.course_id,

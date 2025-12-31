@@ -1,10 +1,10 @@
 {
   "pages": {
-    "/(main)/course/[slug]/page": [
+    "/(main)/certificate/[courseId]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_module_id_page_module_css-src_compo-552fb4.css",
-      "static/chunks/app/(main)/course/[slug]/page.js"
+      "static/css/css-src_app_main_certificate_courseId_page_module_css.css",
+      "static/chunks/app/(main)/certificate/[courseId]/page.js"
     ],
     "/(main)/layout": [
       "static/chunks/webpack.js",
@@ -17,11 +17,11 @@
       "static/css/css-src_app_globals_css.css",
       "static/chunks/app/layout.js"
     ],
-    "/(main)/module/[id]/page": [
+    "/(main)/my-courses/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_module_id_page_module_css-src_compo-552fb4.css",
-      "static/chunks/app/(main)/module/[id]/page.js"
+      "static/css/css-src_app_main_my-courses_page_module_css-src_components_CourseCard_CourseCard_module_css-s-aaae0c.css",
+      "static/chunks/app/(main)/my-courses/page.js"
     ],
     "/_not-found/page": [
       "static/chunks/webpack.js",

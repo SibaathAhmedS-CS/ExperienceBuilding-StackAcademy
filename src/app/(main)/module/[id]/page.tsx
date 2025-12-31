@@ -86,6 +86,7 @@ export default function ModulePage() {
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isCourseCompleted, setIsCourseCompleted] = useState(false);
   
   const supabase = createClient();
   
@@ -122,6 +123,10 @@ export default function ModulePage() {
           
           if (enrollment) {
             setIsEnrolled(true);
+            // Check if course is completed
+            if (enrollment.status === 'completed') {
+              setIsCourseCompleted(true);
+            }
           }
           
           // Fetch completed lessons from DB
@@ -329,6 +334,53 @@ export default function ModulePage() {
     setVideoProgress(progress);
   };
 
+  // Check if course is completed and update enrollment status
+  const checkAndUpdateCourseCompletion = async () => {
+    if (!currentUserId || !courseData) return false;
+    
+    try {
+      const modules = normalizeArray(courseData.modules);
+      let totalLessons = 0;
+      modules.forEach(module => {
+        totalLessons += normalizeArray(module.lessons).length;
+      });
+
+      // Get completed lessons count
+      const { data: lessonProgress } = await supabase
+        .from('lesson_progress')
+        .select('lesson_id')
+        .eq('user_id', currentUserId)
+        .eq('course_id', courseData.uid)
+        .eq('is_completed', true);
+
+      const completedLessons = lessonProgress?.length || 0;
+      const isCourseCompleted = totalLessons > 0 && completedLessons === totalLessons;
+
+      // Update enrollment status if course is completed
+      if (isCourseCompleted) {
+        const { error: enrollmentError } = await supabase
+          .from('enrollments')
+          .update({ 
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('user_id', currentUserId)
+          .eq('course_id', courseData.uid);
+
+        if (enrollmentError) {
+          console.error('Error updating enrollment status:', enrollmentError);
+        } else {
+          console.log('✅ Course completed! Enrollment status updated to completed.');
+        }
+      }
+
+      return isCourseCompleted;
+    } catch (error) {
+      console.error('Error checking course completion:', error);
+      return false;
+    }
+  };
+
   const markLessonAsCompleted = async (lessonUid: string) => {
     if (!currentUserId || !courseData) return;
     
@@ -380,6 +432,9 @@ export default function ModulePage() {
           return prev;
         });
         console.log('✅ Lesson marked as completed:', lessonUid);
+        
+        // Check if course is now completed and update enrollment status
+        await checkAndUpdateCourseCompletion();
       }
     } catch (error) {
       console.error('Error in markLessonAsCompleted:', error);
@@ -597,8 +652,8 @@ export default function ModulePage() {
               </p>
             </div>
 
-            {isLastLessonOfCourse ? (
-              // Last lesson of last module - Show "Complete Course"
+            {isLastLessonOfCourse && !isCourseCompleted ? (
+              // Last lesson of last module - Show "Complete Course" (only if not already completed)
               <button 
                 className={`${styles.navBtn} ${styles.navBtnComplete}`}
                 onClick={async () => {
@@ -610,6 +665,12 @@ export default function ModulePage() {
                 <Award size={20} />
                 <span>Complete Course</span>
               </button>
+            ) : isLastLessonOfCourse && isCourseCompleted ? (
+              // Course already completed - Show nothing or a message
+              <div className={styles.courseCompletedMessage}>
+                <Award size={20} />
+                <span>Course Completed!</span>
+              </div>
             ) : isLastLessonInModule && nextModuleFirstLesson ? (
               // Last lesson of module (but not last module) - Show "Move to Next Module"
               <Link

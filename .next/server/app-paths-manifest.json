@@ -1,5 +1,5 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/(main)/course/[slug]/page": "app/(main)/course/[slug]/page.js",
-  "/(main)/module/[id]/page": "app/(main)/module/[id]/page.js"
+  "/(main)/certificate/[courseId]/page": "app/(main)/certificate/[courseId]/page.js",
+  "/(main)/my-courses/page": "app/(main)/my-courses/page.js"
 }

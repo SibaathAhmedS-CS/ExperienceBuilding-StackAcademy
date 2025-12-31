@@ -188,6 +188,7 @@ export default function CoursePage() {
   const [courseData, setCourseData] = useState<CourseEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   
   // Fetch header data from Contentstack
@@ -235,6 +236,11 @@ export default function CoursePage() {
             
             if (enrollment) {
               setIsEnrolled(true);
+              
+              // Check if course is completed
+              if (enrollment.status === 'completed') {
+                setIsCompleted(true);
+              }
               
               // Fetch completed lesson IDs
               const { data: lessonProgress } = await supabase
@@ -478,6 +484,21 @@ export default function CoursePage() {
                     <Play size={20} />
                     Start Learning
                   </Link>
+                ) : isCompleted ? (
+                  // Course Completed State: Show Completed badge and Certificate button
+                  <>
+                    <div className={styles.completedBadge}>
+                      <Award size={20} />
+                      <span>Completed</span>
+                    </div>
+                    <Link 
+                      href={`/certificate/${courseData.uid}`}
+                      className={`${styles.startBtn} ${styles.certificateBtn}`}
+                    >
+                      <FileText size={20} />
+                      View Certificate
+                    </Link>
+                  </>
                 ) : isEnrolled ? (
                   // Enrolled State: Continue Learning
                   <Link 

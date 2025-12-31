@@ -191,7 +191,7 @@
   font-size: 0.9rem;
   font-weight: 600;
   border: none;
-  border-radius: 24px;
+  border-radius: 999px;
   text-decoration: none;
   transition: all 0.2s ease;
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
@@ -229,6 +229,42 @@
 .startBtn.continueLearningBtn:hover {
   background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
   box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5);
+}
+
+/* Completed Badge */
+.completedBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #d97706 100%);
+  color: white;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 14px rgba(251, 191, 36, 0.4);
+  pointer-events: none;
+  cursor: default;
+  width: auto;
+  max-width: none;
+}
+
+.completedBadge svg {
+  color: white;
+}
+
+/* Certificate Button */
+.startBtn.certificateBtn {
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  box-shadow: 0 4px 14px rgba(30, 58, 138, 0.4);
+}
+
+.startBtn.certificateBtn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
+  box-shadow: 0 6px 20px rgba(30, 58, 138, 0.5);
 }
 
 .breadcrumb {
@@ -817,15 +853,7 @@
   color: var(--success-600) !important;
 }
 
-.completedBadge {
-  padding: 3px 8px;
-  background: var(--success-100);
-  color: var(--success-700);
-  font-size: 0.7rem;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
-  text-transform: uppercase;
-}
+/* Removed duplicate completedBadge - using the one in heroActions section */
 
 .lessonTitle {
   flex: 1;

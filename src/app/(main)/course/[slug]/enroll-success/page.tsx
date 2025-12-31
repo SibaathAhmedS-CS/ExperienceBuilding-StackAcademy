@@ -36,23 +36,44 @@ export default function EnrollmentSuccessPage() {
           }
           
           if (course.uid) {
+            // Extract domain from course taxonomies
+            // Get the first taxonomy term_uid as the domain
+            const domain = course.taxonomies && course.taxonomies.length > 0 
+              ? course.taxonomies[0].term_uid 
+              : null;
+            
             // Create enrollment in Supabase enrollments table
             console.log('Attempting to create enrollment:', {
               user_id: user.id,
               course_id: course.uid,
-              status: 'enrolled'
+              status: 'enrolled',
+              course_domain: domain
             });
+            
+            // Prepare enrollment data with domain
+            const enrollmentData: {
+              user_id: string;
+              course_id: string;
+              status: string;
+              enrolled_at: string;
+              course_domain?: string | null;
+            } = {
+              user_id: user.id,
+              course_id: course.uid,
+              status: 'enrolled',
+              enrolled_at: new Date().toISOString()
+            };
+            
+            // Add domain if it exists
+            if (domain) {
+              enrollmentData.course_domain = domain;
+            }
             
             // Use upsert with proper conflict resolution
             const { data: enrollment, error } = await supabase
               .from('enrollments')
               .upsert(
-                {
-                  user_id: user.id,
-                  course_id: course.uid,
-                  status: 'enrolled',
-                  enrolled_at: new Date().toISOString(),
-                },
+                enrollmentData,
                 {
                   onConflict: 'user_id,course_id',
                   ignoreDuplicates: false
@@ -73,12 +94,7 @@ export default function EnrollmentSuccessPage() {
               console.log('Trying direct insert as fallback...');
               const { data: insertData, error: insertError } = await supabase
                 .from('enrollments')
-                .insert({
-                  user_id: user.id,
-                  course_id: course.uid,
-                  status: 'enrolled',
-                  enrolled_at: new Date().toISOString(),
-                })
+                .insert(enrollmentData)
                 .select();
               
               if (insertError) {
