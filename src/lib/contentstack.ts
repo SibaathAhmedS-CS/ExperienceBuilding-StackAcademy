@@ -12,7 +12,8 @@ import {
   CourseEntry,
   ModuleEntry,
   LessonEntry,
-  OnboardingBlockEntry
+  OnboardingBlockEntry,
+  AuthBrandingEntry
 } from '@/types/contentstack';
 
 // Contentstack SDK Configuration
@@ -57,6 +58,7 @@ export const CONTENT_TYPES = {
   CATEGORY_BLOCK: 'category_block',  // Singleton for referencing categories
   INSTRUCTOR: 'instructor',
   ONBOARDING: 'onboarding_block',  // Onboarding steps content type
+  AUTH_BRANDING: 'auth_branding',  // Auth branding content type for login/signup pages
 } as const;
 
 // ============================================
@@ -673,6 +675,58 @@ export async function getAllOnboardingSteps(): Promise<OnboardingBlockEntry[]> {
   console.warn('2. Entries are published');
   console.warn('3. API keys and environment are correct');
   return [];
+}
+
+// ============================================
+// Auth Branding Fetch Functions
+// ============================================
+
+/**
+ * Fetch Auth Branding entry by page type (login or signup)
+ * Matches Contentstack schema: page_type is "Sign In" or "Sign Up"
+ */
+export async function getAuthBranding(pageType: 'login' | 'signup'): Promise<AuthBrandingEntry | null> {
+  try {
+    // Convert lowercase to Contentstack format
+    const pageTypeValue = pageType === 'login' ? 'Sign In' : 'Sign Up';
+    
+    const query = Stack.ContentType(CONTENT_TYPES.AUTH_BRANDING)
+      .Query()
+      .where('page_type', pageTypeValue)
+      .includeReference(['stats']);  // stats is reference to icon content type
+
+    const result = await query.toJSON().find();
+    const entries = (result[0] || []) as any[];
+    
+    if (entries.length > 0) {
+      const entry = entries[0];
+      
+      // Log for debugging
+      console.log(`[CMS] Auth branding entry for ${pageType}:`, {
+        headline: entry.headline,
+        subtitle: entry.subtitle,
+        branding_content: entry.branding_content,
+        stats: entry.stats,
+        statsType: Array.isArray(entry.stats) ? 'array' : typeof entry.stats,
+      });
+      
+      return {
+        uid: entry.uid || entry._id || '',
+        title: entry.title || '',
+        page_type: entry.page_type || pageTypeValue,
+        headline: entry.headline,
+        subtitle: entry.subtitle,  // Field name is "subtitle" not "description"
+        branding_content: entry.branding_content,  // Rich text content
+        stats: entry.stats,  // Can be single IconEntry or array of IconEntry (should be expanded by includeReference)
+        background_image: entry.background_image,
+      } as AuthBrandingEntry;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`Error fetching auth branding for ${pageType}:`, error);
+    return null;
+  }
 }
 
 // Export the Stack for advanced usage

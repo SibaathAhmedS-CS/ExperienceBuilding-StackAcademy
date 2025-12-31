@@ -14,6 +14,14 @@ import {
 } from 'lucide-react';
 import styles from './VideoPlayer.module.css';
 
+// TypeScript declarations for YouTube IFrame API
+declare global {
+  interface Window {
+    YT: any;
+    onYouTubeIframeAPIReady: () => void;
+  }
+}
+
 interface VideoPlayerProps {
   src: string;
   poster?: string;
@@ -72,19 +80,49 @@ export default function VideoPlayer({
     const video = videoRef.current;
     if (!video) return;
 
+    let completionTriggered = false;
+
     const handleTimeUpdate = () => {
       setCurrentTime(video.currentTime);
       const progress = (video.currentTime / video.duration) * 100;
       onProgress?.(progress);
+      
+      // Check if user skipped to last second (within 2 seconds of end)
+      // Mark as complete if video is near the end
+      if (video.duration > 0 && !completionTriggered) {
+        const timeRemaining = video.duration - video.currentTime;
+        if (timeRemaining <= 2 && timeRemaining > 0) {
+          completionTriggered = true;
+          onComplete?.();
+        }
+      }
     };
 
     const handleLoadedMetadata = () => {
       setDuration(video.duration);
+      completionTriggered = false; // Reset when new video loads
     };
 
     const handleEnded = () => {
       setIsPlaying(false);
-      onComplete?.();
+      if (!completionTriggered) {
+        completionTriggered = true;
+        onComplete?.();
+      }
+    };
+
+    const handleSeeked = () => {
+      // Reset completion trigger when user seeks
+      // This allows re-triggering if user seeks back and forward again
+      if (video.duration > 0) {
+        const timeRemaining = video.duration - video.currentTime;
+        if (timeRemaining > 2) {
+          completionTriggered = false;
+        } else if (timeRemaining <= 2 && !completionTriggered) {
+          completionTriggered = true;
+          onComplete?.();
+        }
+      }
     };
 
     const handleWaiting = () => setIsBuffering(true);
@@ -93,6 +131,7 @@ export default function VideoPlayer({
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
     video.addEventListener('ended', handleEnded);
+    video.addEventListener('seeked', handleSeeked);
     video.addEventListener('waiting', handleWaiting);
     video.addEventListener('playing', handlePlaying);
 
@@ -100,6 +139,7 @@ export default function VideoPlayer({
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
       video.removeEventListener('ended', handleEnded);
+      video.removeEventListener('seeked', handleSeeked);
       video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('playing', handlePlaying);
     };
@@ -186,17 +226,120 @@ export default function VideoPlayer({
 
   const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
 
+  // YouTube IFrame API integration for completion tracking
+  useEffect(() => {
+    if (!isYouTube || !youtubeVideoId || !containerRef.current) return;
+
+    let player: any = null;
+    let progressInterval: NodeJS.Timeout | null = null;
+    let completionTriggered = false;
+
+    const initializePlayer = () => {
+      if (!containerRef.current) return;
+
+      const playerId = `youtube-player-${youtubeVideoId}`;
+      const playerDiv = containerRef.current.querySelector(`#${playerId}`) as HTMLElement;
+      
+      if (!playerDiv) {
+        console.warn('YouTube player div not found');
+        return;
+      }
+
+      try {
+        player = new (window as any).YT.Player(playerId, {
+          videoId: youtubeVideoId,
+          playerVars: {
+            rel: 0,
+            modestbranding: 1,
+            autoplay: 0,
+            controls: 1,
+            enablejsapi: 1,
+          },
+          events: {
+            onReady: () => {
+              // Monitor video progress
+              progressInterval = setInterval(() => {
+                if (!player) return;
+                
+                try {
+                  const currentTime = player.getCurrentTime();
+                  const duration = player.getDuration();
+                  
+                  if (duration > 0 && currentTime !== undefined) {
+                    const progress = (currentTime / duration) * 100;
+                    onProgress?.(progress);
+                    
+                    // Check if video is near the end (within 2 seconds) or at the end
+                    const timeRemaining = duration - currentTime;
+                    if (timeRemaining <= 2 && timeRemaining >= 0 && !completionTriggered) {
+                      completionTriggered = true;
+                      onComplete?.();
+                      if (progressInterval) {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                      }
+                    }
+                  }
+                } catch (error) {
+                  // YouTube API might throw errors, ignore them
+                }
+              }, 500); // Check every 500ms
+            },
+            onStateChange: (event: any) => {
+              // State 0 = ENDED
+              if (event.data === 0 && !completionTriggered) {
+                completionTriggered = true;
+                onComplete?.();
+                if (progressInterval) {
+                  clearInterval(progressInterval);
+                  progressInterval = null;
+                }
+              }
+            },
+          },
+        });
+      } catch (error) {
+        console.error('Error initializing YouTube player:', error);
+      }
+    };
+
+    // Load YouTube IFrame API script if not already loaded
+    if (window.YT && (window as any).YT.Player) {
+      initializePlayer();
+    } else {
+      // Load the script
+      const tag = document.createElement('script');
+      tag.src = 'https://www.youtube.com/iframe_api';
+      const firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+
+      // Set up callback
+      const originalCallback = (window as any).onYouTubeIframeAPIReady;
+      (window as any).onYouTubeIframeAPIReady = () => {
+        if (originalCallback) originalCallback();
+        initializePlayer();
+      };
+    }
+
+    return () => {
+      if (progressInterval) {
+        clearInterval(progressInterval);
+      }
+      if (player && typeof player.destroy === 'function') {
+        try {
+          player.destroy();
+        } catch (error) {
+          // Ignore destroy errors
+        }
+      }
+    };
+  }, [isYouTube, youtubeVideoId, onProgress, onComplete]);
+
   // YouTube embed player
   if (isYouTube && youtubeVideoId) {
     return (
       <div ref={containerRef} className={styles.player}>
-        <iframe
-          className={styles.youtubeEmbed}
-          src={`https://www.youtube.com/embed/${youtubeVideoId}?rel=0&modestbranding=1&autoplay=0`}
-          title={title || 'Video'}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        />
+        <div id={`youtube-player-${youtubeVideoId}`} style={{ width: '100%', height: '100%' }} />
       </div>
     );
   }

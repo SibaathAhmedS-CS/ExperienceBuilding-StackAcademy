@@ -29,6 +29,7 @@ import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
+import { createClient } from '@/utils/supabase/client';
 import styles from './page.module.css';
 
 // Mock user data
@@ -177,13 +178,18 @@ export default function CoursePage() {
   const params = useParams();
   const router = useRouter();
   const slug = params.slug as string;
+  const supabase = createClient();
   
   const [user, setUser] = useState<typeof mockUser | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<TabType>('about');
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [courseData, setCourseData] = useState<CourseEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
@@ -201,7 +207,7 @@ export default function CoursePage() {
     { id: 'reviews' as TabType, label: 'Reviews', ref: reviewsRef },
   ];
 
-  // Fetch course data from CMS
+  // Fetch course data from CMS and check enrollment
   useEffect(() => {
     async function fetchCourse() {
       setIsLoading(true);
@@ -214,6 +220,41 @@ export default function CoursePage() {
           if (modules.length > 0) {
             setExpandedModules([modules[0].uid]);
           }
+          
+          // Check enrollment status from Supabase
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          setCurrentUser(authUser);
+          
+          if (authUser && course.uid) {
+            // Check enrollment
+            const { data: enrollment } = await supabase
+              .from('enrollments')
+              .select('id, status')
+              .eq('user_id', authUser.id)
+              .eq('course_id', course.uid)
+              .maybeSingle();
+            
+            if (enrollment) {
+              setIsEnrolled(true);
+              
+              // Check if course is completed
+              if (enrollment.status === 'completed') {
+                setIsCompleted(true);
+              }
+              
+              // Fetch completed lesson IDs
+              const { data: lessonProgress } = await supabase
+                .from('lesson_progress')
+                .select('lesson_id')
+                .eq('user_id', authUser.id)
+                .eq('course_id', course.uid)
+                .eq('is_completed', true);
+              
+              if (lessonProgress) {
+                setCompletedLessonIds(lessonProgress.map(lp => lp.lesson_id));
+              }
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching course:', error);
@@ -225,7 +266,7 @@ export default function CoursePage() {
     if (slug) {
       fetchCourse();
     }
-  }, [slug]);
+  }, [slug, supabase]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
@@ -271,20 +312,56 @@ export default function CoursePage() {
   // Get requirements
   const requirements = extractRequirements(courseData?.requirements || '');
   
-  // Get first preview lesson for "Start Learning" button
-  let firstPreviewLesson: LessonEntry | null = null;
-  for (const mod of modules) {
-    const lessons = normalizeArray(mod.lessons);
-    const previewLesson = lessons.find(l => l.is_preview);
-    if (previewLesson) {
-      firstPreviewLesson = previewLesson;
-      break;
+  // Helper: Check if a module is unlocked (first module or previous module is 100% complete)
+  const isModuleUnlocked = (moduleIndex: number): boolean => {
+    if (!isEnrolled || !currentUser) return false;
+    if (moduleIndex === 0) return true; // First module is always unlocked
+    
+    // Check if previous module is 100% complete
+    const previousModule = modules[moduleIndex - 1];
+    if (!previousModule) return false;
+    
+    const previousModuleLessons = normalizeArray(previousModule.lessons);
+    const previousModuleCompletedCount = previousModuleLessons.filter(
+      l => completedLessonIds.includes(l.uid)
+    ).length;
+    
+    return previousModuleCompletedCount === previousModuleLessons.length;
+  };
+
+  // Helper: Check if a lesson is accessible
+  const isLessonAccessible = (lesson: LessonEntry, moduleIndex: number): boolean => {
+    // Preview lessons are always accessible
+    if (lesson.is_preview) return true;
+    
+    // If not enrolled, only preview lessons are accessible
+    if (!isEnrolled || !currentUser) return false;
+    
+    // Check if the module is unlocked
+    return isModuleUnlocked(moduleIndex);
+  };
+
+  // Get first available lesson based on enrollment status
+  const getFirstAvailableLesson = (): LessonEntry | null => {
+    for (let i = 0; i < modules.length; i++) {
+      const mod = modules[i];
+      const lessons = normalizeArray(mod.lessons);
+      
+      // Preview lessons are always available
+      const previewLesson = lessons.find(l => l.is_preview);
+      if (previewLesson) {
+        return previewLesson;
+      }
+      
+      // If enrolled and module is unlocked, return first lesson
+      if (isEnrolled && isModuleUnlocked(i) && lessons.length > 0) {
+        return lessons[0];
+      }
     }
-  }
-  if (!firstPreviewLesson && modules.length > 0) {
-    const firstModuleLessons = normalizeArray(modules[0].lessons);
-    firstPreviewLesson = firstModuleLessons[0] || null;
-  }
+    return null;
+  };
+
+  const firstAvailableLesson = getFirstAvailableLesson();
 
   // Format last updated date
   const lastUpdated = courseData?.updated_at 
@@ -355,18 +432,18 @@ export default function CoursePage() {
           </div>
 
           <div className={styles.heroContent}>
-            <div className={styles.heroText}>
-              {/* Breadcrumb Navigation */}
-              <nav className={styles.breadcrumb}>
-                <Link href="/home">
-                  <Home size={16} />
-                </Link>
-                <ChevronRight size={14} className={styles.breadcrumbSeparator} />
-                <Link href="/courses">Courses</Link>
-                <ChevronRight size={14} className={styles.breadcrumbSeparator} />
-                <span className={styles.breadcrumbCurrent}>{courseData.title}</span>
-              </nav>
+            {/* Breadcrumb Navigation - Top Left */}
+            <nav className={styles.breadcrumb}>
+              <Link href="/home">
+                <Home size={16} />
+              </Link>
+              <ChevronRight size={14} className={styles.breadcrumbSeparator} />
+              <Link href="/courses">Courses</Link>
+              <ChevronRight size={14} className={styles.breadcrumbSeparator} />
+              <span className={styles.breadcrumbCurrent}>{courseData.title}</span>
+            </nav>
 
+            <div className={styles.heroText}>
               <div className={styles.levelBadge}>
                 <span className={styles.badge}>{courseData.difficulty_level?.toLowerCase() || 'intermediate'}</span>
                 <span className={styles.lastUpdated}>Updated {lastUpdated}</span>
@@ -401,10 +478,46 @@ export default function CoursePage() {
 
               {/* Hero Actions */}
               <div className={styles.heroActions}>
-                <Link href={firstPreviewLesson ? `/module/${firstPreviewLesson.uid}` : '#'} className={styles.startBtn}>
-                  <Play size={20} />
-                  Start Learning
-                </Link>
+                {!currentUser ? (
+                  // Guest State: Not logged in
+                  <Link href="/login" className={`${styles.startBtn} ${styles.startLearningBtn}`}>
+                    <Play size={20} />
+                    Start Learning
+                  </Link>
+                ) : isCompleted ? (
+                  // Course Completed State: Show Completed badge and Certificate button
+                  <>
+                    <div className={styles.completedBadge}>
+                      <Award size={20} />
+                      <span>Completed</span>
+                    </div>
+                    <Link 
+                      href={`/certificate/${courseData.uid}`}
+                      className={`${styles.startBtn} ${styles.certificateBtn}`}
+                    >
+                      <FileText size={20} />
+                      View Certificate
+                    </Link>
+                  </>
+                ) : isEnrolled ? (
+                  // Enrolled State: Continue Learning
+                  <Link 
+                    href={firstAvailableLesson ? `/module/${firstAvailableLesson.uid}` : `/learn/${courseData.uid}`} 
+                    className={`${styles.startBtn} ${styles.continueLearningBtn}`}
+                  >
+                    <Play size={20} />
+                    Continue Learning
+                  </Link>
+                ) : (
+                  // Logged in but not enrolled: Enroll Now
+                  <button 
+                    onClick={() => router.push(`/course/${slug}/enroll-success`)}
+                    className={`${styles.startBtn} ${styles.enrollBtn}`}
+                  >
+                    <Play size={20} />
+                    Enroll Now
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -486,43 +599,75 @@ export default function CoursePage() {
                 </p>
 
                 <div className={styles.modulesList}>
-                  {modules.map((module) => {
+                  {modules.map((module, moduleIndex) => {
                     const moduleLessons = normalizeArray(module.lessons);
+                    const moduleCompletedCount = moduleLessons.filter(
+                      l => completedLessonIds.includes(l.uid)
+                    ).length;
+                    const isUnlocked = isModuleUnlocked(moduleIndex);
+                    const isModuleLocked = isEnrolled && currentUser && !isUnlocked;
+                    
                     return (
                       <div 
                         key={module.uid} 
-                        className={`${styles.moduleItem} ${expandedModules.includes(module.uid) ? styles.expanded : ''}`}
+                        className={`${styles.moduleItem} ${expandedModules.includes(module.uid) ? styles.expanded : ''} ${isModuleLocked ? styles.moduleLocked : ''}`}
                       >
                         <button
                           className={styles.moduleHeader}
-                          onClick={() => toggleModule(module.uid)}
+                          onClick={() => !isModuleLocked && toggleModule(module.uid)}
+                          disabled={isModuleLocked}
                         >
                           <ChevronDown size={20} className={styles.moduleChevron} />
                           <div className={styles.moduleInfo}>
-                            <h4>{module.title}</h4>
-                            <span>{moduleLessons.length} lessons • {module.duration || '1h 30min'}</span>
+                            <h4>
+                              {isModuleLocked && <Lock size={16} className={styles.moduleLockIcon} />}
+                              {module.title}
+                            </h4>
+                            <span>
+                              {moduleLessons.length} lessons • {module.duration || '1h 30min'}
+                              {isEnrolled && currentUser && (
+                                <span className={styles.moduleProgress}>
+                                  {' '}• {moduleCompletedCount}/{moduleLessons.length} completed
+                                </span>
+                              )}
+                            </span>
                           </div>
                         </button>
 
                         <div className={styles.lessonsList}>
-                          {moduleLessons.map((lesson) => (
-                            <Link
-                              key={lesson.uid}
-                              href={lesson.is_preview ? `/module/${lesson.uid}` : '#'}
-                              className={`${styles.lessonItem} ${!lesson.is_preview ? styles.locked : ''}`}
-                            >
-                              {lesson.is_preview ? (
-                                <Play size={16} />
-                              ) : (
-                                <Lock size={16} />
-                              )}
-                              <span className={styles.lessonTitle}>{lesson.title}</span>
-                              <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
-                              {lesson.is_preview && (
-                                <span className={styles.previewBadge}>Preview</span>
-                              )}
-                            </Link>
-                          ))}
+                          {moduleLessons.map((lesson) => {
+                            const isCompleted = completedLessonIds.includes(lesson.uid);
+                            const isAccessible = isLessonAccessible(lesson, moduleIndex);
+                            
+                            return (
+                              <Link
+                                key={lesson.uid}
+                                href={isAccessible ? `/module/${lesson.uid}` : '#'}
+                                className={`${styles.lessonItem} ${!isAccessible ? styles.locked : ''} ${isCompleted ? styles.completed : ''}`}
+                                onClick={(e) => {
+                                  if (!isAccessible) {
+                                    e.preventDefault();
+                                  }
+                                }}
+                              >
+                                {isCompleted ? (
+                                  <CheckCircle size={16} className={styles.completedIcon} />
+                                ) : isAccessible ? (
+                                  <Play size={16} />
+                                ) : (
+                                  <Lock size={16} />
+                                )}
+                                <span className={styles.lessonTitle}>{lesson.title}</span>
+                                <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
+                                {lesson.is_preview && isAccessible && (
+                                  <span className={styles.previewBadge}>Preview</span>
+                                )}
+                                {isCompleted && (
+                                  <span className={styles.completedBadge}>Completed</span>
+                                )}
+                              </Link>
+                            );
+                          })}
                         </div>
                       </div>
                     );

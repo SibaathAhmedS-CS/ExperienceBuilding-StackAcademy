@@ -1,18 +1,11 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-
-  if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.redirect(new URL('/login?error=configuration', requestUrl.origin));
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  const supabase = createClient();
 
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
@@ -37,17 +30,25 @@ export async function GET(request: Request) {
         return NextResponse.redirect(new URL('/login?error=profile_not_found', requestUrl.origin));
       }
 
-      // Check if user has preferences
+      // Update last_login_at timestamp in profiles table
+      await supabase
+        .from('profiles')
+        .update({ last_login_at: new Date().toISOString() })
+        .eq('id', data.session.user.id);
+
+      // Check if user has preferences (any row means user has been to onboarding)
       const { data: prefs } = await supabase
         .from('user_preferences')
-        .select('completed_at')
+        .select('id')
         .eq('user_id', data.session.user.id)
         .single();
 
-      if (prefs && prefs.completed_at) {
+      // If preferences exist (regardless of completed_at), redirect to home
+      if (prefs) {
         return NextResponse.redirect(new URL('/home', requestUrl.origin));
       }
 
+      // If preferences don't exist, redirect to onboarding
       return NextResponse.redirect(new URL('/onboarding', requestUrl.origin));
     }
   }

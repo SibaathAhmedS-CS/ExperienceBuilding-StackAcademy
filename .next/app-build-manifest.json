@@ -1,10 +1,15 @@
 {
   "pages": {
-    "/page": [
+    "/(main)/certificate/[courseId]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_home_page_module_css-src_app_page_module_css-src_components_Carousel_Carouse-1e66fb.css",
-      "static/chunks/app/page.js"
+      "static/css/css-src_app_main_certificate_courseId_page_module_css.css",
+      "static/chunks/app/(main)/certificate/[courseId]/page.js"
+    ],
+    "/(main)/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/layout.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -12,33 +17,16 @@
       "static/css/css-src_app_globals_css.css",
       "static/chunks/app/layout.js"
     ],
-    "/(auth)/login/page": [
+    "/(main)/my-courses/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_auth_auth_module_css.css",
-      "static/chunks/app/(auth)/login/page.js"
+      "static/css/css-src_app_main_my-courses_page_module_css-src_components_CourseCard_CourseCard_module_css-s-aaae0c.css",
+      "static/chunks/app/(main)/my-courses/page.js"
     ],
-    "/(auth)/layout": [
+    "/_not-found/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(auth)/layout.js"
-    ],
-    "/(auth)/onboarding/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_auth_onboarding_onboarding_module_css.css",
-      "static/chunks/app/(auth)/onboarding/page.js"
-    ],
-    "/(main)/home/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_main_home_page_module_css-src_app_page_module_css-src_components_Carousel_Carouse-1e66fb.css",
-      "static/chunks/app/(main)/home/page.js"
-    ],
-    "/(main)/layout": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(main)/layout.js"
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }

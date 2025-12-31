@@ -50,6 +50,36 @@
   margin-bottom: 48px;
 }
 
+.brandingContent {
+  margin-top: 16px;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.brandingContent :global(p) {
+  margin-bottom: 12px;
+}
+
+.brandingContent :global(ul),
+.brandingContent :global(ol) {
+  margin-left: 20px;
+  margin-bottom: 12px;
+}
+
+.brandingContent :global(li) {
+  margin-bottom: 8px;
+}
+
+.brandingContent :global(strong) {
+  font-weight: 600;
+}
+
+.brandingContent :global(em) {
+  font-style: italic;
+}
+
 .brandMessage h1 {
   font-size: 3rem;
   font-weight: 800;
@@ -87,20 +117,63 @@
 
 .features {
   display: flex;
-  flex-direction: column;
-  gap: 16px;
+  flex-direction: row;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 24px;
 }
 
 .featureItem {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 12px;
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.95);
+  gap: 6px;
+  padding: 12px 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-md);
+  min-width: 100px;
+  max-width: 130px;
+  flex: 1;
+  transition: all 0.3s ease;
 }
 
-.featureItem svg {
-  color: rgba(255, 255, 255, 0.8);
+.featureItem:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.featureIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-md);
+  color: white;
+  flex-shrink: 0;
+}
+
+.featureIcon svg {
+  color: white;
+}
+
+.featureTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.featureDescription {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.75);
+  text-align: center;
+  line-height: 1.3;
 }
 
 /* Decorative Elements */

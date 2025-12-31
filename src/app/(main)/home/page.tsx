@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '@/utils/supabase/client';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Carousel from '@/components/Carousel';
@@ -296,15 +298,44 @@ export default function HomePage() {
   const hasCMSCategories = homeData && (homeData.categories.length > 0 || homeData.legacyCategories.length > 0);
   const cardBlocks = homeData?.cardBlocks || [];
 
+  const router = useRouter();
+  const supabase = createClient();
+
   useEffect(() => {
-    // Check for user session
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      setUser(mockUser); // Use mock for demo
-    }
-  }, []);
+    // Check for Supabase user session
+    const checkUser = async () => {
+      try {
+        const { data: { user: authUser }, error } = await supabase.auth.getUser();
+        
+        if (error || !authUser) {
+          // No authenticated user - redirect to login
+          router.push('/login');
+          return;
+        }
+
+        // Get user profile from Supabase
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        // Set user data for header
+        setUser({
+          name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
+          email: authUser.email || '',
+          avatar: profile?.avatar_url || undefined,
+          coursesCompleted: 0, // TODO: Get from database
+          coursesInProgress: 0, // TODO: Get from database
+        });
+      } catch (error) {
+        console.error('Error checking user:', error);
+        router.push('/login');
+      }
+    };
+
+    checkUser();
+  }, [supabase, router]);
 
   // Use CMS courses for filtering by category
   const allDisplayCourses = cmsTopCourses.length > 0 ? transformedCourses : [...topCourses, ...recommendedCourses];
