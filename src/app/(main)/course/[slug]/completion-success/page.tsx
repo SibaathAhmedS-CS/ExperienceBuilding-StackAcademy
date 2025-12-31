@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Award, Sparkles, Trophy, Star, FileText } from 'lucide-react';
 import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, normalizeArray } from '@/types/contentstack';
+import { createClient } from '@/utils/supabase/client';
 import styles from './page.module.css';
 
 export default function CompletionSuccessPage() {
@@ -15,6 +16,9 @@ export default function CompletionSuccessPage() {
   const [courseData, setCourseData] = useState<CourseEntry | null>(null);
   const [animationStage, setAnimationStage] = useState<'loading' | 'success' | 'redirecting'>('loading');
   const [confettiActive, setConfettiActive] = useState(false);
+  const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+  
+  const supabase = createClient();
 
   useEffect(() => {
     async function fetchCourse() {
@@ -22,6 +26,21 @@ export default function CompletionSuccessPage() {
         const course = await getCourseBySlug(slug);
         if (course) {
           setCourseData(course);
+          
+          // Fetch enrollment ID for certificate link
+          const { data: { user } } = await supabase.auth.getUser();
+          if (user && course.uid) {
+            const { data: enrollment } = await supabase
+              .from('enrollments')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('course_id', course.uid)
+              .maybeSingle();
+            
+            if (enrollment) {
+              setEnrollmentId(enrollment.id);
+            }
+          }
         }
       } catch (error) {
         console.error('Error fetching course:', error);
@@ -31,7 +50,7 @@ export default function CompletionSuccessPage() {
     if (slug) {
       fetchCourse();
     }
-  }, [slug]);
+  }, [slug, supabase]);
 
   useEffect(() => {
     // Stage 1: Loading animation (1.5 seconds)
@@ -51,17 +70,20 @@ export default function CompletionSuccessPage() {
         
         // Redirect to certificate page after 1 second
         setTimeout(() => {
-          if (courseData?.uid) {
-            router.push(`/certificate/${courseData.uid}`);
-          } else {
+          if (enrollmentId) {
+            router.push(`/certificate/${enrollmentId}`);
+          } else if (courseData?.uid) {
+            // Fallback: try to redirect to course page if enrollment not found
             router.push(`/course/${slug}`);
+          } else {
+            router.push('/courses');
           }
         }, 1000);
       }, 3000);
 
       return () => clearTimeout(successTimer);
     }
-  }, [animationStage, courseData, router, slug]);
+  }, [animationStage, enrollmentId, courseData, router, slug]);
 
   // Generate confetti particles
   const confettiParticles = Array.from({ length: 60 }, (_, i) => ({

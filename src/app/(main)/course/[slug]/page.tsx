@@ -190,6 +190,7 @@ export default function CoursePage() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
+  const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
@@ -236,6 +237,7 @@ export default function CoursePage() {
             
             if (enrollment) {
               setIsEnrolled(true);
+              setEnrollmentId(enrollment.id);
               
               // Check if course is completed
               if (enrollment.status === 'completed') {
@@ -492,7 +494,7 @@ export default function CoursePage() {
                       <span>Completed</span>
                     </div>
                     <Link 
-                      href={`/certificate/${courseData.uid}`}
+                      href={enrollmentId ? `/certificate/${enrollmentId}` : `/courses`}
                       className={`${styles.startBtn} ${styles.certificateBtn}`}
                     >
                       <FileText size={20} />

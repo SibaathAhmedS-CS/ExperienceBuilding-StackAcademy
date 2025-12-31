@@ -25,6 +25,7 @@ import VideoPlayer from '@/components/VideoPlayer';
 import { useHeader } from '@/hooks/useHeader';
 import { getCourseByLessonUid, getLessonByUid } from '@/lib/contentstack';
 import { createClient } from '@/utils/supabase/client';
+import { sendCourseCompletionWebhook } from '@/utils/webhook';
 import { 
   CourseEntry, 
   ModuleEntry, 
@@ -232,24 +233,35 @@ export default function ModulePage() {
   const currentModuleIndex = currentLessonInfo?.moduleIndex || 0;
   const currentLessonIndex = currentLessonInfo?.lessonIndex || 0;
   
-  // Get prev/next lessons (only accessible ones)
-  const getAccessiblePrevNext = () => {
+  // Get prev/next lessons
+  // For navigation buttons, we show next lesson even if not yet accessible
+  // (user can mark current lesson complete and then access it)
+  const getPrevNext = () => {
     let prev: typeof allLessons[0] | null = null;
     let next: typeof allLessons[0] | null = null;
     
-    // Find previous accessible lesson
+    // Find previous lesson (prefer accessible ones, but show any if enrolled)
     for (let i = currentIndex - 1; i >= 0; i--) {
       const lessonInfo = allLessons[i];
-      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex)) {
+      // Show previous lesson if accessible, or if enrolled (for same module)
+      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex) || 
+          (isEnrolled && lessonInfo.moduleIndex === currentModuleIndex)) {
         prev = lessonInfo;
         break;
       }
     }
     
-    // Find next accessible lesson
+    // Find next lesson (show next lesson in sequence if enrolled, even if not accessible yet)
+    // This allows users to see navigation buttons for text-based lessons
     for (let i = currentIndex + 1; i < allLessons.length; i++) {
       const lessonInfo = allLessons[i];
-      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex)) {
+      // Show next lesson if:
+      // 1. It's accessible, OR
+      // 2. User is enrolled and it's in the same module (sequential access), OR
+      // 3. User is enrolled and it's in the next module (will be accessible after completing current module)
+      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex) ||
+          (isEnrolled && (lessonInfo.moduleIndex === currentModuleIndex || 
+                          lessonInfo.moduleIndex === currentModuleIndex + 1))) {
         next = lessonInfo;
         break;
       }
@@ -258,7 +270,7 @@ export default function ModulePage() {
     return { prev, next };
   };
 
-  const { prev: prevLessonInfo, next: nextLessonInfo } = getAccessiblePrevNext();
+  const { prev: prevLessonInfo, next: nextLessonInfo } = getPrevNext();
 
   // Check if current lesson is the last lesson of its module
   const currentModule = modules[currentModuleIndex];
@@ -283,7 +295,8 @@ export default function ModulePage() {
   // 3. Course is not already completed
   const canCompleteCourse = isLastLessonOfCourse && allOtherLessonsCompleted && !isCourseCompleted;
   
-  // Get next module's first lesson (if exists and is accessible)
+  // Get next module's first lesson (if exists)
+  // Show it if accessible, or if enrolled (user can complete current module to unlock it)
   const getNextModuleFirstLesson = (): typeof allLessons[0] | null => {
     if (isLastModule) return null;
     
@@ -297,7 +310,8 @@ export default function ModulePage() {
       const firstLesson = nextModuleLessons[0];
       const firstLessonInfo = allLessons.find(l => l.uid === firstLesson.uid);
       
-      if (firstLessonInfo && isLessonAccessible(firstLessonInfo.lesson, nextModuleIndex)) {
+      // Show next module's first lesson if accessible, or if enrolled (sequential access)
+      if (firstLessonInfo && (isLessonAccessible(firstLessonInfo.lesson, nextModuleIndex) || isEnrolled)) {
         return firstLessonInfo;
       }
     }
@@ -373,6 +387,14 @@ export default function ModulePage() {
 
       // Only update enrollment status if course is completed AND it wasn't already completed
       if (isCourseCompletedNow && !wasAlreadyCompleted) {
+        // First, get the enrollment ID before updating
+        const { data: enrollmentData } = await supabase
+          .from('enrollments')
+          .select('id')
+          .eq('user_id', currentUserId)
+          .eq('course_id', courseData.uid)
+          .maybeSingle();
+
         const { error: enrollmentError } = await supabase
           .from('enrollments')
           .update({ 
@@ -388,6 +410,43 @@ export default function ModulePage() {
         } else {
           console.log('✅ Course completed! Enrollment status updated to completed.');
           setIsCourseCompleted(true);
+          
+          // Send webhook notification to Contentstack Automate
+          try {
+            // Fetch user profile data (email and name)
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', user.id)
+                .maybeSingle();
+
+              const userName = profile?.full_name || user.email?.split('@')[0] || 'Student';
+              const userEmail = user.email || '';
+              
+              // Generate certificate URL using enrollment ID
+              const enrollmentId = enrollmentData?.id;
+              if (enrollmentId) {
+                const certificateUrl = `${window.location.origin}/certificate/${enrollmentId}`;
+                
+                // Send webhook asynchronously (don't block redirect)
+                sendCourseCompletionWebhook({
+                  email: userEmail,
+                  name: userName,
+                  courseName: courseData.title,
+                  certificateUrl: certificateUrl,
+                }).catch(error => {
+                  console.error('Failed to send webhook (non-blocking):', error);
+                });
+              } else {
+                console.warn('⚠️ Enrollment ID not found, skipping webhook');
+              }
+            }
+          } catch (webhookError) {
+            // Don't block the completion flow if webhook fails
+            console.error('Error preparing webhook data:', webhookError);
+          }
           
           // Redirect to completion success page if redirect is requested
           if (shouldRedirect && courseData.slug) {

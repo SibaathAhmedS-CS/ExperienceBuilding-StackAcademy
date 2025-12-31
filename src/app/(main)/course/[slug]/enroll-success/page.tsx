@@ -6,6 +6,7 @@ import { CheckCircle, Sparkles, BookOpen, Play, Star } from 'lucide-react';
 import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, normalizeArray, LessonEntry } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
+import { sendCourseEnrollmentWebhook } from '@/utils/webhook';
 import styles from './page.module.css';
 
 export default function EnrollmentSuccessPage() {
@@ -107,9 +108,75 @@ export default function EnrollmentSuccessPage() {
                 }
               } else {
                 console.log('✅ Enrollment created via direct insert:', insertData);
+                
+                // Send enrollment webhook notification to Contentstack Automate
+                try {
+                  // Fetch user profile data (name and email)
+                  const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('full_name')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                  const userName = profile?.full_name || user.email?.split('@')[0] || 'Student';
+                  const userEmail = user.email || '';
+                  
+                  // Get course description (about course)
+                  const aboutCourse = course.about_the_course || course.short_text || '';
+                  
+                  // Generate course detail page link
+                  const courseDetailPageLink = `${window.location.origin}/course/${course.slug}`;
+                  
+                  // Send webhook asynchronously (don't block page load)
+                  sendCourseEnrollmentWebhook({
+                    userName: userName,
+                    userEmail: userEmail,
+                    aboutCourse: aboutCourse,
+                    courseTitle: course.title,
+                    courseDetailPageLink: courseDetailPageLink,
+                  }).catch(error => {
+                    console.error('Failed to send enrollment webhook (non-blocking):', error);
+                  });
+                } catch (webhookError) {
+                  // Don't block the enrollment flow if webhook fails
+                  console.error('Error preparing enrollment webhook data:', webhookError);
+                }
               }
             } else {
               console.log('✅ Enrollment created/updated successfully:', enrollment);
+              
+              // Send enrollment webhook notification to Contentstack Automate
+              try {
+                // Fetch user profile data (name and email)
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('full_name')
+                  .eq('id', user.id)
+                  .maybeSingle();
+
+                const userName = profile?.full_name || user.email?.split('@')[0] || 'Student';
+                const userEmail = user.email || '';
+                
+                // Get course description (about course)
+                const aboutCourse = course.about_the_course || course.short_text || '';
+                
+                // Generate course detail page link
+                const courseDetailPageLink = `${window.location.origin}/course/${course.slug}`;
+                
+                // Send webhook asynchronously (don't block page load)
+                sendCourseEnrollmentWebhook({
+                  userName: userName,
+                  userEmail: userEmail,
+                  aboutCourse: aboutCourse,
+                  courseTitle: course.title,
+                  courseDetailPageLink: courseDetailPageLink,
+                }).catch(error => {
+                  console.error('Failed to send enrollment webhook (non-blocking):', error);
+                });
+              } catch (webhookError) {
+                // Don't block the enrollment flow if webhook fails
+                console.error('Error preparing enrollment webhook data:', webhookError);
+              }
             }
           }
         }
