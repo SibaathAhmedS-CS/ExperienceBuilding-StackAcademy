@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { PageEntry } from '@/types/contentstack';
 import { getPage, getPageByUrl } from '@/lib/contentstack';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * Custom hook to fetch page data from Contentstack by title
@@ -12,12 +13,13 @@ export function usePage(title: string) {
   const [pageData, setPageData] = useState<PageEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const { selectedLanguage } = useLanguage();
 
   useEffect(() => {
     async function fetchPage() {
       try {
         setIsLoading(true);
-        const data = await getPage(title);
+        const data = await getPage(title, selectedLanguage);
         setPageData(data);
         
         if (data) {
@@ -37,7 +39,7 @@ export function usePage(title: string) {
     if (title) {
       fetchPage();
     }
-  }, [title]);
+  }, [title, selectedLanguage]);
 
   return { pageData, isLoading, error };
 }
@@ -49,12 +51,13 @@ export function usePageByUrl(url: string) {
   const [pageData, setPageData] = useState<PageEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const { selectedLanguage } = useLanguage();
 
   useEffect(() => {
     async function fetchPage() {
       try {
         setIsLoading(true);
-        const data = await getPageByUrl(url);
+        const data = await getPageByUrl(url, selectedLanguage);
         setPageData(data);
       } catch (err) {
         console.error('Error fetching page by URL:', err);
@@ -67,7 +70,7 @@ export function usePageByUrl(url: string) {
     if (url) {
       fetchPage();
     }
-  }, [url]);
+  }, [url, selectedLanguage]);
 
   return { pageData, isLoading, error };
 }

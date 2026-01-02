@@ -26,6 +26,7 @@ import { useHeader } from '@/hooks/useHeader';
 import { getCourseByLessonUid, getLessonByUid } from '@/lib/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { sendCourseCompletionWebhook } from '@/utils/webhook';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { 
   CourseEntry, 
   ModuleEntry, 
@@ -70,7 +71,7 @@ interface ProcessedLesson {
   is_preview: boolean;
   videoUrl: string;
   content: string;
-  resources: { title: string; type: string; size: string; url?: string; isLink?: boolean }[];
+  resources: { title: string; type: string; url?: string; isLink?: boolean }[];
 }
 
 export default function ModulePage() {
@@ -94,6 +95,9 @@ export default function ModulePage() {
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
+  
+  // Language context for localized content
+  const { selectedLanguage } = useLanguage();
 
   // Fetch course and lesson data from CMS, and lesson progress from DB
   useEffect(() => {
@@ -106,12 +110,12 @@ export default function ModulePage() {
           setCurrentUserId(authUser.id);
         }
         
-        // Fetch the lesson directly
-        const lesson = await getLessonByUid(lessonId);
+        // Fetch the lesson directly with locale
+        const lesson = await getLessonByUid(lessonId, selectedLanguage);
         setCurrentLessonData(lesson);
         
-        // Fetch the course that contains this lesson
-        const course = await getCourseByLessonUid(lessonId);
+        // Fetch the course that contains this lesson with locale
+        const course = await getCourseByLessonUid(lessonId, selectedLanguage);
         setCourseData(course);
         
         // Check enrollment status
@@ -153,7 +157,7 @@ export default function ModulePage() {
     if (lessonId) {
       fetchData();
     }
-  }, [lessonId, supabase]);
+  }, [lessonId, supabase, selectedLanguage]);
 
   // Refresh completed lessons when a lesson is marked as complete
   useEffect(() => {
@@ -340,7 +344,6 @@ export default function ModulePage() {
         return {
           title: res.file_resource.resource_label || 'Resource',
           type: getFileType(res.file_resource.resource_file?.content_type),
-          size: formatFileSize(res.file_resource.resource_file?.file_size as unknown as number),
           url: res.file_resource.resource_file?.url,
           isLink: false
         };
@@ -348,7 +351,6 @@ export default function ModulePage() {
         return {
           title: res.link_resource.resource_label || res.link_resource.resource_link?.title || 'Link',
           type: 'link',
-          size: '',
           url: res.link_resource.resource_link?.href,
           isLink: true
         };
@@ -838,7 +840,6 @@ export default function ModulePage() {
                           <h4>{resource.title}</h4>
                           <span>
                             {resource.type.toUpperCase()}
-                            {resource.size && ` • ${resource.size}`}
                           </span>
                         </div>
                         {resource.isLink ? (

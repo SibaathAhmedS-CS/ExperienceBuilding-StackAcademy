@@ -29,6 +29,7 @@ import { useHeader } from '@/hooks/useHeader';
 import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
+import { useLanguage } from '@/contexts/LanguageContext';
 import styles from './page.module.css';
 
 // Mock user data
@@ -193,6 +194,9 @@ export default function CoursePage() {
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
+  
+  // Get selected language for locale-aware content fetching
+  const { selectedLanguage } = useLanguage();
 
   // Refs for scroll navigation
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -212,7 +216,8 @@ export default function CoursePage() {
     async function fetchCourse() {
       setIsLoading(true);
       try {
-        const course = await getCourseBySlug(slug);
+        // Pass selectedLanguage to fetch localized content
+        const course = await getCourseBySlug(slug, selectedLanguage);
         if (course) {
           setCourseData(course);
           // Expand first module by default
@@ -267,7 +272,7 @@ export default function CoursePage() {
     if (slug) {
       fetchCourse();
     }
-  }, [slug, supabase]);
+  }, [slug, supabase, selectedLanguage]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');

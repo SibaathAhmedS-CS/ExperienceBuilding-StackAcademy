@@ -13,7 +13,8 @@ import {
   ModuleEntry,
   LessonEntry,
   OnboardingBlockEntry,
-  AuthBrandingEntry
+  AuthBrandingEntry,
+  AuthorEntry
 } from '@/types/contentstack';
 
 // Contentstack SDK Configuration
@@ -191,9 +192,12 @@ export async function getEntryByUrl<T = ContentstackEntry>(
 /**
  * Fetch Page entry by title with all nested references
  * This is the main function for fetching page content
+ * Supports locale for fetching localized content
  */
-export async function getPage(title: string): Promise<PageEntry | null> {
+export async function getPage(title: string, locale?: string): Promise<PageEntry | null> {
   try {
+    const targetLocale = locale || getCurrentLocale();
+    
     const query = Stack.ContentType(CONTENT_TYPES.PAGE)
       .Query()
       .where('title', title)
@@ -210,8 +214,35 @@ export async function getPage(title: string): Promise<PageEntry | null> {
         'section.testimonial_block.testimonial.author', // Testimonial authors
       ]);
 
+    // Set locale for content fetching
+    query.language(targetLocale);
+
     const result = await query.toJSON().find();
-    const pageEntry = result[0]?.[0] as PageEntry || null;
+    let pageEntry = result[0]?.[0] as PageEntry || null;
+    
+    // Fallback to en-us if no page found in selected locale
+    if (!pageEntry && targetLocale !== FALLBACK_LOCALE) {
+      console.log(`[CMS] Page "${title}" not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.PAGE)
+        .Query()
+        .where('title', title)
+        .includeReference([
+          'header',
+          'header.icon',
+          'section.hero_block.hero_banner',
+          'section.carousel_block.banner',
+          'section.category_block.icon',
+          'section.category_block.category',
+          'section.feature_block.features',
+          'section.workflow_block.stage',
+          'section.testimonial_block.testimonial',
+          'section.testimonial_block.testimonial.author',
+        ]);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      
+      const fallbackResult = await fallbackQuery.toJSON().find();
+      pageEntry = fallbackResult[0]?.[0] as PageEntry || null;
+    }
     
     // Debug logging
     if (pageEntry) {
@@ -228,25 +259,82 @@ export async function getPage(title: string): Promise<PageEntry | null> {
 /**
  * Fetch Page entry by URL
  */
-export async function getPageByUrl(url: string): Promise<PageEntry | null> {
+export async function getPageByUrl(url: string, locale?: string): Promise<PageEntry | null> {
   try {
-    const query = Stack.ContentType(CONTENT_TYPES.PAGE)
-      .Query()
-      .where('url', url)
-      .includeReference([
-        'header',
-        'header.icon',
-        'section.carousel_block.banner',
-        'section.category_block.icon',
-        'section.category_block.category',        // New category references
-        'section.feature_block.features',
-        'section.workflow_block.stage',
-        'section.testimonial_block.testimonial',
-        'section.testimonial_block.testimonial.author',
-      ]);
+    const targetLocale = locale || getCurrentLocale();
+    let pageEntry: PageEntry | null = null;
+    
+    try {
+      const query = Stack.ContentType(CONTENT_TYPES.PAGE)
+        .Query()
+        .where('url', url)
+        .includeReference([
+          'header',
+          'header.icon',
+          'section.carousel_block.banner',
+          'section.category_block.icon',
+          'section.category_block.category',
+          'section.feature_block.features',
+          'section.workflow_block.stage',
+          'section.testimonial_block.testimonial',
+          'section.testimonial_block.testimonial.author',
+        ]);
+      
+      query.language(targetLocale);
 
-    const result = await query.toJSON().find();
-    return result[0]?.[0] as PageEntry || null;
+      const result = await query.toJSON().find();
+      pageEntry = result[0]?.[0] as PageEntry || null;
+    } catch (localeError) {
+      // Fallback to en-us if not found
+      if (targetLocale !== FALLBACK_LOCALE) {
+        console.log(`[CMS] Page URL ${url} not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
+        const fallbackQuery = Stack.ContentType(CONTENT_TYPES.PAGE)
+          .Query()
+          .where('url', url)
+          .includeReference([
+            'header',
+            'header.icon',
+            'section.carousel_block.banner',
+            'section.category_block.icon',
+            'section.category_block.category',
+            'section.feature_block.features',
+            'section.workflow_block.stage',
+            'section.testimonial_block.testimonial',
+            'section.testimonial_block.testimonial.author',
+          ]);
+        fallbackQuery.language(FALLBACK_LOCALE);
+        
+        const fallbackResult = await fallbackQuery.toJSON().find();
+        pageEntry = fallbackResult[0]?.[0] as PageEntry || null;
+      } else {
+        throw localeError;
+      }
+    }
+    
+    // If still no page entry, try fallback
+    if (!pageEntry && targetLocale !== FALLBACK_LOCALE) {
+      console.log(`[CMS] Page URL ${url} not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.PAGE)
+        .Query()
+        .where('url', url)
+        .includeReference([
+          'header',
+          'header.icon',
+          'section.carousel_block.banner',
+          'section.category_block.icon',
+          'section.category_block.category',
+          'section.feature_block.features',
+          'section.workflow_block.stage',
+          'section.testimonial_block.testimonial',
+          'section.testimonial_block.testimonial.author',
+        ]);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      
+      const fallbackResult = await fallbackQuery.toJSON().find();
+      pageEntry = fallbackResult[0]?.[0] as PageEntry || null;
+    }
+
+    return pageEntry;
   } catch (error) {
     console.error(`Error fetching page by URL: ${url}`, error);
     return null;
@@ -329,15 +417,33 @@ export async function getAllHeaders(): Promise<HeaderEntry[]> {
 
 /**
  * Fetch Footer entry (singleton)
+ * Supports locale for fetching localized content
  */
-export async function getFooter(): Promise<FooterEntry | null> {
+export async function getFooter(locale?: string): Promise<FooterEntry | null> {
   try {
+    const targetLocale = locale || getCurrentLocale();
+    
     const query = Stack.ContentType(CONTENT_TYPES.FOOTER)
       .Query()
       .includeReference('icon');
+    
+    query.language(targetLocale);
 
     const result = await query.toJSON().find();
-    return result[0]?.[0] as FooterEntry || null;
+    let footer = result[0]?.[0] as FooterEntry || null;
+    
+    // Fallback to en-us if not found
+    if (!footer && targetLocale !== FALLBACK_LOCALE) {
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.FOOTER)
+        .Query()
+        .includeReference('icon');
+      fallbackQuery.language(FALLBACK_LOCALE);
+      
+      const fallbackResult = await fallbackQuery.toJSON().find();
+      footer = fallbackResult[0]?.[0] as FooterEntry || null;
+    }
+    
+    return footer;
   } catch (error) {
     console.error('Error fetching footer', error);
     return null;
@@ -346,15 +452,33 @@ export async function getFooter(): Promise<FooterEntry | null> {
 
 /**
  * Fetch Newsletter entry (singleton)
+ * Supports locale for fetching localized content
  */
-export async function getNewsletter(): Promise<NewsletterEntry | null> {
+export async function getNewsletter(locale?: string): Promise<NewsletterEntry | null> {
   try {
+    const targetLocale = locale || getCurrentLocale();
+    
     const query = Stack.ContentType(CONTENT_TYPES.NEWSLETTER)
       .Query()
       .includeReference('icon');
+    
+    query.language(targetLocale);
 
     const result = await query.toJSON().find();
-    return result[0]?.[0] as NewsletterEntry || null;
+    let newsletter = result[0]?.[0] as NewsletterEntry || null;
+    
+    // Fallback to en-us if not found
+    if (!newsletter && targetLocale !== FALLBACK_LOCALE) {
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.NEWSLETTER)
+        .Query()
+        .includeReference('icon');
+      fallbackQuery.language(FALLBACK_LOCALE);
+      
+      const fallbackResult = await fallbackQuery.toJSON().find();
+      newsletter = fallbackResult[0]?.[0] as NewsletterEntry || null;
+    }
+    
+    return newsletter;
   } catch (error) {
     console.error('Error fetching newsletter', error);
     return null;
@@ -452,7 +576,7 @@ export async function getAllCourses(locale?: string): Promise<CourseEntry[]> {
     query.language(targetLocale);
     
     const result = await query.toJSON().find();
-    const courses = (result[0] || []) as CourseEntry[];
+    let courses = (result[0] || []) as CourseEntry[];
     
     // If no courses found and we're not already using fallback, try fallback locale
     if (courses.length === 0 && targetLocale !== FALLBACK_LOCALE) {
@@ -463,14 +587,71 @@ export async function getAllCourses(locale?: string): Promise<CourseEntry[]> {
       fallbackQuery.language(FALLBACK_LOCALE);
       
       const fallbackResult = await fallbackQuery.toJSON().find();
-      return (fallbackResult[0] || []) as CourseEntry[];
+      courses = (fallbackResult[0] || []) as CourseEntry[];
     }
     
-    return courses;
+    // Resolve author references for all courses
+    const resolvedCourses = await Promise.all(
+      courses.map(course => resolveAuthorReferences(course))
+    );
+    
+    return resolvedCourses;
   } catch (error) {
     console.error('Error fetching courses', error);
     return [];
   }
+}
+
+/**
+ * Fetch author by UID - always fetches from default locale since authors are not localized
+ */
+async function getAuthorByUid(uid: string): Promise<AuthorEntry | null> {
+  try {
+    const query = Stack.ContentType(CONTENT_TYPES.AUTHOR)
+      .Entry(uid);
+    // Always fetch authors in fallback locale since author data (name, bio) is non-localizable
+    query.language(FALLBACK_LOCALE);
+    
+    const result = await query.toJSON().fetch();
+    return result as AuthorEntry;
+  } catch (error) {
+    console.error(`Error fetching author by UID: ${uid}`, error);
+    return null;
+  }
+}
+
+/**
+ * Helper to resolve author references that may not be fully populated
+ * When fetching localized content, references to non-localized entries may not resolve
+ * This function always fetches author data from the fallback locale to ensure consistency
+ */
+async function resolveAuthorReferences(course: CourseEntry): Promise<CourseEntry> {
+  if (!course.author) return course;
+  
+  const authors = Array.isArray(course.author) ? course.author : [course.author];
+  const resolvedAuthors: AuthorEntry[] = [];
+  
+  for (const author of authors) {
+    // Always fetch the full author data from fallback locale to ensure we have all fields
+    // This is because author data (name, bio, social links) is marked as non-localizable
+    // but when fetching course in a different locale, the reference may not resolve properly
+    if (author.uid) {
+      // Always fetch fresh to ensure we get complete data
+      const fullAuthor = await getAuthorByUid(author.uid);
+      if (fullAuthor) {
+        resolvedAuthors.push(fullAuthor);
+      } else if (author.title) {
+        // Fallback: if fetch fails but we have partial data, use it
+        resolvedAuthors.push(author);
+      }
+    } else if (author.title) {
+      // No UID but has title - use as is
+      resolvedAuthors.push(author);
+    }
+  }
+  
+  course.author = resolvedAuthors.length > 0 ? resolvedAuthors : undefined;
+  return course;
 }
 
 /**
@@ -512,7 +693,9 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
       course = fallbackResult[0]?.[0] as CourseEntry || null;
     }
     
+    // Ensure author references are fully resolved
     if (course) {
+      course = await resolveAuthorReferences(course);
       console.log(`[CMS] Course "${course.title}" loaded with ${Array.isArray(course.modules) ? course.modules.length : course.modules ? 1 : 0} modules`);
     }
     
@@ -530,6 +713,7 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
 export async function getCourseByUid(uid: string, locale?: string): Promise<CourseEntry | null> {
   try {
     const targetLocale = locale || getCurrentLocale();
+    let course: CourseEntry | null = null;
     
     // First try with selected locale
     try {
@@ -543,7 +727,7 @@ export async function getCourseByUid(uid: string, locale?: string): Promise<Cour
       query.language(targetLocale);
       
       const result = await query.toJSON().fetch();
-      return result as CourseEntry;
+      course = result as CourseEntry;
     } catch (localeError) {
       // If locale fetch fails and we're not already using fallback, try fallback
       if (targetLocale !== FALLBACK_LOCALE) {
@@ -558,10 +742,18 @@ export async function getCourseByUid(uid: string, locale?: string): Promise<Cour
         fallbackQuery.language(FALLBACK_LOCALE);
         
         const fallbackResult = await fallbackQuery.toJSON().fetch();
-        return fallbackResult as CourseEntry;
+        course = fallbackResult as CourseEntry;
+      } else {
+        throw localeError;
       }
-      throw localeError;
     }
+    
+    // Ensure author references are fully resolved
+    if (course) {
+      course = await resolveAuthorReferences(course);
+    }
+    
+    return course;
   } catch (error) {
     console.error(`Error fetching course by UID: ${uid}`, error);
     return null;
@@ -596,14 +788,35 @@ export async function getModuleByUid(uid: string): Promise<ModuleEntry | null> {
 /**
  * Fetch a single lesson by UID
  */
-export async function getLessonByUid(uid: string): Promise<LessonEntry | null> {
+export async function getLessonByUid(uid: string, locale?: string): Promise<LessonEntry | null> {
   try {
-    const result = await Stack.ContentType(CONTENT_TYPES.LESSON)
-      .Entry(uid)
-      .toJSON()
-      .fetch();
+    const targetLocale = locale || getCurrentLocale();
+    
+    const entry = Stack.ContentType(CONTENT_TYPES.LESSON).Entry(uid);
+    entry.language(targetLocale);
+    
+    let result = await entry.toJSON().fetch();
+    
+    // If not found, try fallback locale
+    if (!result && targetLocale !== FALLBACK_LOCALE) {
+      const fallbackEntry = Stack.ContentType(CONTENT_TYPES.LESSON).Entry(uid);
+      fallbackEntry.language(FALLBACK_LOCALE);
+      result = await fallbackEntry.toJSON().fetch();
+    }
+    
     return result as LessonEntry;
   } catch (error) {
+    // Try fallback locale on error
+    if ((locale || getCurrentLocale()) !== FALLBACK_LOCALE) {
+      try {
+        const fallbackEntry = Stack.ContentType(CONTENT_TYPES.LESSON).Entry(uid);
+        fallbackEntry.language(FALLBACK_LOCALE);
+        const result = await fallbackEntry.toJSON().fetch();
+        return result as LessonEntry;
+      } catch {
+        // Fallback also failed
+      }
+    }
     console.error(`Error fetching lesson by UID: ${uid}`, error);
     return null;
   }
@@ -612,14 +825,31 @@ export async function getLessonByUid(uid: string): Promise<LessonEntry | null> {
 /**
  * Fetch a single lesson by slug
  */
-export async function getLessonBySlug(slug: string): Promise<LessonEntry | null> {
+export async function getLessonBySlug(slug: string, locale?: string): Promise<LessonEntry | null> {
   try {
+    const targetLocale = locale || getCurrentLocale();
+    
     const query = Stack.ContentType(CONTENT_TYPES.LESSON)
       .Query()
       .where('slug', slug);
+    
+    query.language(targetLocale);
 
     const result = await query.toJSON().find();
-    return result[0]?.[0] as LessonEntry || null;
+    let lesson = result[0]?.[0] as LessonEntry || null;
+    
+    // Try fallback locale if not found
+    if (!lesson && targetLocale !== FALLBACK_LOCALE) {
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.LESSON)
+        .Query()
+        .where('slug', slug);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      
+      const fallbackResult = await fallbackQuery.toJSON().find();
+      lesson = fallbackResult[0]?.[0] as LessonEntry || null;
+    }
+    
+    return lesson;
   } catch (error) {
     console.error(`Error fetching lesson by slug: ${slug}`, error);
     return null;
@@ -630,14 +860,26 @@ export async function getLessonBySlug(slug: string): Promise<LessonEntry | null>
  * Fetch course data for a given lesson (to get course context)
  * Returns the course that contains this lesson
  */
-export async function getCourseByLessonUid(lessonUid: string): Promise<CourseEntry | null> {
+export async function getCourseByLessonUid(lessonUid: string, locale?: string): Promise<CourseEntry | null> {
   try {
+    const targetLocale = locale || getCurrentLocale();
+    
     // First, find which module contains this lesson
-    const modulesResult = await Stack.ContentType(CONTENT_TYPES.MODULE)
+    const modulesQuery = Stack.ContentType(CONTENT_TYPES.MODULE)
       .Query()
-      .includeReference(['lessons'])
-      .toJSON()
-      .find();
+      .includeReference(['lessons']);
+    modulesQuery.language(targetLocale);
+    
+    let modulesResult = await modulesQuery.toJSON().find();
+    
+    // Fallback if no modules found
+    if (!modulesResult[0]?.length && targetLocale !== FALLBACK_LOCALE) {
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.MODULE)
+        .Query()
+        .includeReference(['lessons']);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      modulesResult = await fallbackQuery.toJSON().find();
+    }
     
     const modules = (modulesResult[0] || []) as ModuleEntry[];
     let targetModuleUid: string | null = null;
@@ -653,18 +895,30 @@ export async function getCourseByLessonUid(lessonUid: string): Promise<CourseEnt
     if (!targetModuleUid) return null;
     
     // Now find the course that contains this module
-    const coursesResult = await Stack.ContentType(CONTENT_TYPES.COURSE)
+    const coursesQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
       .Query()
-      .includeReference(['author', 'modules', 'modules.lessons'])
-      .toJSON()
-      .find();
+      .includeReference(['author', 'modules', 'modules.lessons']);
+    coursesQuery.language(targetLocale);
+    
+    let coursesResult = await coursesQuery.toJSON().find();
+    
+    // Fallback if no courses found
+    if (!coursesResult[0]?.length && targetLocale !== FALLBACK_LOCALE) {
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
+        .Query()
+        .includeReference(['author', 'modules', 'modules.lessons']);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      coursesResult = await fallbackQuery.toJSON().find();
+    }
     
     const courses = (coursesResult[0] || []) as CourseEntry[];
     
     for (const course of courses) {
       const courseModules = Array.isArray(course.modules) ? course.modules : course.modules ? [course.modules] : [];
       if (courseModules.some(m => m.uid === targetModuleUid)) {
-        return course;
+        // Resolve author references for the matching course
+        const resolvedCourse = await resolveAuthorReferences(course);
+        return resolvedCourse;
       }
     }
     
@@ -696,19 +950,19 @@ export async function getAllOnboardingSteps(): Promise<OnboardingBlockEntry[]> {
 
   for (const contentType of possibleContentTypes) {
     try {
-      let query = Stack.ContentType(contentType).Query();
+      const baseQuery = Stack.ContentType(contentType).Query();
       
       // If it's modular_section, filter for onboarding entries
       if (contentType === 'modular_section') {
-        query = query.where('title', 'Onboarding Step');
+        baseQuery.where('title', 'Onboarding Step');
       } else {
         // For onboarding-specific content types, include option references
-        query = query.includeReference('option');
+        baseQuery.includeReference('option');
       }
       
-      query = query.ascending('current_step');  // Sort by step number
+      baseQuery.ascending('current_step');  // Sort by step number
 
-      const result = await query.toJSON().find();
+      const result = await baseQuery.toJSON().find();
       const entries = (result[0] || []) as any[];
       
       console.log(`[CMS] Attempted ${contentType}: Found ${entries.length} entries`);

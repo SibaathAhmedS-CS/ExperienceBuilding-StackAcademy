@@ -3,17 +3,19 @@
 import { useState, useEffect } from 'react';
 import { getAllCourses } from '@/lib/contentstack';
 import { CourseEntry } from '@/types/contentstack';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 export function useCourses() {
   const [courses, setCourses] = useState<CourseEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const { selectedLanguage } = useLanguage();
 
   useEffect(() => {
     async function fetchCourses() {
       try {
         setIsLoading(true);
-        const data = await getAllCourses();
+        const data = await getAllCourses(selectedLanguage);
         setCourses(data);
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Failed to fetch courses'));
@@ -24,7 +26,7 @@ export function useCourses() {
     }
 
     fetchCourses();
-  }, []);
+  }, [selectedLanguage]);
 
   return { courses, isLoading, error };
 }
@@ -48,9 +50,9 @@ export interface TransformedCourse {
 
 // Helper function to transform CMS course to card format
 export function transformCourseToCard(course: CourseEntry): TransformedCourse {
-  // Get author name from reference
+  // Get author name from reference (AuthorEntry uses 'title' for the name)
   const author = Array.isArray(course.author) ? course.author[0] : course.author;
-  const authorName = author?.name || 'Unknown Instructor';
+  const authorName = author?.title || 'Unknown Instructor';
 
   // Get thumbnail from course_image_link
   const thumbnail = course.course_image_link?.href || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600';
