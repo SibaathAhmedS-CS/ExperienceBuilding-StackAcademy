@@ -76,6 +76,11 @@ function getCurrentLocale(): string {
 }
 
 /**
+ * Default fallback locale when content is not available in selected locale
+ */
+const FALLBACK_LOCALE = 'en-us';
+
+/**
  * Fetch single entry by content type and UID
  */
 export async function getEntry<T = ContentstackEntry>(
@@ -274,21 +279,27 @@ export async function getAllCategories(): Promise<CategoryEntry[]> {
 
 /**
  * Fetch Header entry by title
+ * Header is always fetched in English since it contains non-translatable UI config
  * @param title - "Landing Header" or "App Header"
  */
-export async function getHeader(title: string, locale?: string): Promise<HeaderEntry | null> {
+export async function getHeader(title: string): Promise<HeaderEntry | null> {
   try {
     const query = Stack.ContentType(CONTENT_TYPES.HEADER)
       .Query()
       .where('title', title)
       .includeReference('icon');
 
-    // Set locale if provided
-    const targetLocale = locale || getCurrentLocale();
-    query.language(targetLocale);
+    // Always fetch header in English (contains UI configuration, not translated content)
+    query.language('en-us');
 
     const result = await query.toJSON().find();
-    return result[0]?.[0] as HeaderEntry || null;
+    const header = result[0]?.[0] as HeaderEntry || null;
+    
+    if (header) {
+      console.log(`[CMS] Header "${title}" loaded with ${header.accessibility_language?.length || 0} languages`);
+    }
+    
+    return header;
   } catch (error) {
     console.error(`Error fetching header: ${title}`, error);
     return null;
@@ -428,19 +439,34 @@ export async function getAllTestimonials(): Promise<TestimonialEntry[]> {
 
 /**
  * Fetch all courses with author reference
+ * Falls back to English if no content found in selected locale
  */
 export async function getAllCourses(locale?: string): Promise<CourseEntry[]> {
   try {
+    const targetLocale = locale || getCurrentLocale();
+    
+    // First try with selected locale
     const query = Stack.ContentType(CONTENT_TYPES.COURSE)
       .Query()
       .includeReference(['author', 'modules']);
-    
-    // Set locale if provided
-    const targetLocale = locale || getCurrentLocale();
     query.language(targetLocale);
     
     const result = await query.toJSON().find();
-    return (result[0] || []) as CourseEntry[];
+    const courses = (result[0] || []) as CourseEntry[];
+    
+    // If no courses found and we're not already using fallback, try fallback locale
+    if (courses.length === 0 && targetLocale !== FALLBACK_LOCALE) {
+      console.log(`[CMS] No courses found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
+        .Query()
+        .includeReference(['author', 'modules']);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      
+      const fallbackResult = await fallbackQuery.toJSON().find();
+      return (fallbackResult[0] || []) as CourseEntry[];
+    }
+    
+    return courses;
   } catch (error) {
     console.error('Error fetching courses', error);
     return [];
@@ -449,9 +475,13 @@ export async function getAllCourses(locale?: string): Promise<CourseEntry[]> {
 
 /**
  * Fetch a single course by slug with all nested references
+ * Falls back to English if no content found in selected locale
  */
 export async function getCourseBySlug(slug: string, locale?: string): Promise<CourseEntry | null> {
   try {
+    const targetLocale = locale || getCurrentLocale();
+    
+    // First try with selected locale
     const query = Stack.ContentType(CONTENT_TYPES.COURSE)
       .Query()
       .where('slug', slug)
@@ -460,13 +490,27 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
         'modules',
         'modules.lessons'
       ]);
-
-    // Set locale if provided
-    const targetLocale = locale || getCurrentLocale();
     query.language(targetLocale);
 
     const result = await query.toJSON().find();
-    const course = result[0]?.[0] as CourseEntry || null;
+    let course = result[0]?.[0] as CourseEntry || null;
+    
+    // If no course found and we're not already using fallback, try fallback locale
+    if (!course && targetLocale !== FALLBACK_LOCALE) {
+      console.log(`[CMS] Course not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
+        .Query()
+        .where('slug', slug)
+        .includeReference([
+          'author',
+          'modules',
+          'modules.lessons'
+        ]);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      
+      const fallbackResult = await fallbackQuery.toJSON().find();
+      course = fallbackResult[0]?.[0] as CourseEntry || null;
+    }
     
     if (course) {
       console.log(`[CMS] Course "${course.title}" loaded with ${Array.isArray(course.modules) ? course.modules.length : course.modules ? 1 : 0} modules`);
@@ -481,23 +525,43 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
 
 /**
  * Fetch a single course by UID with all nested references
+ * Falls back to English if no content found in selected locale
  */
 export async function getCourseByUid(uid: string, locale?: string): Promise<CourseEntry | null> {
   try {
-    const query = Stack.ContentType(CONTENT_TYPES.COURSE)
-      .Entry(uid)
-      .includeReference([
-        'author',
-        'modules',
-        'modules.lessons'
-      ]);
-    
-    // Set locale if provided
     const targetLocale = locale || getCurrentLocale();
-    query.language(targetLocale);
     
-    const result = await query.toJSON().fetch();
-    return result as CourseEntry;
+    // First try with selected locale
+    try {
+      const query = Stack.ContentType(CONTENT_TYPES.COURSE)
+        .Entry(uid)
+        .includeReference([
+          'author',
+          'modules',
+          'modules.lessons'
+        ]);
+      query.language(targetLocale);
+      
+      const result = await query.toJSON().fetch();
+      return result as CourseEntry;
+    } catch (localeError) {
+      // If locale fetch fails and we're not already using fallback, try fallback
+      if (targetLocale !== FALLBACK_LOCALE) {
+        console.log(`[CMS] Course UID ${uid} not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
+        const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
+          .Entry(uid)
+          .includeReference([
+            'author',
+            'modules',
+            'modules.lessons'
+          ]);
+        fallbackQuery.language(FALLBACK_LOCALE);
+        
+        const fallbackResult = await fallbackQuery.toJSON().fetch();
+        return fallbackResult as CourseEntry;
+      }
+      throw localeError;
+    }
   } catch (error) {
     console.error(`Error fetching course by UID: ${uid}`, error);
     return null;

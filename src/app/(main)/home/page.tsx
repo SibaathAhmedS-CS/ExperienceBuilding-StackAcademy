@@ -316,7 +316,7 @@ export default function HomePage() {
         // Get user profile from Supabase
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name, avatar_url')
+          .select('full_name')
           .eq('id', authUser.id)
           .maybeSingle();
 
@@ -324,7 +324,6 @@ export default function HomePage() {
         setUser({
           name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
           email: authUser.email || '',
-          avatar: profile?.avatar_url || undefined,
           coursesCompleted: 0, // TODO: Get from database
           coursesInProgress: 0, // TODO: Get from database
         });

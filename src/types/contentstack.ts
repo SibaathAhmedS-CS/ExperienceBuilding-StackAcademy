@@ -283,7 +283,10 @@ export interface HeaderEntry {
   navigation: {
     link: Link[];
   };
-  languages?: string[];  // Supported languages from dropdown
+  accessibility_language?: {
+    language: string;
+    language_tag: string;
+  }[];  // Supported languages with tags
   search_visibility: boolean;
   components: HeaderComponent[];
 }
@@ -475,7 +478,6 @@ export interface CourseEntry {
   difficulty_level: 'Beginner' | 'Intermediate' | 'Advanced';
   total_duration?: number;
   total_modules?: number;
-  languages_supported?: string[];
   about_the_course?: string;
   learning_outcomes?: {
     point?: string[];

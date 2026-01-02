@@ -7,11 +7,8 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Default supported languages (will be overridden by headerData when Header mounts)
-  const defaultLanguages = ['en-us', 'ta-in', 'fr-us', 'es'];
-  
   return (
-    <LanguageProvider supportedLanguages={defaultLanguages}>
+    <LanguageProvider>
       {children}
     </LanguageProvider>
   );

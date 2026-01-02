@@ -12,7 +12,6 @@ import {
   Play,
   CheckCircle,
   Award,
-  Globe,
   FileText,
   Download,
   Heart,
@@ -412,9 +411,6 @@ export default function CoursePage() {
   
   // Course duration in hours
   const courseDuration = courseData.total_duration ? `${courseData.total_duration} hours` : '38 hours';
-  
-  // Language - first from supported languages or default
-  const courseLanguage = courseData.languages_supported?.[0] || 'English';
 
   return (
     <>
@@ -470,11 +466,6 @@ export default function CoursePage() {
                 <div className={styles.metaItem}>
                   <Clock size={18} />
                   <span>{courseDuration}</span>
-                </div>
-                {/* CMS Data: Language */}
-                <div className={styles.metaItem}>
-                  <Globe size={18} />
-                  <span>{courseLanguage}</span>
                 </div>
               </div>
 

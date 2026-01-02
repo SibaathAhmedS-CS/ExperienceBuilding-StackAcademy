@@ -105,14 +105,24 @@ export default function Header({ variant = 'landing', user, headerData }: Header
   const [searchQuery, setSearchQuery] = useState('');
   const pathname = usePathname();
   
-  // Get languages from headerData
-  const supportedLanguages = headerData?.languages || [];
-  const { selectedLanguage, setSelectedLanguage, supportedLanguages: languageOptions } = useLanguage();
+  // Get languages from headerData (accessibility_language contains language and language_tag)
+  const accessibilityLanguages = headerData?.accessibility_language || [];
+  const { selectedLanguage, setSelectedLanguage } = useLanguage();
   
-  // Filter language options to only show supported languages from CMS if available
-  const displayLanguages = supportedLanguages.length > 0
-    ? languageOptions.filter(lang => supportedLanguages.includes(lang.code))
-    : languageOptions;
+  // Build display languages directly from CMS data (language = name, language_tag = code)
+  const cmsLanguages = accessibilityLanguages.map(lang => ({
+    code: lang.language_tag,
+    name: lang.language,
+  })).filter(lang => lang.code && lang.name);
+  
+  // Ensure English is always included as first option if not already present
+  const hasEnglish = cmsLanguages.some(lang => lang.code === 'en-us');
+  const displayLanguages = hasEnglish 
+    ? cmsLanguages 
+    : [{ code: 'en-us', name: 'English' }, ...cmsLanguages];
+  
+  // Show language selector when there are languages configured in CMS
+  const showLanguageSelector = accessibilityLanguages.length > 0;
 
   const isHomePage = pathname === '/home';
 
@@ -391,8 +401,8 @@ export default function Header({ variant = 'landing', user, headerData }: Header
 
         {/* Right Section */}
         <div className={styles.rightSection}>
-          {/* Language Selector */}
-          {supportedLanguages.length > 0 && (
+          {/* Language Selector - Show when CMS has languages configured */}
+          {showLanguageSelector && (
             <div className={styles.languageWrapper}>
               <button
                 className={`${styles.languageButton} ${isLanguageOpen ? styles.active : ''}`}
