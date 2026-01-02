@@ -22,8 +22,8 @@ export function useAuthBranding(pageType: 'login' | 'signup') {
         if (data) {
           console.log(`Auth branding for ${pageType} fetched:`, {
             headline: data.headline,
-            hasStats: !!data.stats?.length,
-            hasFeatures: !!data.features,
+            hasStats: !!(Array.isArray(data.stats) ? data.stats.length : data.stats),
+            hasBrandingContent: !!data.branding_content,
           });
         }
       } catch (err) {

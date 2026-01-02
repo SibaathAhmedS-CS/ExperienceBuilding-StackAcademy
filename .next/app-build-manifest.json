@@ -1,10 +1,10 @@
 {
   "pages": {
-    "/(main)/course/[slug]/page": [
+    "/(main)/home/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-bf8310.css",
-      "static/chunks/app/(main)/course/[slug]/page.js"
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-c7c533.css",
+      "static/chunks/app/(main)/home/page.js"
     ],
     "/(main)/layout": [
       "static/chunks/webpack.js",
@@ -20,37 +20,14 @@
     "/(main)/courses/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-bf8310.css",
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-c7c533.css",
       "static/chunks/app/(main)/courses/page.js"
     ],
-    "/(main)/home/page": [
+    "/(main)/course/[slug]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-bf8310.css",
-      "static/chunks/app/(main)/home/page.js"
-    ],
-    "/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-bf8310.css",
-      "static/chunks/app/page.js"
-    ],
-    "/(auth)/login/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css.css",
-      "static/chunks/app/(auth)/login/page.js"
-    ],
-    "/(auth)/layout": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(auth)/layout.js"
-    ],
-    "/(main)/certificate/[enrollmentId]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_main_certificate_enrollmentId_page_module_css.css",
-      "static/chunks/app/(main)/certificate/[enrollmentId]/page.js"
+      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-c7c533.css",
+      "static/chunks/app/(main)/course/[slug]/page.js"
     ]
   }
 }

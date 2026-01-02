@@ -192,7 +192,7 @@
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	!function() {
-/******/ 		__webpack_require__.h = function() { return "d22ef71626cd6bc5"; }
+/******/ 		__webpack_require__.h = function() { return "8b3cc4d4290a0d31"; }
 /******/ 	}();
 /******/ 	
 /******/ 	/* webpack/runtime/global */
@@ -830,10 +830,8 @@
 /******/ 		// [resolve, reject, Promise] = chunk loading, 0 = chunk loaded
 /******/ 		var installedChunks = __webpack_require__.hmrS_jsonp = __webpack_require__.hmrS_jsonp || {
 /******/ 			"webpack": 0,
-/******/ 			"css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-bf8310": 0,
-/******/ 			"css-src_app_globals_css": 0,
-/******/ 			"css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css": 0,
-/******/ 			"css-src_app_main_certificate_enrollmentId_page_module_css": 0
+/******/ 			"css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-c7c533": 0,
+/******/ 			"css-src_app_globals_css": 0
 /******/ 		};
 /******/ 		
 /******/ 		__webpack_require__.f.j = function(chunkId, promises) {
@@ -845,7 +843,7 @@
 /******/ 					if(installedChunkData) {
 /******/ 						promises.push(installedChunkData[2]);
 /******/ 					} else {
-/******/ 						if(/^(app(\/(\((auth\)\/l(ayout|ogin\/page)|main\)\/(c(ourse(\/\[slug\]|s)\/page|ertificate\/\[enrollmentId\]\/page)|home\/page|layout))|layout|page)|\-pages\-internals)|main\-app)$/.test(chunkId)) {
+/******/ 						if(/^(app(\/(\(main\)\/(course(\/\[slug\]|s)\/page|home\/page|layout)|layout)|\-pages\-internals)|main\-app)$/.test(chunkId)) {
 /******/ 							// setup Promise in chunk cache
 /******/ 							var promise = new Promise(function(resolve, reject) { installedChunkData = installedChunks[chunkId] = [resolve, reject]; });
 /******/ 							promises.push(installedChunkData[2] = promise);
