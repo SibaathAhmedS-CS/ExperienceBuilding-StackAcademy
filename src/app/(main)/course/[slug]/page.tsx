@@ -214,11 +214,20 @@ export default function CoursePage() {
   // Fetch course data from CMS and check enrollment
   useEffect(() => {
     async function fetchCourse() {
+      // Reset state when language changes to ensure fresh data
       setIsLoading(true);
+      setCourseData(null);
+      setIsEnrolled(false);
+      setIsCompleted(false);
+      setCompletedLessonIds([]);
+      setExpandedModules([]);
+      
       try {
+        console.log(`[Course] Fetching course "${slug}" with locale: ${selectedLanguage}`);
         // Pass selectedLanguage to fetch localized content
         const course = await getCourseBySlug(slug, selectedLanguage);
         if (course) {
+          console.log(`[Course] Loaded "${course.title}" in ${selectedLanguage}`);
           setCourseData(course);
           // Expand first module by default
           const modules = normalizeArray(course.modules);
@@ -261,15 +270,20 @@ export default function CoursePage() {
               }
             }
           }
+        } else {
+          // Course not found - reset state
+          console.log(`[Course] Course "${slug}" not found in ${selectedLanguage}`);
+          setCourseData(null);
         }
       } catch (error) {
         console.error('Error fetching course:', error);
+        setCourseData(null);
       } finally {
         setIsLoading(false);
       }
     }
     
-    if (slug) {
+    if (slug && selectedLanguage) {
       fetchCourse();
     }
   }, [slug, supabase, selectedLanguage]);

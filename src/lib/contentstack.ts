@@ -206,6 +206,7 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
         'header.icon',
         'section.hero_block.hero_banner',        // Hero Banner reference
         'section.carousel_block.banner',          // Banner references for carousel
+        'section.carousel_block.banner.banner_image', // Banner image asset for localized entries
         'section.category_block.icon',            // Legacy category icons
         'section.category_block.category',        // New category references (categories_block)
         'section.feature_block.features',         // Feature icons
@@ -231,6 +232,7 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
           'header.icon',
           'section.hero_block.hero_banner',
           'section.carousel_block.banner',
+          'section.carousel_block.banner.banner_image', // Banner image asset for localized entries
           'section.category_block.icon',
           'section.category_block.category',
           'section.feature_block.features',
@@ -490,22 +492,96 @@ export async function getNewsletter(locale?: string): Promise<NewsletterEntry | 
 // ============================================
 
 /**
- * Fetch FAQ entry (singleton) with nested references
+ * Fetch FAQ question entry by UID
+ * Helper function to manually resolve faq_question references
  */
-export async function getFAQ(): Promise<FAQEntry | null> {
+async function getFAQQuestionByUid(uid: string, locale: string): Promise<any | null> {
   try {
+    const query = Stack.ContentType(CONTENT_TYPES.FAQ_QUESTION).Entry(uid);
+    query.language(locale);
+    const result = await query.toJSON().fetch();
+    return result;
+  } catch (error) {
+    // Try fallback locale
+    if (locale !== FALLBACK_LOCALE) {
+      try {
+        const fallbackQuery = Stack.ContentType(CONTENT_TYPES.FAQ_QUESTION).Entry(uid);
+        fallbackQuery.language(FALLBACK_LOCALE);
+        const fallbackResult = await fallbackQuery.toJSON().fetch();
+        return fallbackResult;
+      } catch {
+        // Ignore fallback error
+      }
+    }
+    return null;
+  }
+}
+
+/**
+ * Fetch FAQ entry (singleton) with nested references
+ * Supports locale for fetching localized content
+ * Manually resolves faq_question reference if not expanded
+ */
+export async function getFAQ(locale?: string): Promise<FAQEntry | null> {
+  try {
+    const targetLocale = locale || getCurrentLocale();
+    
     const query = Stack.ContentType(CONTENT_TYPES.FAQ)
       .Query()
       .includeReference(['icon', 'faq_question']);
+    
+    query.language(targetLocale);
 
     const result = await query.toJSON().find();
-    const faqEntry = result[0]?.[0] as FAQEntry || null;
+    let faqEntry = result[0]?.[0] as FAQEntry || null;
+    
+    // Fallback to en-us if not found
+    if (!faqEntry && targetLocale !== FALLBACK_LOCALE) {
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.FAQ)
+        .Query()
+        .includeReference(['icon', 'faq_question']);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      
+      const fallbackResult = await fallbackQuery.toJSON().find();
+      faqEntry = fallbackResult[0]?.[0] as FAQEntry || null;
+    }
+    
+    // Manually resolve faq_question if not expanded (happens for localized entries)
+    if (faqEntry && faqEntry.faq_question) {
+      const faqQuestions = Array.isArray(faqEntry.faq_question) 
+        ? faqEntry.faq_question 
+        : [faqEntry.faq_question];
+      
+      // Check if questions need to be resolved (only have uid, no questions array)
+      const needsResolution = faqQuestions.some(q => 
+        q.uid && (!q.questions || q.questions.length === 0)
+      );
+      
+      if (needsResolution) {
+        console.log(`[CMS] FAQ references not expanded, manually resolving for ${targetLocale}...`);
+        const resolvedQuestions = await Promise.all(
+          faqQuestions.map(async (q) => {
+            if (q.uid && (!q.questions || q.questions.length === 0)) {
+              const resolved = await getFAQQuestionByUid(q.uid, targetLocale);
+              return resolved || q;
+            }
+            return q;
+          })
+        );
+        faqEntry.faq_question = resolvedQuestions;
+      }
+    }
     
     if (faqEntry) {
-      console.log('FAQ Entry fetched:', {
+      const questions = Array.isArray(faqEntry.faq_question) 
+        ? faqEntry.faq_question 
+        : faqEntry.faq_question ? [faqEntry.faq_question] : [];
+      const firstQ = questions[0];
+      
+      console.log(`[CMS] FAQ Entry fetched (${targetLocale}):`, {
         title: faqEntry.section_title,
         hasIcon: !!faqEntry.icon,
-        faqQuestionType: Array.isArray(faqEntry.faq_question) ? 'array' : 'object',
+        questionsResolved: firstQ?.questions?.length || 0,
       });
     }
     
@@ -657,6 +733,7 @@ async function resolveAuthorReferences(course: CourseEntry): Promise<CourseEntry
 /**
  * Fetch a single course by slug with all nested references
  * Falls back to English if no content found in selected locale
+ * Also handles localized slugs (e.g., "course-name-tamil" vs "course-name")
  */
 export async function getCourseBySlug(slug: string, locale?: string): Promise<CourseEntry | null> {
   try {
@@ -676,9 +753,9 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
     const result = await query.toJSON().find();
     let course = result[0]?.[0] as CourseEntry || null;
     
-    // If no course found and we're not already using fallback, try fallback locale
+    // If no course found, try with fallback locale first (maybe slug is the same but no localized content)
     if (!course && targetLocale !== FALLBACK_LOCALE) {
-      console.log(`[CMS] Course not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
+      console.log(`[CMS] Course slug "${slug}" not found in ${targetLocale}, trying ${FALLBACK_LOCALE}...`);
       const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
         .Query()
         .where('slug', slug)
@@ -690,13 +767,25 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
       fallbackQuery.language(FALLBACK_LOCALE);
       
       const fallbackResult = await fallbackQuery.toJSON().find();
-      course = fallbackResult[0]?.[0] as CourseEntry || null;
+      const fallbackCourse = fallbackResult[0]?.[0] as CourseEntry || null;
+      
+      if (fallbackCourse) {
+        // Found in fallback, now try to fetch the localized version by UID
+        console.log(`[CMS] Found course by slug in fallback locale, fetching localized content for ${targetLocale}...`);
+        const localizedCourse = await getCourseByUid(fallbackCourse.uid, targetLocale);
+        course = localizedCourse || fallbackCourse;
+      }
     }
     
-    // Ensure author references are fully resolved
+    // Ensure author and module references are fully resolved
     if (course) {
       course = await resolveAuthorReferences(course);
-      console.log(`[CMS] Course "${course.title}" loaded with ${Array.isArray(course.modules) ? course.modules.length : course.modules ? 1 : 0} modules`);
+      course = await resolveModuleReferences(course, targetLocale);
+      
+      const moduleCount = Array.isArray(course.modules) ? course.modules.length : course.modules ? 1 : 0;
+      const lessonCount = (Array.isArray(course.modules) ? course.modules : course.modules ? [course.modules] : [])
+        .reduce((acc, m) => acc + (Array.isArray(m.lessons) ? m.lessons.length : m.lessons ? 1 : 0), 0);
+      console.log(`[CMS] Course "${course.title}" loaded with ${moduleCount} modules, ${lessonCount} lessons (${targetLocale})`);
     }
     
     return course;
@@ -748,9 +837,10 @@ export async function getCourseByUid(uid: string, locale?: string): Promise<Cour
       }
     }
     
-    // Ensure author references are fully resolved
+    // Ensure author and module references are fully resolved
     if (course) {
       course = await resolveAuthorReferences(course);
+      course = await resolveModuleReferences(course, targetLocale);
     }
     
     return course;
@@ -765,16 +855,163 @@ export async function getCourseByUid(uid: string, locale?: string): Promise<Cour
 // ============================================
 
 /**
+ * Fetch a single lesson by UID (internal helper for resolving references)
+ */
+async function fetchLessonByUid(uid: string, locale: string): Promise<LessonEntry | null> {
+  try {
+    const query = Stack.ContentType(CONTENT_TYPES.LESSON).Entry(uid);
+    query.language(locale);
+    const result = await query.toJSON().fetch();
+    return result as LessonEntry;
+  } catch (error) {
+    // Try fallback locale
+    if (locale !== FALLBACK_LOCALE) {
+      try {
+        const fallbackQuery = Stack.ContentType(CONTENT_TYPES.LESSON).Entry(uid);
+        fallbackQuery.language(FALLBACK_LOCALE);
+        const fallbackResult = await fallbackQuery.toJSON().fetch();
+        return fallbackResult as LessonEntry;
+      } catch {
+        // Ignore fallback error
+      }
+    }
+    return null;
+  }
+}
+
+/**
+ * Fetch a single module by UID (internal helper for resolving references)
+ */
+async function fetchModuleByUid(uid: string, locale: string): Promise<ModuleEntry | null> {
+  try {
+    const query = Stack.ContentType(CONTENT_TYPES.MODULE).Entry(uid);
+    query.language(locale);
+    query.includeReference(['lessons']);
+    const result = await query.toJSON().fetch();
+    return result as ModuleEntry;
+  } catch (error) {
+    // Try fallback locale
+    if (locale !== FALLBACK_LOCALE) {
+      try {
+        const fallbackQuery = Stack.ContentType(CONTENT_TYPES.MODULE).Entry(uid);
+        fallbackQuery.language(FALLBACK_LOCALE);
+        fallbackQuery.includeReference(['lessons']);
+        const fallbackResult = await fallbackQuery.toJSON().fetch();
+        return fallbackResult as ModuleEntry;
+      } catch {
+        // Ignore fallback error
+      }
+    }
+    return null;
+  }
+}
+
+/**
+ * Resolve lesson references within a module
+ * Handles cases where includeReference doesn't properly expand localized references
+ */
+async function resolveLessonReferences(module: ModuleEntry, locale: string): Promise<ModuleEntry> {
+  if (!module.lessons) return module;
+  
+  const lessons = Array.isArray(module.lessons) ? module.lessons : [module.lessons];
+  
+  // Check if lessons need to be resolved (only have uid, no title/content)
+  const needsResolution = lessons.some(l => 
+    l.uid && (!l.title || l.title === '')
+  );
+  
+  if (needsResolution) {
+    console.log(`[CMS] Module "${module.title}" lessons not expanded, manually resolving for ${locale}...`);
+    const resolvedLessons = await Promise.all(
+      lessons.map(async (lesson) => {
+        if (lesson.uid && (!lesson.title || lesson.title === '')) {
+          const resolved = await fetchLessonByUid(lesson.uid, locale);
+          return resolved || lesson;
+        }
+        return lesson;
+      })
+    );
+    module.lessons = resolvedLessons as LessonEntry[];
+  }
+  
+  return module;
+}
+
+/**
+ * Resolve module references within a course
+ * Handles cases where includeReference doesn't properly expand localized references
+ */
+async function resolveModuleReferences(course: CourseEntry, locale: string): Promise<CourseEntry> {
+  if (!course.modules) return course;
+  
+  const modules = Array.isArray(course.modules) ? course.modules : [course.modules];
+  
+  // Check if modules need to be resolved (only have uid, no title)
+  const needsResolution = modules.some(m => 
+    m.uid && (!m.title || m.title === '')
+  );
+  
+  if (needsResolution) {
+    console.log(`[CMS] Course "${course.title}" modules not expanded, manually resolving for ${locale}...`);
+    const resolvedModules = await Promise.all(
+      modules.map(async (module) => {
+        if (module.uid && (!module.title || module.title === '')) {
+          const resolved = await fetchModuleByUid(module.uid, locale);
+          if (resolved) {
+            // Also resolve lessons within this module
+            return await resolveLessonReferences(resolved, locale);
+          }
+          return module;
+        }
+        // If module is already resolved, still check lessons
+        return await resolveLessonReferences(module, locale);
+      })
+    );
+    course.modules = resolvedModules as ModuleEntry[];
+  } else {
+    // Modules are resolved, but check if their lessons need resolution
+    const modulesWithResolvedLessons = await Promise.all(
+      modules.map(async (module) => {
+        return await resolveLessonReferences(module, locale);
+      })
+    );
+    course.modules = modulesWithResolvedLessons as ModuleEntry[];
+  }
+  
+  return course;
+}
+
+/**
  * Fetch a single module by UID with lessons
  */
-export async function getModuleByUid(uid: string): Promise<ModuleEntry | null> {
+export async function getModuleByUid(uid: string, locale?: string): Promise<ModuleEntry | null> {
   try {
-    const result = await Stack.ContentType(CONTENT_TYPES.MODULE)
+    const targetLocale = locale || getCurrentLocale();
+    
+    const query = Stack.ContentType(CONTENT_TYPES.MODULE)
       .Entry(uid)
-      .includeReference(['lessons'])
-      .toJSON()
-      .fetch();
-    return result as ModuleEntry;
+      .includeReference(['lessons']);
+    query.language(targetLocale);
+    
+    let result = await query.toJSON().fetch();
+    let module = result as ModuleEntry;
+    
+    // Fallback to en-us if not found
+    if (!module && targetLocale !== FALLBACK_LOCALE) {
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.MODULE)
+        .Entry(uid)
+        .includeReference(['lessons']);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      result = await fallbackQuery.toJSON().fetch();
+      module = result as ModuleEntry;
+    }
+    
+    // Resolve lesson references if needed
+    if (module) {
+      module = await resolveLessonReferences(module, targetLocale);
+    }
+    
+    return module;
   } catch (error) {
     console.error(`Error fetching module by UID: ${uid}`, error);
     return null;
@@ -916,8 +1153,9 @@ export async function getCourseByLessonUid(lessonUid: string, locale?: string): 
     for (const course of courses) {
       const courseModules = Array.isArray(course.modules) ? course.modules : course.modules ? [course.modules] : [];
       if (courseModules.some(m => m.uid === targetModuleUid)) {
-        // Resolve author references for the matching course
-        const resolvedCourse = await resolveAuthorReferences(course);
+        // Resolve author and module references for the matching course
+        let resolvedCourse = await resolveAuthorReferences(course);
+        resolvedCourse = await resolveModuleReferences(resolvedCourse, targetLocale);
         return resolvedCourse;
       }
     }

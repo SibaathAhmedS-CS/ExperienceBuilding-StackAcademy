@@ -7,4 +7,4 @@
  * or disable the default devtool with "devtool: false".
  * If you are looking for production-ready output files, see mode: "production" (https://webpack.js.org/configuration/mode/).
  */
-self["webpackHotUpdate_N_E"]("css-src_app_main_courses_page_module_css-src_app_main_home_page_module_css-src_components_Car-8049d1",{});
+self["webpackHotUpdate_N_E"]("css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-bf8310",{});
