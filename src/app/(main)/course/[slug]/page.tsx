@@ -223,12 +223,17 @@ export default function CoursePage() {
           setCourseData(course);
           
           // Track course view in Lytics
+          // Extract category from taxonomies (course_categories taxonomy)
+          const courseCategory = course.taxonomies && course.taxonomies.length > 0
+            ? course.taxonomies[0].term_uid
+            : 'general';
+          
           trackCourseView({
             course_slug: course.slug || slug,
             course_title: course.title,
-            course_category: course.category || 'general',
-            instructor_name: typeof course.instructor === 'object' && course.instructor 
-              ? (course.instructor as AuthorEntry).name 
+            course_category: courseCategory,
+            instructor_name: typeof course.author === 'object' && course.author && !Array.isArray(course.author)
+              ? (course.author as AuthorEntry).title 
               : undefined,
           });
           
