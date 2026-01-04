@@ -297,17 +297,52 @@ export function sendTestEvent(): void {
   }, 2000);
 }
 
-// Make test function available globally in browser
-if (typeof window !== 'undefined') {
-  (window as unknown as { testLytics: typeof sendTestEvent }).testLytics = sendTestEvent;
-}
+// Global functions are defined at the end of the file
 
 /**
  * Generate the Lytics JavaScript tag script content
  */
 export function getLyticsScriptContent(accountId: string): string {
   return `
-    !function(){"use strict";var o=window.jstag||(window.jstag={}),r=[];function n(e){o[e]=function(){for(var n=arguments.length,t=new Array(n),i=0;i<n;i++)t[i]=arguments[i];r.push([e,t])}}n("send"),n("mock"),n("identify"),n("pageView"),n("unblock"),n("getid"),n("setid"),n("loadEntity"),n("getEntity"),n("on"),n("once"),n("call"),o.loadScript=function(n,t,i){var e=document.createElement("script");e.async=!0,e.src=n,e.onload=t,e.onerror=i;var o=document.getElementsByTagName("script")[0],r=o&&o.parentNode||document.head||document.body,c=o||r.lastChild;return null!=c?r.insertBefore(e,c):r.appendChild(e),this},o.init=function n(t){return this.config=t,this.loadScript("https://c.lytics.io/api/tag/"+t.cid+"/latest.min.js",function(){o.init(o.config),function(n){for(var t=0;t<n.length;t++)o[n[t][0]].apply(o,n[t][1])}(r),r=[]}),this},o.init({cid:"${accountId}",loadid:!0,pageAnalysis:{dataLayerPull:{disabled:!1}}})}();
+    !function(){"use strict";var o=window.jstag||(window.jstag={}),r=[];function n(e){o[e]=function(){for(var n=arguments.length,t=new Array(n),i=0;i<n;i++)t[i]=arguments[i];r.push([e,t])}}n("send"),n("mock"),n("identify"),n("pageView"),n("unblock"),n("getid"),n("setid"),n("loadEntity"),n("getEntity"),n("on"),n("once"),n("call"),o.loadScript=function(n,t,i){var e=document.createElement("script");e.async=!0,e.src=n,e.onload=t,e.onerror=i;var o=document.getElementsByTagName("script")[0],r=o&&o.parentNode||document.head||document.body,c=o||r.lastChild;return null!=c?r.insertBefore(e,c):r.appendChild(e),this},o.init=function n(t){return this.config=t,this.loadScript("https://c.lytics.io/api/tag/"+t.cid+"/latest.min.js",function(){console.log("[Lytics] ✅ External script loaded successfully from lytics.io");o.init(o.config),function(n){for(var t=0;t<n.length;t++)o[n[t][0]].apply(o,n[t][1])}(r),r=[]},function(e){console.error("[Lytics] ❌ Failed to load external script:",e)}),this},o.init({cid:"${accountId}",loadid:!0,pageAnalysis:{dataLayerPull:{disabled:!1}}})}();
+    console.log("[Lytics] 📡 Attempting to load script from: https://c.lytics.io/api/tag/${accountId}/latest.min.js");
   `;
+}
+
+/**
+ * DEBUG: Check Lytics connection status
+ * Call from browser console: window.checkLytics()
+ */
+export function checkLyticsStatus(): void {
+  console.log('=== LYTICS DEBUG INFO ===');
+  console.log('1. Account ID:', getLyticsAccountId() || 'NOT SET ❌');
+  console.log('2. jstag exists:', typeof window !== 'undefined' && typeof window.jstag !== 'undefined' ? 'YES ✅' : 'NO ❌');
+  
+  if (typeof window !== 'undefined' && window.jstag) {
+    console.log('3. jstag.send exists:', typeof window.jstag.send === 'function' ? 'YES ✅' : 'NO ❌');
+    console.log('4. jstag config:', window.jstag.config || 'Not available');
+  }
+  
+  // Check if script element exists
+  const scriptExists = typeof document !== 'undefined' && document.querySelector('script[data-lytics]');
+  console.log('5. Lytics script tag in DOM:', scriptExists ? 'YES ✅' : 'NO ❌');
+  
+  // Check for Lytics external script
+  const externalScripts = typeof document !== 'undefined' 
+    ? Array.from(document.querySelectorAll('script')).filter(s => s.src?.includes('lytics.io'))
+    : [];
+  console.log('6. External Lytics scripts loaded:', externalScripts.length > 0 ? `YES (${externalScripts.length}) ✅` : 'NO ❌');
+  
+  if (externalScripts.length > 0) {
+    externalScripts.forEach((s, i) => console.log(`   Script ${i + 1}:`, s.src));
+  }
+  
+  console.log('=========================');
+}
+
+// Make debug function available globally
+if (typeof window !== 'undefined') {
+  (window as unknown as { testLytics: typeof sendTestEvent; checkLytics: typeof checkLyticsStatus }).testLytics = sendTestEvent;
+  (window as unknown as { testLytics: typeof sendTestEvent; checkLytics: typeof checkLyticsStatus }).checkLytics = checkLyticsStatus;
 }
 
