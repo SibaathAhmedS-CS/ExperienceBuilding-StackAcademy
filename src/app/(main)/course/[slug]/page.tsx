@@ -30,6 +30,7 @@ import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { trackCourseView, trackCourseEnroll } from '@/lib/lytics';
 import styles from './page.module.css';
 
 // Mock user data
@@ -214,21 +215,23 @@ export default function CoursePage() {
   // Fetch course data from CMS and check enrollment
   useEffect(() => {
     async function fetchCourse() {
-      // Reset state when language changes to ensure fresh data
       setIsLoading(true);
-      setCourseData(null);
-      setIsEnrolled(false);
-      setIsCompleted(false);
-      setCompletedLessonIds([]);
-      setExpandedModules([]);
-      
       try {
-        console.log(`[Course] Fetching course "${slug}" with locale: ${selectedLanguage}`);
         // Pass selectedLanguage to fetch localized content
         const course = await getCourseBySlug(slug, selectedLanguage);
         if (course) {
-          console.log(`[Course] Loaded "${course.title}" in ${selectedLanguage}`);
           setCourseData(course);
+          
+          // Track course view in Lytics
+          trackCourseView({
+            course_slug: course.slug || slug,
+            course_title: course.title,
+            course_category: course.category || 'general',
+            instructor_name: typeof course.instructor === 'object' && course.instructor 
+              ? (course.instructor as AuthorEntry).name 
+              : undefined,
+          });
+          
           // Expand first module by default
           const modules = normalizeArray(course.modules);
           if (modules.length > 0) {
@@ -272,7 +275,6 @@ export default function CoursePage() {
           }
         } else {
           // Course not found - reset state
-          console.log(`[Course] Course "${slug}" not found in ${selectedLanguage}`);
           setCourseData(null);
         }
       } catch (error) {

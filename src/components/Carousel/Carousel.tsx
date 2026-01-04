@@ -43,13 +43,6 @@ interface CarouselProps {
 // Default colors for carousel slides
 const defaultColors = ['#3b82f6', '#7c3aed', '#059669', '#dc2626', '#ea580c'];
 
-// Default fallback images for banners when localized entries don't have images
-const defaultBannerImages = [
-  'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=800',
-  'https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=800',
-  'https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=800',
-];
-
 // Normalize banner data to a common format
 function normalizeBanners(
   banners?: BannerEntry | BannerEntry[],
@@ -58,27 +51,17 @@ function normalizeBanners(
   // If CMS banners are provided, convert them
   if (banners) {
     const bannerArray = normalizeArray(banners);
-    return bannerArray.map((banner, index) => {
-      // Try multiple image sources for localized entries
-      // banner_image is an asset reference that may not be resolved for localized entries
-      // banner_image_link could be a URL field that's more reliably available
-      const imageUrl = 
-        banner.banner_image?.url || 
-        (banner as any).banner_image_link?.href || 
-        defaultBannerImages[index % defaultBannerImages.length];
-      
-      return {
-        uid: banner.uid,
-        label: banner.label || banner.title,
-        title: banner.title,
-        description: banner.description || '',
-        image: imageUrl,
-        ctaLabel: banner.button?.title || 'Learn More',
-        ctaUrl: banner.button?.href || '#',
-        backgroundColor: extractColor(banner.banner_color, defaultColors[index % defaultColors.length]),
-        textColor: extractColor(banner.banner_text_color, '#ffffff'),
-      };
-    });
+    return bannerArray.map((banner, index) => ({
+      uid: banner.uid,
+      label: banner.label || banner.title,
+      title: banner.title,
+      description: banner.description || '',
+      image: banner.banner_image?.url || '',
+      ctaLabel: banner.button?.title || 'Learn More',
+      ctaUrl: banner.button?.href || '#',
+      backgroundColor: extractColor(banner.banner_color, defaultColors[index % defaultColors.length]),
+      textColor: extractColor(banner.banner_text_color, '#ffffff'),
+    }));
   }
 
   // Fall back to legacy slides

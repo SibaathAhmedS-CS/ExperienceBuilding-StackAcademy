@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   ChevronDown, 
   HelpCircle, 
@@ -79,14 +79,6 @@ export default function FAQ({
   const cmsQuestions = extractQuestions(faqData?.faq_question);
   const hasCMSData = faqData && cmsQuestions.length > 0;
   
-  // Debug logging for language switching
-  console.log('[FAQ] Data status:', {
-    hasCMSData,
-    questionsCount: cmsQuestions.length,
-    faqTitle: faqData?.section_title,
-    isLoading,
-  });
-  
   // Get icon from CMS or fallback
   const iconName = hasCMSData ? getIconData(faqData?.icon) : 'help-circle';
   const HeaderIcon = iconMap[iconName] || HelpCircle;
@@ -108,11 +100,6 @@ export default function FAQ({
   const toggleItem = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
   };
-  
-  // Reset open index when FAQ data changes (e.g., language switch)
-  useEffect(() => {
-    setOpenIndex(0);
-  }, [faqData?.uid]);
 
   // Show loading state or fallback while fetching
   if (isLoading && faqItems.length === 0) {
