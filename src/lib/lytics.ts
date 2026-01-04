@@ -12,6 +12,7 @@ declare global {
       send: (data: Record<string, unknown>) => void;
       mock?: boolean;
       _q?: Array<{ method: string; args: unknown[] }>;
+      config?: Record<string, unknown>;
     };
   }
 }
