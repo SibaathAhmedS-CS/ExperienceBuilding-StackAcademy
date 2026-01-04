@@ -31,7 +31,7 @@ interface UserProfile {
 }
 
 interface Enrollment {
-  course_slug: string;
+  course_id: string;
   status: string;
 }
 
@@ -144,10 +144,10 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
         .eq('user_id', user.id)
         .single();
 
-      // Fetch enrollments
+      // Fetch enrollments (note: table has course_id, not course_slug)
       const { data: enrollments } = await supabase
         .from('enrollments')
-        .select('course_slug, status')
+        .select('course_id, status')
         .eq('user_id', user.id);
 
       // Build Lytics identify data
@@ -168,13 +168,14 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
       }
 
       // Add enrollment data if it exists
+      // Note: Using course_id since that's what the enrollments table stores
       if (enrollments && enrollments.length > 0) {
         lyticsData.courses_enrolled = enrollments
           .filter((e: Enrollment) => e.status === 'enrolled' || e.status === 'in_progress')
-          .map((e: Enrollment) => e.course_slug);
+          .map((e: Enrollment) => e.course_id);
         lyticsData.courses_completed = enrollments
           .filter((e: Enrollment) => e.status === 'completed')
-          .map((e: Enrollment) => e.course_slug);
+          .map((e: Enrollment) => e.course_id);
       }
 
       // Send identify event to Lytics
