@@ -1,3 +1,9 @@
 {
-  "/page": "app/page.js"
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/auth/callback/route": "app/auth/callback/route.js",
+  "/(main)/course/[slug]/page": "app/(main)/course/[slug]/page.js",
+  "/(main)/courses/page": "app/(main)/courses/page.js",
+  "/(auth)/signup/page": "app/(auth)/signup/page.js",
+  "/(main)/home/page": "app/(main)/home/page.js"
 }
