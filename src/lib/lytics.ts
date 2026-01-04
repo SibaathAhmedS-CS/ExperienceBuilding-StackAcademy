@@ -302,11 +302,18 @@ export function sendTestEvent(): void {
 
 /**
  * Generate the Lytics JavaScript tag script content
+ * Uses the official Lytics JStag Version 3 format
  */
 export function getLyticsScriptContent(accountId: string): string {
+  // Official Lytics JStag Version 3 snippet format
   return `
-    !function(){"use strict";var o=window.jstag||(window.jstag={}),r=[];function n(e){o[e]=function(){for(var n=arguments.length,t=new Array(n),i=0;i<n;i++)t[i]=arguments[i];r.push([e,t])}}n("send"),n("mock"),n("identify"),n("pageView"),n("unblock"),n("getid"),n("setid"),n("loadEntity"),n("getEntity"),n("on"),n("once"),n("call"),o.loadScript=function(n,t,i){var e=document.createElement("script");e.async=!0,e.src=n,e.onload=t,e.onerror=i;var o=document.getElementsByTagName("script")[0],r=o&&o.parentNode||document.head||document.body,c=o||r.lastChild;return null!=c?r.insertBefore(e,c):r.appendChild(e),this},o.init=function n(t){return this.config=t,this.loadScript("https://c.lytics.io/api/tag/"+t.cid+"/latest.min.js",function(){console.log("[Lytics] ✅ External script loaded successfully from lytics.io");o.init(o.config),function(n){for(var t=0;t<n.length;t++)o[n[t][0]].apply(o,n[t][1])}(r),r=[]},function(e){console.error("[Lytics] ❌ Failed to load external script:",e)}),this},o.init({cid:"${accountId}",loadid:!0,pageAnalysis:{dataLayerPull:{disabled:!1}}})}();
-    console.log("[Lytics] 📡 Attempting to load script from: https://c.lytics.io/api/tag/${accountId}/latest.min.js");
+    <!-- Start Lytics Tracking Tag Version 3 -->
+    !function(){"use strict";var o=window.jstag||(window.jstag={}),r=[];function n(e){o[e]=function(){for(var n=arguments.length,t=new Array(n),i=0;i<n;i++)t[i]=arguments[i];r.push([e,t])}}n("send"),n("mock"),n("identify"),n("pageView"),n("unblock"),n("getid"),n("setid"),n("loadEntity"),n("getEntity"),n("on"),n("once"),n("call"),o.loadScript=function(n,t,i){var e=document.createElement("script");e.async=!0,e.src=n,e.onload=t,e.onerror=i;var o=document.getElementsByTagName("script")[0],r=o&&o.parentNode||document.head||document.body,c=o||r.lastChild;return null!=c?r.insertBefore(e,c):r.appendChild(e),this},o.init=function n(t){return this.config=t,this.loadScript(t.src,function(){console.log("[Lytics] ✅ External script loaded successfully");o.init(o.config);for(var n=0;n<r.length;n++)o[r[n][0]].apply(o,r[n][1]);r=[]},function(e){console.error("[Lytics] ❌ Failed to load external script:",e)}),this};
+    // Initialize with src URL (official format)
+    jstag.init({
+      src: 'https://c.lytics.io/api/tag/${accountId}/latest.min.js'
+    });
+    console.log("[Lytics] 📡 Initialized with account: ${accountId}");
   `;
 }
 
