@@ -305,15 +305,53 @@ export function sendTestEvent(): void {
  * Uses the official Lytics JStag Version 3 format
  */
 export function getLyticsScriptContent(accountId: string): string {
-  // Official Lytics JStag Version 3 snippet format
+  // Official Lytics JStag Version 3 snippet - all in one IIFE
   return `
-    <!-- Start Lytics Tracking Tag Version 3 -->
-    !function(){"use strict";var o=window.jstag||(window.jstag={}),r=[];function n(e){o[e]=function(){for(var n=arguments.length,t=new Array(n),i=0;i<n;i++)t[i]=arguments[i];r.push([e,t])}}n("send"),n("mock"),n("identify"),n("pageView"),n("unblock"),n("getid"),n("setid"),n("loadEntity"),n("getEntity"),n("on"),n("once"),n("call"),o.loadScript=function(n,t,i){var e=document.createElement("script");e.async=!0,e.src=n,e.onload=t,e.onerror=i;var o=document.getElementsByTagName("script")[0],r=o&&o.parentNode||document.head||document.body,c=o||r.lastChild;return null!=c?r.insertBefore(e,c):r.appendChild(e),this},o.init=function n(t){return this.config=t,this.loadScript(t.src,function(){console.log("[Lytics] ✅ External script loaded successfully");o.init(o.config);for(var n=0;n<r.length;n++)o[r[n][0]].apply(o,r[n][1]);r=[]},function(e){console.error("[Lytics] ❌ Failed to load external script:",e)}),this};
-    // Initialize with src URL (official format)
-    jstag.init({
-      src: 'https://c.lytics.io/api/tag/${accountId}/latest.min.js'
-    });
-    console.log("[Lytics] 📡 Initialized with account: ${accountId}");
+    !function(){
+      "use strict";
+      var o=window.jstag||(window.jstag={}),r=[];
+      function n(e){
+        o[e]=function(){
+          for(var n=arguments.length,t=new Array(n),i=0;i<n;i++)t[i]=arguments[i];
+          r.push([e,t])
+        }
+      }
+      n("send");n("mock");n("identify");n("pageView");n("unblock");n("getid");n("setid");n("loadEntity");n("getEntity");n("on");n("once");n("call");
+      o.loadScript=function(n,t,i){
+        var e=document.createElement("script");
+        e.async=!0;
+        e.src=n;
+        e.onload=t;
+        e.onerror=i;
+        var s=document.getElementsByTagName("script")[0],
+            p=s&&s.parentNode||document.head||document.body,
+            c=s||p.lastChild;
+        return null!=c?p.insertBefore(e,c):p.appendChild(e),this
+      };
+      o.init=function(t){
+        this.config=t;
+        var self=this;
+        this.loadScript(t.src,function(){
+          console.log("[Lytics] ✅ External script loaded successfully");
+          if(typeof self.init==="function"&&self.config){
+            for(var n=0;n<r.length;n++){
+              if(typeof o[r[n][0]]==="function"){
+                o[r[n][0]].apply(o,r[n][1]);
+              }
+            }
+            r=[];
+          }
+        },function(e){
+          console.error("[Lytics] ❌ Failed to load external script:",e);
+        });
+        return this;
+      };
+      // Initialize immediately
+      o.init({
+        src: 'https://c.lytics.io/api/tag/${accountId}/latest.min.js'
+      });
+      console.log("[Lytics] 📡 Initialized with account: ${accountId.substring(0, 8)}...");
+    }();
   `;
 }
 
