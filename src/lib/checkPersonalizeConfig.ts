@@ -48,20 +48,60 @@ export async function checkPersonalizeConfig(): Promise<void> {
     }
 
     // Get all variants
-    const variants = personalizeSdk.getVariants();
-    console.log('[Personalize Config] 📊 Variants:', variants);
+    let variants: any = null;
+    if (typeof personalizeSdk.getVariants === 'function') {
+      try {
+        variants = personalizeSdk.getVariants();
+        console.log('[Personalize Config] 📊 Variants:', variants);
+      } catch (error) {
+        console.warn('[Personalize Config] ⚠️ Error calling getVariants():', error);
+      }
+    }
     
-    // Get active variant
-    const activeVariant = personalizeSdk.getActiveVariant();
-    console.log('[Personalize Config] 📊 Active Variant:', activeVariant);
+    // Get active variant (may require experience UID parameter)
+    let activeVariant: any = null;
+    if (typeof personalizeSdk.getActiveVariant === 'function') {
+      try {
+        // Try without arguments first
+        activeVariant = (personalizeSdk.getActiveVariant as any)();
+        console.log('[Personalize Config] 📊 Active Variant:', activeVariant);
+      } catch (error) {
+        // If it requires an argument, try with experience shortUid
+        try {
+          if (Array.isArray(experiences) && experiences.length > 0) {
+            const firstExp = experiences[0];
+            if (firstExp.shortUid) {
+              activeVariant = (personalizeSdk.getActiveVariant as any)(firstExp.shortUid);
+              console.log('[Personalize Config] 📊 Active Variant (with experience):', activeVariant);
+            }
+          }
+        } catch (error2) {
+          console.warn('[Personalize Config] ⚠️ Error calling getActiveVariant():', error2);
+        }
+      }
+    }
     
     // Get variant param
-    const variantParam = personalizeSdk.getVariantParam();
-    console.log('[Personalize Config] 📊 Variant Param:', variantParam);
+    let variantParam: string | null = null;
+    if (typeof personalizeSdk.getVariantParam === 'function') {
+      try {
+        variantParam = personalizeSdk.getVariantParam();
+        console.log('[Personalize Config] 📊 Variant Param:', variantParam);
+      } catch (error) {
+        console.warn('[Personalize Config] ⚠️ Error calling getVariantParam():', error);
+      }
+    }
     
     // Get variant aliases
-    const variantAliases = personalizeSdk.getVariantAliases();
-    console.log('[Personalize Config] 📊 Variant Aliases:', variantAliases);
+    let variantAliases: any = null;
+    if (typeof personalizeSdk.getVariantAliases === 'function') {
+      try {
+        variantAliases = personalizeSdk.getVariantAliases();
+        console.log('[Personalize Config] 📊 Variant Aliases:', variantAliases);
+      } catch (error) {
+        console.warn('[Personalize Config] ⚠️ Error calling getVariantAliases():', error);
+      }
+    }
 
     // Summary
     console.log('[Personalize Config] 📋 Summary:', {
