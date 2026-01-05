@@ -337,7 +337,9 @@ export default function ModulePage() {
     duration: currentLessonData.duration || '15:00',
     completed: completedLessonIds.includes(currentLessonData.uid),
     is_preview: currentLessonData.is_preview || false,
-    videoUrl: currentLessonData.video_url?.href || '',
+    videoUrl: currentLessonData.video_url?.href || 
+              (typeof currentLessonData.video_url === 'string' ? currentLessonData.video_url : '') ||
+              (currentLessonData as any).video_link?.href || '',
     content: currentLessonData.lesson_content || '',
     resources: (currentLessonData.resources || []).map(res => {
       if (isFileResource(res)) {
@@ -529,14 +531,20 @@ export default function ModulePage() {
 
   const handleVideoComplete = async () => {
     // Mark lesson as complete when video ends or user skips to last second
-    if (currentLessonData && currentLessonData.video_url?.href) {
+    const hasVideo = currentLessonData?.video_url?.href || 
+                     (typeof currentLessonData?.video_url === 'string') ||
+                     (currentLessonData as any)?.video_link?.href;
+    if (currentLessonData && hasVideo) {
       await markLessonAsCompleted(currentLessonData.uid);
     }
   };
 
   const handleNextLesson = async () => {
     // For text-based courses, mark as complete when Next is pressed
-    if (currentLessonData && !currentLessonData.video_url?.href) {
+    const hasVideo = currentLessonData?.video_url?.href || 
+                     (typeof currentLessonData?.video_url === 'string') ||
+                     (currentLessonData as any)?.video_link?.href;
+    if (currentLessonData && !hasVideo) {
       await markLessonAsCompleted(currentLessonData.uid);
     }
     

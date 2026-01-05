@@ -63,6 +63,29 @@ export const CONTENT_TYPES = {
 } as const;
 
 // ============================================
+// PERSONALIZATION SUPPORT
+// ============================================
+
+// Store the current variant alias for personalized content
+let currentVariantAlias: string | null = null;
+
+/**
+ * Set the variant alias for personalized content fetching
+ * Called by usePersonalize hook when user's audience is determined
+ */
+export function setPersonalizeVariant(variant: string | null): void {
+  currentVariantAlias = variant;
+  console.log(`[CMS] Variant set to: ${variant || 'base'}`);
+}
+
+/**
+ * Get the current variant alias
+ */
+export function getPersonalizeVariant(): string | null {
+  return currentVariantAlias;
+}
+
+// ============================================
 // Generic Fetch Helpers
 // ============================================
 
@@ -259,6 +282,185 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
 }
 
 /**
+ * Deep merge variant sections with base entry sections
+ * Contentstack variants only return changed fields, so we need to merge properly
+ */
+function mergeVariantWithBase(baseEntry: PageEntry, variantEntry: PageEntry): PageEntry {
+  if (!baseEntry.section || !variantEntry.section) {
+    return variantEntry.section ? variantEntry : baseEntry;
+  }
+
+  // Create a map of variant sections by their metadata UID
+  const variantSectionMap = new Map<string, any>();
+  for (const section of variantEntry.section) {
+    const blockType = Object.keys(section)[0];
+    const block = (section as any)[blockType];
+    const metadataUid = block?._metadata?.uid;
+    if (metadataUid) {
+      variantSectionMap.set(metadataUid, section);
+    }
+  }
+
+  // Deep merge: combine variant fields with base fields for each section
+  const mergedSections = baseEntry.section.map(baseSection => {
+    const blockType = Object.keys(baseSection)[0];
+    const baseBlock = (baseSection as any)[blockType];
+    const metadataUid = baseBlock?._metadata?.uid;
+    
+    if (metadataUid && variantSectionMap.has(metadataUid)) {
+      const variantSection = variantSectionMap.get(metadataUid);
+      const variantBlock = variantSection[blockType];
+      
+      // Deep merge the blocks - variant fields override base fields
+      const mergedBlock = {
+        ...baseBlock,
+        ...variantBlock,
+        // Explicitly merge nested objects that might have partial overrides
+        title_and_description: {
+          ...baseBlock?.title_and_description,
+          ...variantBlock?.title_and_description,
+        },
+        query: {
+          ...baseBlock?.query,
+          ...variantBlock?.query,
+        },
+      };
+      
+      return { [blockType]: mergedBlock } as typeof baseSection;
+    }
+    // Keep base section unchanged
+    return baseSection;
+  });
+
+  return {
+    ...baseEntry,
+    ...variantEntry,
+    section: mergedSections,
+  };
+}
+
+/**
+ * Fetch Page entry by title with a specific variant
+ * Used for personalization - fetches variant content based on audience
+ * @param title - Page title
+ * @param variantAlias - Variant alias (e.g., "cs_personalize_0_4")
+ * @param locale - Optional locale
+ */
+export async function getPageWithVariant(
+  title: string, 
+  variantAlias: string, 
+  locale?: string
+): Promise<PageEntry | null> {
+  try {
+    const targetLocale = locale || getCurrentLocale();
+    
+    // First, fetch the base page (we need all sections including unmodified ones)
+    const basePage = await getPage(title, targetLocale);
+    if (!basePage) {
+      console.log(`[CMS] Base page "${title}" not found`);
+      return null;
+    }
+    
+    // Get API credentials
+    const apiKey = process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '';
+    const deliveryToken = process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '';
+    const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev';
+    const branch = process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main';
+    
+    // Build the query URL with variant parameter
+    const baseUrl = 'https://cdn.contentstack.io/v3';
+    
+    // Reference fields to include
+    const includeRefs = [
+      'header',
+      'header.icon',
+      'section.carousel_block.banner',
+      'section.carousel_block.banner.banner_image',
+      'section.category_block.icon',
+      'section.category_block.category',
+      'section.feature_block.features',
+      'section.workflow_block.stage',
+      'section.testimonial_block.testimonial',
+      'section.testimonial_block.testimonial.author',
+    ];
+    
+    // Build URL with proper include[] format for REST API
+    const queryObj = encodeURIComponent(JSON.stringify({ title }));
+    let url = `${baseUrl}/content_types/${CONTENT_TYPES.PAGE}/entries?query=${queryObj}&locale=${targetLocale}&environment=${environment}`;
+    
+    // Add each include as a separate parameter (REST API format)
+    includeRefs.forEach(ref => {
+      url += `&include[]=${encodeURIComponent(ref)}`;
+    });
+    
+    console.log(`[CMS] Fetching variant "${variantAlias}" for page "${title}"`);
+    
+    // Make API call with variant header
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'api_key': apiKey,
+        'access_token': deliveryToken,
+        'branch': branch,
+        'x-cs-variant-uid': variantAlias,
+      },
+      cache: 'no-store',
+    });
+    
+    console.log(`[CMS] Variant API response status:`, response.status);
+    
+    if (!response.ok) {
+      console.log(`[CMS] Variant API failed, using base page`);
+      return basePage;
+    }
+    
+    const data = await response.json();
+    const entries = data.entries || [];
+    
+    console.log(`[CMS] Variant API - entries found:`, entries.length);
+    
+    if (entries.length > 0) {
+      const variantEntry = entries[0] as PageEntry;
+      
+      // Debug: Log variant sections received
+      const variantCardBlocks = variantEntry.section?.filter((s: any) => s.card_block) || [];
+      console.log(`[CMS] Variant raw data:`, {
+        sectionsCount: variantEntry.section?.length || 0,
+        cardBlockQueries: variantCardBlocks.map((b: any) => ({
+          title: b.card_block?.title_and_description?.title,
+          query: b.card_block?.query,
+        })),
+      });
+      
+      // Merge variant sections with base page sections
+      const mergedEntry = mergeVariantWithBase(basePage, variantEntry);
+      
+      const cardBlocks = mergedEntry.section?.filter((s: any) => s.card_block) || [];
+      const carouselBlocks = mergedEntry.section?.filter((s: any) => s.carousel_block) || [];
+      
+      console.log(`[CMS] Merged page "${title}":`, {
+        variant: variantAlias,
+        totalSections: mergedEntry.section?.length || 0,
+        cardBlocks: cardBlocks.length,
+        carouselBlocks: carouselBlocks.length,
+        cardBlockQueries: cardBlocks.map((b: any) => b.card_block?.query),
+      });
+      
+      return mergedEntry;
+    }
+    
+    // No variant entries found, return base page
+    console.log(`[CMS] No variant entries, using base page`);
+    return basePage;
+    
+  } catch (error) {
+    console.error(`Error fetching page with variant: ${title}/${variantAlias}`, error);
+    // Fallback to base page on error
+    return await getPage(title, locale);
+  }
+}
+
+/**
  * Fetch Page entry by URL
  */
 export async function getPageByUrl(url: string, locale?: string): Promise<PageEntry | null> {
@@ -274,6 +476,7 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
           'header',
           'header.icon',
           'section.carousel_block.banner',
+          'section.carousel_block.banner.banner_image',
           'section.category_block.icon',
           'section.category_block.category',
           'section.feature_block.features',
@@ -297,6 +500,7 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
             'header',
             'header.icon',
             'section.carousel_block.banner',
+            'section.carousel_block.banner.banner_image',
             'section.category_block.icon',
             'section.category_block.category',
             'section.feature_block.features',
@@ -323,6 +527,7 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
           'header',
           'header.icon',
           'section.carousel_block.banner',
+          'section.carousel_block.banner.banner_image',
           'section.category_block.icon',
           'section.category_block.category',
           'section.feature_block.features',

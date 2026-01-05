@@ -144,10 +144,10 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
         .eq('user_id', user.id)
         .single();
 
-      // Fetch enrollments (note: table has course_id, not course_slug)
+      // Fetch enrollments with course_domain for category tracking
       const { data: enrollments } = await supabase
         .from('enrollments')
-        .select('course_id, status')
+        .select('course_id, status, course_domain')
         .eq('user_id', user.id);
 
       // Build Lytics identify data
@@ -168,7 +168,6 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
       }
 
       // Add enrollment data if it exists
-      // Note: Using course_id since that's what the enrollments table stores
       if (enrollments && enrollments.length > 0) {
         lyticsData.courses_enrolled = enrollments
           .filter((e: Enrollment) => e.status === 'enrolled' || e.status === 'in_progress')
@@ -176,13 +175,31 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
         lyticsData.courses_completed = enrollments
           .filter((e: Enrollment) => e.status === 'completed')
           .map((e: Enrollment) => e.course_id);
+        
+        // Extract unique categories from course_domain
+        const categories = [...new Set(
+          enrollments
+            .map((e: Enrollment) => (e as Enrollment & { course_domain?: string }).course_domain)
+            .filter(Boolean)
+        )] as string[];
+        if (categories.length > 0) {
+          lyticsData.categories_explored = categories;
+        }
       }
 
       // Send identify event to Lytics
       identifyUser(lyticsData);
       setIsIdentified(true);
-      console.log('[LyticsProvider] 👤 User IDENTIFIED in Lytics!');
-      console.table(lyticsData);
+      
+      // Log sent data for debugging (minimal)
+      console.log('[LyticsProvider] 📤 Sent to Lytics:', {
+        email: lyticsData.email,
+        goal: lyticsData.goal,
+        role: lyticsData.role,
+        daily_goal_minutes: lyticsData.daily_goal_minutes,
+        courses_completed: lyticsData.courses_completed?.length || 0,
+        categories_explored: lyticsData.categories_explored,
+      });
 
     } catch (error) {
       console.error('[LyticsProvider] Error syncing user to Lytics:', error);

@@ -43,6 +43,30 @@ interface CarouselProps {
 // Default colors for carousel slides
 const defaultColors = ['#3b82f6', '#7c3aed', '#059669', '#dc2626', '#ea580c'];
 
+// Helper to extract image URL from various possible formats
+function extractImageUrl(banner: BannerEntry): string {
+  // Try banner_image (asset reference)
+  if (banner.banner_image?.url) {
+    return banner.banner_image.url;
+  }
+  
+  // Try if banner_image is a string URL directly (variant case)
+  if (typeof banner.banner_image === 'string') {
+    return banner.banner_image;
+  }
+  
+  // Check for any other image field patterns that might exist
+  const bannerAny = banner as any;
+  if (bannerAny.image?.url) {
+    return bannerAny.image.url;
+  }
+  if (bannerAny.image_url) {
+    return bannerAny.image_url;
+  }
+  
+  return '';
+}
+
 // Normalize banner data to a common format
 function normalizeBanners(
   banners?: BannerEntry | BannerEntry[],
@@ -56,7 +80,7 @@ function normalizeBanners(
       label: banner.label || banner.title,
       title: banner.title,
       description: banner.description || '',
-      image: banner.banner_image?.url || '',
+      image: extractImageUrl(banner),
       ctaLabel: banner.button?.title || 'Learn More',
       ctaUrl: banner.button?.href || '#',
       backgroundColor: extractColor(banner.banner_color, defaultColors[index % defaultColors.length]),
@@ -146,18 +170,23 @@ export default function Carousel({
                   <ArrowRight size={18} />
                 </Link>
               </div>
-              <div className={styles.imageContent}>
+              <div 
+                className={styles.imageContent}
+                style={{ '--slide-bg': slide.backgroundColor } as React.CSSProperties}
+              >
                 {slide.image ? (
                   <Image
                     src={slide.image}
                     alt={slide.label}
                     fill
+                    sizes="(max-width: 768px) 100vw, 50vw"
                     className={styles.slideImage}
                     priority={index === 0}
                   />
                 ) : (
                   <div className={styles.imagePlaceholder} />
                 )}
+                <div className={styles.imageOverlay} />
               </div>
             </div>
 

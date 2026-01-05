@@ -83,21 +83,23 @@ export function sendEvent(eventData: Record<string, unknown>): void {
 /**
  * Identify user with profile data
  * This syncs user data from your application to Lytics user profile
+ * Field names match Lytics audience definition expectations
  */
 export function identifyUser(userData: {
   email: string;
   user_id?: string;
   full_name?: string;
-  // Preference fields from onboarding
-  goal?: string | null;
-  role?: string | null;
-  education?: string | null;
+  // Preference fields from onboarding (mapped to Lytics field names)
+  goal?: string | null;           // Maps to career_intent in Lytics
+  role?: string | null;           // Maps to job_role in Lytics
+  education?: string | null;      // Maps to education_background in Lytics
   topics?: string[];
   schedule?: string | null;
-  daily_goal_minutes?: number | null;
+  daily_goal_minutes?: number | null;  // Maps to minutes_per_day_target in Lytics
   // Enrollment data
   courses_enrolled?: string[];
-  courses_completed?: string[];
+  courses_completed?: string[];   // Maps to completed_course_slugs in Lytics
+  categories_explored?: string[]; // Categories user has explored
 }): void {
   const eventData: Record<string, unknown> = {
     _e: 'identify',
@@ -107,17 +109,35 @@ export function identifyUser(userData: {
   // Add optional fields if they exist
   if (userData.user_id) eventData.user_id = userData.user_id;
   if (userData.full_name) eventData.full_name = userData.full_name;
-  if (userData.goal) eventData.goal = userData.goal;
-  if (userData.role) eventData.role = userData.role;
-  if (userData.education) eventData.education = userData.education;
+  
+  // Map to Lytics field names that match audience definitions
+  if (userData.goal) {
+    eventData.goal = userData.goal;  // Keep original for backwards compatibility
+    eventData.career_intent = userData.goal;  // Lytics audience field name
+  }
+  if (userData.role) {
+    eventData.role = userData.role;  // Keep original
+    eventData.job_role = userData.role;  // Lytics audience field name
+  }
+  if (userData.education) {
+    eventData.education = userData.education;  // Keep original
+    eventData.education_background = userData.education;  // Lytics audience field name
+  }
   if (userData.topics && userData.topics.length > 0) eventData.topics = userData.topics;
   if (userData.schedule) eventData.schedule = userData.schedule;
-  if (userData.daily_goal_minutes) eventData.daily_goal_minutes = userData.daily_goal_minutes;
+  if (userData.daily_goal_minutes) {
+    eventData.daily_goal_minutes = userData.daily_goal_minutes;  // Keep original
+    eventData.minutes_per_day_target = userData.daily_goal_minutes;  // Lytics audience field name
+  }
   if (userData.courses_enrolled && userData.courses_enrolled.length > 0) {
     eventData.courses_enrolled = userData.courses_enrolled;
   }
   if (userData.courses_completed && userData.courses_completed.length > 0) {
     eventData.courses_completed = userData.courses_completed;
+    eventData.completed_course_slugs = userData.courses_completed;  // Lytics audience field name
+  }
+  if (userData.categories_explored && userData.categories_explored.length > 0) {
+    eventData.categories_explored = userData.categories_explored;  // Lytics audience field name
   }
 
   sendEvent(eventData);

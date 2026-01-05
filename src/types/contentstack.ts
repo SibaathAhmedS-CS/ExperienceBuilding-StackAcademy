@@ -184,11 +184,19 @@ export interface TestimonialBlock {
   };
 }
 
-// Card Block (for course sections) - Updated with CTA button
+// Query parameters for filtering courses (used in personalization variants)
+export interface CourseQuery {
+  titles?: string;      // Comma-separated keywords (e.g., "CSS, Python, React")
+  difficulty?: 'Beginner' | 'Intermediate' | 'Advanced';
+  duration?: number;    // Max duration in hours
+}
+
+// Card Block (for course sections) - Updated with query and CTA button
 export interface CardBlock {
   card_block: {
     title_and_description?: TitleAndDescription;
-    cta_button?: Link;  // Optional CTA button link
+    query?: CourseQuery;  // Query parameters for filtering courses (from variants)
+    cta_button?: Link;    // Optional CTA button link
   };
 }
 

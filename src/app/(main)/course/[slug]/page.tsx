@@ -214,8 +214,16 @@ export default function CoursePage() {
 
   // Fetch course data from CMS and check enrollment
   useEffect(() => {
+    // Reset state when slug or language changes - set loading first to avoid "not found" flash
+    setIsLoading(true);
+    setCourseData(null);
+    setIsEnrolled(false);
+    setIsCompleted(false);
+    setCompletedLessonIds([]);
+    setEnrollmentId(null);
+    setExpandedModules([]);
+    
     async function fetchCourse() {
-      setIsLoading(true);
       try {
         // Pass selectedLanguage to fetch localized content
         const course = await getCourseBySlug(slug, selectedLanguage);
@@ -450,6 +458,8 @@ export default function CoursePage() {
               src={heroImage}
               alt={courseData.title}
               fill
+              sizes="100vw"
+              priority
               className={styles.heroImage}
             />
             <div className={styles.heroOverlay} />
@@ -574,7 +584,7 @@ export default function CoursePage() {
                   <div className={styles.instructorCard}>
                     <div className={styles.instructorHeader}>
                       <div className={styles.instructorAvatarLarge}>
-                        <Image src={instructorAvatar} alt={instructor.title} fill />
+                        <Image src={instructorAvatar} alt={instructor.title} fill sizes="80px" />
                       </div>
                       <h3 className={styles.instructorName}>{instructor.title}</h3>
                       {/* DB Data: Instructor Stats */}
@@ -722,7 +732,7 @@ export default function CoursePage() {
                     <div key={review.uid} className={styles.reviewItem}>
                       <div className={styles.reviewHeader}>
                         <div className={styles.reviewerAvatar}>
-                          <Image src={review.userAvatar} alt={review.userName} fill />
+                          <Image src={review.userAvatar} alt={review.userName} fill sizes="48px" />
                         </div>
                         <div className={styles.reviewerInfo}>
                           <h4>{review.userName}</h4>

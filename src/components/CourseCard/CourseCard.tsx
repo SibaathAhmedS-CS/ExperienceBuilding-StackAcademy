@@ -69,6 +69,7 @@ export default function CourseCard({
           src={thumbnail || '/images/course-placeholder.jpg'}
           alt={title}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className={styles.thumbnailImage}
         />
         
@@ -111,7 +112,7 @@ export default function CourseCard({
         <div className={styles.instructor}>
           <div className={styles.instructorAvatar}>
             {instructorAvatar ? (
-              <Image src={instructorAvatar} alt={instructorName} fill />
+              <Image src={instructorAvatar} alt={instructorName} fill sizes="32px" />
             ) : (
               <span>{instructorName.charAt(0)}</span>
             )}

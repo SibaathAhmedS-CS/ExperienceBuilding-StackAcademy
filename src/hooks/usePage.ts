@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { PageEntry } from '@/types/contentstack';
-import { getPage, getPageByUrl } from '@/lib/contentstack';
+import { getPage, getPageByUrl, getPageWithVariant } from '@/lib/contentstack';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * Custom hook to fetch page data from Contentstack by title
  * Falls back gracefully if CMS data is not available
+ * @param title - Page title to fetch
+ * @param variantAlias - Optional variant alias for personalization
  */
-export function usePage(title: string) {
+export function usePage(title: string, variantAlias?: string | null) {
   const [pageData, setPageData] = useState<PageEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -19,13 +21,23 @@ export function usePage(title: string) {
     async function fetchPage() {
       try {
         setIsLoading(true);
-        const data = await getPage(title, selectedLanguage);
+        
+        // Use variant-aware fetch if variant alias is provided
+        let data: PageEntry | null;
+        if (variantAlias) {
+          data = await getPageWithVariant(title, variantAlias, selectedLanguage);
+          console.log(`[Personalize] Fetching page "${title}" with variant: ${variantAlias}`);
+        } else {
+          data = await getPage(title, selectedLanguage);
+        }
+        
         setPageData(data);
         
         if (data) {
           console.log(`Page "${title}" fetched:`, {
             sectionsCount: data.section?.length || 0,
             hasHeader: !!data.header,
+            variant: variantAlias || 'base',
           });
         }
       } catch (err) {
@@ -39,7 +51,7 @@ export function usePage(title: string) {
     if (title) {
       fetchPage();
     }
-  }, [title, selectedLanguage]);
+  }, [title, selectedLanguage, variantAlias]);
 
   return { pageData, isLoading, error };
 }

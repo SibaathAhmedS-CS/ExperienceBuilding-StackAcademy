@@ -289,6 +289,7 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const supabase = createClient();
 
   // Fetch auth branding data from Contentstack
@@ -349,6 +350,7 @@ export default function SignupPage() {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setSuccessMessage('');
 
     // Validate
     if (formData.password !== formData.confirmPassword) {
@@ -363,7 +365,7 @@ export default function SignupPage() {
       return;
     }
     
-    const { error: authError } = await supabase.auth.signUp({
+    const { data, error: authError } = await supabase.auth.signUp({
       email: formData.email,
       password: formData.password,
       options: { 
@@ -372,12 +374,42 @@ export default function SignupPage() {
       }
     });
 
+    setIsLoading(false);
+
     if (authError) {
-      setError(authError.message);
-      setIsLoading(false);
-    } else {
-      // New users go to onboarding
-      window.location.href = '/onboarding';
+      // Handle specific error cases
+      if (authError.message.includes('already registered') || 
+          authError.message.includes('duplicate key') ||
+          authError.message.includes('already exists') ||
+          authError.message.includes('User already registered')) {
+        setError('An account with this email already exists. Please log in instead.');
+      } else if (authError.message.includes('Database error')) {
+        setError('An account with this email already exists. Please log in instead.');
+      } else {
+        setError(authError.message);
+      }
+      return;
+    }
+
+    // Check if email confirmation is required
+    if (data?.user?.identities?.length === 0) {
+      // User already exists
+      setError('An account with this email already exists. Please log in instead.');
+      return;
+    }
+
+    if (data?.user && !data.session) {
+      // Email confirmation required - show success message and redirect to login
+      setSuccessMessage('✅ Account created! Please check your email inbox and click the confirmation link to verify your account, then come back and log in.');
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 4000);
+    } else if (data?.session) {
+      // No email confirmation required (auto-confirmed) - show success and redirect to login
+      setSuccessMessage('✅ Sign up successful! Redirecting to login...');
+      setTimeout(() => {
+        window.location.href = '/login';
+      }, 2000);
     }
   };
 
@@ -477,6 +509,12 @@ export default function SignupPage() {
               </div>
             )}
 
+            {successMessage && (
+              <div className={styles.successMessage}>
+                {successMessage}
+              </div>
+            )}
+
             <div className={styles.inputGroup}>
               <label htmlFor="name">Full Name</label>
               <div className={styles.inputWrapper}>
@@ -489,7 +527,7 @@ export default function SignupPage() {
                   value={formData.name}
                   onChange={handleChange}
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || !!successMessage}
                 />
               </div>
             </div>
@@ -506,7 +544,7 @@ export default function SignupPage() {
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || !!successMessage}
                 />
               </div>
             </div>
@@ -523,7 +561,7 @@ export default function SignupPage() {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || !!successMessage}
                 />
                 <button
                   type="button"
@@ -547,7 +585,7 @@ export default function SignupPage() {
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   required
-                  disabled={isLoading}
+                  disabled={isLoading || !!successMessage}
                 />
               </div>
             </div>
@@ -568,10 +606,15 @@ export default function SignupPage() {
             <button 
               type="submit" 
               className={styles.submitBtn}
-              disabled={isLoading}
+              disabled={isLoading || !!successMessage}
             >
               {isLoading ? (
                 <div className={styles.spinner} />
+              ) : successMessage ? (
+                <>
+                  Redirecting to Login...
+                  <div className={styles.spinner} />
+                </>
               ) : (
                 <>
                   Create Account

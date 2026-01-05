@@ -41,7 +41,7 @@ export async function GET(request: Request) {
         .from('user_preferences')
         .select('id')
         .eq('user_id', data.session.user.id)
-        .single();
+        .maybeSingle();
 
       // If preferences exist (regardless of completed_at), redirect to home
       if (prefs) {

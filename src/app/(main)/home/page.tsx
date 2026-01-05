@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import Header from '@/components/Header';
@@ -11,7 +11,8 @@ import CategoryCard from '@/components/CategoryCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
-import { useCourses, transformCourseToCard } from '@/hooks/useCourses';
+import { useCourses, transformCourseToCard, TransformedCourse } from '@/hooks/useCourses';
+import { usePersonalize } from '@/hooks/usePersonalize';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { 
@@ -19,6 +20,7 @@ import {
   IconEntry, 
   BannerEntry,
   CategoryEntry,
+  CourseQuery,
   Link as CMSLink,
   isCarouselBlock, 
   isCategoryBlock,
@@ -208,12 +210,13 @@ const fallbackFaqs = [
 // Card block types for mapping course sections
 type CardBlockType = 'top_courses' | 'recommended' | 'unknown';
 
-// Card block data with CTA
+// Card block data with CTA and query for personalization
 interface CardBlockData {
   type: CardBlockType;
   title: string;
   description: string;
   ctaButton?: CMSLink;
+  query?: CourseQuery;  // Query parameters from variant for filtering courses
 }
 
 // Helper to extract data from page sections
@@ -253,50 +256,195 @@ function extractHomePageData(pageData: PageEntry | null) {
       const title = section.card_block.title_and_description?.title || '';
       const description = section.card_block.title_and_description?.description || '';
       const ctaButton = section.card_block.cta_button;
+      const query = section.card_block.query;
       
-      // Determine card block type based on title
-      let type: CardBlockType = 'unknown';
-      const lowerTitle = title.toLowerCase();
-      if (lowerTitle.includes('top') || lowerTitle.includes('rated') || lowerTitle.includes('popular')) {
-        type = 'top_courses';
-      } else if (lowerTitle.includes('recommend')) {
-        type = 'recommended';
+      // Determine card block type based on order (first = top_courses, second = recommended)
+      const type: CardBlockType = cardBlocks.length === 0 ? 'top_courses' : 'recommended';
+      
+      // Log query for personalization debugging
+      if (query) {
+        console.log(`[Personalize] Card Block "${title}" query:`, query);
       }
       
-      cardBlocks.push({ type, title, description, ctaButton });
+      cardBlocks.push({ type, title, description, ctaButton, query });
     }
   }
 
   return { banners, categories, legacyCategories, carouselSettings, categoriesTitle, cardBlocks };
 }
 
+/**
+ * Filter courses based on query parameters from card block variants
+ * Matches courses by title keywords, difficulty, and duration
+ * Falls back to other courses if not enough matches
+ */
+function filterCoursesByQuery(
+  courses: TransformedCourse[],
+  query?: CourseQuery,
+  excludeUids: string[] = []
+): TransformedCourse[] {
+  // If no query, return first 4 courses excluding already shown ones
+  if (!query || (!query.titles && !query.difficulty && !query.duration)) {
+    return courses.filter(c => !excludeUids.includes(c.uid)).slice(0, 4);
+  }
+
+  // Parse title keywords
+  const keywords = query.titles
+    ?.split(',')
+    .map(k => k.trim().toLowerCase())
+    .filter(k => k.length > 0) || [];
+
+  // Difficulty mapping
+  const difficultyMap: Record<string, string> = {
+    'Beginner': 'beginner',
+    'Intermediate': 'intermediate',
+    'Advanced': 'advanced',
+  };
+
+  // Find matching courses
+  const matchingCourses = courses.filter(course => {
+    // Exclude already shown courses
+    if (excludeUids.includes(course.uid)) return false;
+
+    // Check title keywords (if any keyword matches)
+    if (keywords.length > 0) {
+      const titleLower = course.title.toLowerCase();
+      const categoryLower = (course.category || '').toLowerCase();
+      const hasKeywordMatch = keywords.some(kw => 
+        titleLower.includes(kw) || categoryLower.includes(kw)
+      );
+      if (!hasKeywordMatch) return false;
+    }
+
+    // Check difficulty (if specified)
+    if (query.difficulty) {
+      if (course.level !== difficultyMap[query.difficulty]) return false;
+    }
+
+    // Check duration (max hours, if specified)
+    if (query.duration) {
+      const courseDuration = parseInt(course.duration) || 0;
+      if (courseDuration > query.duration) return false;
+    }
+
+    return true;
+  });
+
+  // If we have 4+ matching courses, return them
+  if (matchingCourses.length >= 4) {
+    return matchingCourses.slice(0, 4);
+  }
+
+  // Otherwise, fill remaining slots with other courses (not excluded, not already in matching)
+  const matchingUids = new Set(matchingCourses.map(c => c.uid));
+  const fillerCourses = courses.filter(c => 
+    !excludeUids.includes(c.uid) && !matchingUids.has(c.uid)
+  );
+
+  // Return matching courses first, then fillers to make 4 total
+  return [...matchingCourses, ...fillerCourses].slice(0, 4);
+}
+
 export default function HomePage() {
   const [user, setUser] = useState<typeof mockUser | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [testVariant, setTestVariant] = useState<string | null>(null);
+  
+  // Check for URL query param to override variant (for testing)
+  // Usage: /home?variant=0 through /home?variant=5
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const variantParam = urlParams.get('variant');
+      if (variantParam !== null) {
+        const variantNum = parseInt(variantParam, 10);
+        if (variantNum >= 0 && variantNum <= 5) {
+          const testVariantId = `cs_personalize_0_${variantNum}`;
+          setTestVariant(testVariantId);
+          console.log(`[Test] 🧪 Using test variant from URL: ${testVariantId}`);
+        }
+      }
+    }
+  }, []);
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
   
-  // Fetch page data from Contentstack
-  const { pageData, isLoading } = usePage('Home Page');
+  // Get personalization state (determines user's audience and variant)
+  // variantParam is the full variant UID (e.g., cs_personalize_0_2)
+  const { isInitialized: personalizeReady, variantParam, audienceName } = usePersonalize();
+  
+  // Use test variant if set, otherwise use personalized variant
+  const effectiveVariant = testVariant || variantParam;
+  
+  // Fetch page data from Contentstack WITH variant support
+  // Pass effectiveVariant (full UID) to get personalized content
+  const { pageData, isLoading } = usePage('Home Page', effectiveVariant);
+  
+  // Log personalization status
+  useEffect(() => {
+    if (personalizeReady || testVariant) {
+      console.log('[Personalization] Status:', {
+        audience: testVariant ? 'TEST_OVERRIDE' : (audienceName || 'none'),
+        variant: effectiveVariant || 'base',
+        isTestMode: !!testVariant,
+      });
+    }
+  }, [personalizeReady, effectiveVariant, audienceName, testVariant]);
   
   // Fetch courses from CMS
   const { courses: cmsCourses, isLoading: coursesLoading } = useCourses();
   
-  // Transform CMS courses to card format
-  const transformedCourses = cmsCourses.map(transformCourseToCard);
-  
-  // Split courses for different sections (first 4 for top, next 4 for recommended)
-  const cmsTopCourses = transformedCourses.slice(0, 4);
-  const cmsRecommendedCourses = transformedCourses.slice(4, 8);
-
-  // Extract section data from CMS
+  // Extract section data from CMS (includes query params from variants)
   const homeData = extractHomePageData(pageData);
+  
+  // Get card blocks with queries
+  const cardBlocks = homeData?.cardBlocks || [];
+  const topCoursesBlock = cardBlocks[0]; // First card block
+  const recommendedBlock = cardBlocks[1]; // Second card block
+
+  // Transform CMS courses to card format (memoized)
+  const transformedCourses = useMemo(() => 
+    cmsCourses.map(transformCourseToCard),
+    [cmsCourses]
+  );
+
+  // Filter courses for Section 1 (Top Rated) using query from variant
+  const topCoursesFiltered = useMemo(() => {
+    if (transformedCourses.length === 0) return topCourses; // Fallback to mock data
+    const filtered = filterCoursesByQuery(transformedCourses, topCoursesBlock?.query);
+    
+    // Debug logging for personalization
+    if (topCoursesBlock?.query) {
+      console.log('[Personalization] Section 1 Query:', topCoursesBlock.query);
+      console.log('[Personalization] Section 1 Courses:', filtered.map(c => c.title));
+    }
+    
+    return filtered;
+  }, [transformedCourses, topCoursesBlock?.query]);
+
+  // Filter courses for Section 2 (Recommended) using query, excluding Section 1 courses
+  const recommendedCoursesFiltered = useMemo(() => {
+    if (transformedCourses.length === 0) return recommendedCourses; // Fallback to mock data
+    const section1Uids = topCoursesFiltered.map(c => c.uid);
+    const filtered = filterCoursesByQuery(transformedCourses, recommendedBlock?.query, section1Uids);
+    
+    // Debug logging for personalization
+    if (recommendedBlock?.query) {
+      console.log('[Personalization] Section 2 Query:', recommendedBlock.query);
+      console.log('[Personalization] Section 2 Courses:', filtered.map(c => c.title));
+    }
+    
+    return filtered;
+  }, [transformedCourses, recommendedBlock?.query, topCoursesFiltered]);
+
+  // Legacy variables for backwards compatibility
+  const cmsTopCourses = topCoursesFiltered;
+  const cmsRecommendedCourses = recommendedCoursesFiltered;
 
   // Determine what data to use
   const hasCMSBanners = homeData && homeData.banners.length > 0;
   const hasCMSCategories = homeData && (homeData.categories.length > 0 || homeData.legacyCategories.length > 0);
-  const cardBlocks = homeData?.cardBlocks || [];
 
   const router = useRouter();
   const supabase = createClient();
@@ -367,10 +515,6 @@ export default function HomePage() {
           }))
       )
     : fallbackCategories;
-
-  // Find card blocks or use defaults
-  const topCoursesBlock = cardBlocks.find(b => b.type === 'top_courses');
-  const recommendedBlock = cardBlocks.find(b => b.type === 'recommended');
 
   return (
     <>
