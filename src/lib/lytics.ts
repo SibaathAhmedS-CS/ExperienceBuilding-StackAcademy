@@ -74,19 +74,25 @@ export function sendEvent(eventData: Record<string, unknown>): void {
   
   if (!isLyticsReady()) {
     console.warn(`[Lytics] ⏳ jstag not ready, queuing ${eventType} event...`);
-    console.table(eventData);
+    console.log('📤 TO LYTICS - Event queued (will send when ready):', JSON.stringify(eventData, null, 2));
     // Queue the event to be sent when ready
     onLyticsReady(() => {
       window.jstag.send(eventData);
-      console.log(`[Lytics] ✅ Queued ${eventType} event SENT to Lytics!`);
-      console.table(eventData);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(`📤 TO LYTICS - Queued ${eventType} event sent:`);
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log(JSON.stringify(eventData, null, 2));
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     });
     return;
   }
   
   window.jstag.send(eventData);
-  console.log(`[Lytics] ✅ ${eventType} event SENT to Lytics!`);
-  console.table(eventData);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`📤 TO LYTICS - ${eventType} event sent:`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(JSON.stringify(eventData, null, 2));
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 }
 
 /**
@@ -173,10 +179,16 @@ export function fetchAndStoreAudiences(userIdentifier: string): Promise<string[]
       if (typeof window.jstag.getSegments === 'function') {
         window.jstag.getSegments((segments: string[]) => {
           const audiences = Array.isArray(segments) ? segments : [];
+          
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('📥 FROM LYTICS - Segments received via getSegments():');
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log(JSON.stringify(audiences, null, 2));
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          
           if (audiences.length > 0) {
             storeAudiencesInLocalStorage(userIdentifier, audiences);
           }
-          console.log('[Lytics] 📊 Fetched and stored audiences:', audiences);
           resolve(audiences);
         });
         return;
@@ -186,7 +198,7 @@ export function fetchAndStoreAudiences(userIdentifier: string): Promise<string[]
       if (typeof (window.jstag as any).getEntity === 'function') {
         (window.jstag as any).getEntity((error: any, entity: any) => {
           if (error) {
-            console.warn('[Lytics] Error getting entity:', error);
+            console.warn('[Lytics] ❌ Error getting entity:', error);
             resolve([]);
             return;
           }
@@ -197,10 +209,16 @@ export function fetchAndStoreAudiences(userIdentifier: string): Promise<string[]
                           [];
           const audiencesArray = Array.isArray(audiences) ? audiences : [];
           
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('📥 FROM LYTICS - Entity data received via getEntity():');
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log(JSON.stringify(entity, null, 2));
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('[Lytics] 📥 FROM LYTICS - Audiences extracted:', audiencesArray);
+          
           if (audiencesArray.length > 0) {
             storeAudiencesInLocalStorage(userIdentifier, audiencesArray);
           }
-          console.log('[Lytics] 📊 Fetched and stored audiences from entity:', audiencesArray);
           resolve(audiencesArray);
         });
       } else {
@@ -240,112 +258,282 @@ export function identifyUser(userData: {
     return;
   }
 
-  // Build identify payload with all user data
-  // Map to Lytics field names that match audience definitions
+  // Build identify payload matching the exact structure required
+  // Structure: email, identified_at, user_id, name, goal, role, education, topics, daily_goal_minutes
   const identifyPayload: Record<string, unknown> = {
     email: userData.email,
     identified_at: new Date().toISOString(),
   };
 
-  // Add optional fields if they exist
+  // Add optional fields if they exist (matching exact structure)
   if (userData.user_id) identifyPayload.user_id = userData.user_id;
   if (userData.full_name) identifyPayload.name = userData.full_name;
   
-  // Map to Lytics field names that match audience definitions
+  // Add preference fields (original field names only - no mapped fields)
   if (userData.goal) {
-    identifyPayload.goal = userData.goal;  // Keep original for backwards compatibility
-    identifyPayload.career_intent = userData.goal;  // Lytics audience field name
+    identifyPayload.goal = userData.goal;
   }
   if (userData.role) {
-    identifyPayload.role = userData.role;  // Keep original
-    identifyPayload.job_role = userData.role;  // Lytics audience field name
+    identifyPayload.role = userData.role;
   }
   if (userData.education) {
-    identifyPayload.education = userData.education;  // Keep original
-    identifyPayload.education_background = userData.education;  // Lytics audience field name
+    identifyPayload.education = userData.education;
   }
-  if (userData.topics && userData.topics.length > 0) identifyPayload.topics = userData.topics;
-  if (userData.schedule) identifyPayload.schedule = userData.schedule;
+  if (userData.topics && userData.topics.length > 0) {
+    identifyPayload.topics = userData.topics;
+  }
   if (userData.daily_goal_minutes) {
-    identifyPayload.daily_goal_minutes = userData.daily_goal_minutes;  // Keep original
-    identifyPayload.minutes_per_day_target = userData.daily_goal_minutes;  // Lytics audience field name
+    // Ensure daily_goal_minutes is always a number
+    const minutes = typeof userData.daily_goal_minutes === 'string' 
+      ? parseInt(userData.daily_goal_minutes, 10) 
+      : userData.daily_goal_minutes;
+    if (!isNaN(minutes as number)) {
+      identifyPayload.daily_goal_minutes = minutes;
+    }
   }
+  
+  // Note: schedule field is NOT included in the payload (removed per requirements)
+  // schedule is stored in database but not sent to Lytics
+  
+  // Optional: Add enrollment data if provided (not in your example but keeping for flexibility)
   if (userData.courses_enrolled && userData.courses_enrolled.length > 0) {
     identifyPayload.courses_enrolled = userData.courses_enrolled;
   }
   if (userData.courses_completed && userData.courses_completed.length > 0) {
     identifyPayload.courses_completed = userData.courses_completed;
-    identifyPayload.completed_course_slugs = userData.courses_completed;  // Lytics audience field name
   }
   if (userData.categories_explored && userData.categories_explored.length > 0) {
-    identifyPayload.categories_explored = userData.categories_explored;  // Lytics audience field name
+    identifyPayload.categories_explored = userData.categories_explored;
   }
+
+  // TO LYTICS: Log the complete payload being sent
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('📤 TO LYTICS - Data being sent to Lytics:');
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(JSON.stringify(identifyPayload, null, 2));
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  // Also log field breakdown for quick reference
+  console.log('[Lytics] 📤 TO LYTICS - Field summary:', {
+    email: identifyPayload.email,
+    user_id: identifyPayload.user_id,
+    name: identifyPayload.name,
+    goal: identifyPayload.goal,
+    role: identifyPayload.role,
+    education: identifyPayload.education,
+    topics_count: Array.isArray(identifyPayload.topics) ? identifyPayload.topics.length : 0,
+    daily_goal_minutes: identifyPayload.daily_goal_minutes,
+  });
 
   // Helper function to call identify
   const callIdentify = () => {
+    const userIdentifier = userData.user_id || userData.email || 'anonymous';
+    
+    // CHANGED: Try both identify() and send() methods for better compatibility
+    let identifyMethodUsed = 'none';
+    
+    // Method 1: Try jstag.identify() first
     if (window.jstag?.identify) {
-      window.jstag.identify(identifyPayload);
-      console.log('[Lytics] ✅ User identified:', {
-        email: userData.email,
-        user_id: userData.user_id,
-        hasPreferences: !!(userData.goal || userData.role),
-      });
-      
-      // After identifying, we need to wait longer for Lytics to:
-      // 1. Process the identify call
-      // 2. Evaluate audience rules
-      // 3. Update the user profile
-      // 4. Set the segments cookie
-      // This can take 2-5 seconds depending on Lytics processing time
-      const userIdentifier = userData.user_id || userData.email || 'anonymous';
-      
-      // Try multiple times with increasing delays to get segments
-      // Lytics needs time to evaluate audience rules and update cookies
-      const checkSegments = (attempt: number, maxAttempts: number = 5) => {
-        setTimeout(() => {
-          // First, try to trigger a page view to ensure Lytics processes the data
-          if (attempt === 1 && window.jstag?.pageView) {
-            window.jstag.pageView();
-            console.log('[Lytics] 📄 Triggered pageView to refresh segments');
+      try {
+        window.jstag.identify(identifyPayload);
+        identifyMethodUsed = 'identify()';
+        console.log('[Lytics] ✅ Called jstag.identify() - Data sent to Lytics above');
+      } catch (error) {
+        console.error('[Lytics] ❌ Error calling jstag.identify():', error);
+      }
+    }
+    
+    // Method 2: Also try jstag.send() with _e: 'identify' as fallback/alternative
+    if (window.jstag?.send) {
+      try {
+        const sendPayload = {
+          _e: 'identify',
+          ...identifyPayload
+        };
+        window.jstag.send(sendPayload);
+        if (identifyMethodUsed === 'none') {
+          identifyMethodUsed = 'send()';
+        } else {
+          identifyMethodUsed = 'both';
+        }
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('📤 TO LYTICS - Also sent via jstag.send() with _e: "identify":');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log(JSON.stringify(sendPayload, null, 2));
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      } catch (error) {
+        console.error('[Lytics] ❌ Error calling jstag.send():', error);
+      }
+    }
+    
+    if (identifyMethodUsed === 'none') {
+      console.warn('[Lytics] ⚠️ Neither jstag.identify() nor jstag.send() is available');
+      return;
+    }
+    
+    console.log('[Lytics] ✅ [DEBUG] User identification sent via:', identifyMethodUsed);
+    console.log('[Lytics] ✅ [DEBUG] User identified:', {
+      email: userData.email,
+      user_id: userData.user_id,
+      hasPreferences: !!(userData.goal || userData.role),
+      method: identifyMethodUsed,
+    });
+    
+    // After identifying, we need to wait longer for Lytics to:
+    // 1. Process the identify call
+    // 2. Evaluate audience rules
+    // 3. Update the user profile
+    // 4. Set the segments cookie
+    // This can take 2-5 seconds depending on Lytics processing time
+    
+    // CHANGED: Increased max attempts and delays for better reliability
+    const checkSegments = (attempt: number, maxAttempts: number = 8) => {
+      setTimeout(() => {
+        console.log(`[Lytics] 🔍 [DEBUG] Checking segments - Attempt ${attempt}/${maxAttempts}`);
+        
+        // CHANGED: Trigger pageview on each attempt to force re-evaluation
+        if (window.jstag?.pageView) {
+          window.jstag.pageView();
+          console.log(`[Lytics] 📄 [DEBUG] Triggered pageView (attempt ${attempt}) to refresh segments`);
+        }
+        
+        // Also check cookies on each attempt to see if they're being updated
+        const cookieAudiences = getLyticsAudiencesFromCookies();
+        if (cookieAudiences.length > 0) {
+          console.log(`[Lytics] 🍪 [DEBUG] Cookies updated - Found ${cookieAudiences.length} segments in cookies:`, cookieAudiences);
+          const hasUIExplorers = cookieAudiences.some(seg => 
+            seg.toLowerCase().includes('ui') && seg.toLowerCase().includes('explorer')
+          );
+          if (hasUIExplorers) {
+            console.log('[Lytics] ✅ Found "ui explorers" in cookies!');
           }
-          
+        }
+        
           // Try to get segments
           if (typeof window.jstag.getSegments === 'function') {
             window.jstag.getSegments((segments: string[]) => {
               const audiences = Array.isArray(segments) ? segments : [];
+              
+              // FROM LYTICS: Log segments received from Lytics
+              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              console.log(`📥 FROM LYTICS - Attempt ${attempt}/${maxAttempts} - Segments received from Lytics:`);
+              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              console.log(JSON.stringify(audiences, null, 2));
+              console.log(`[Lytics] 📥 FROM LYTICS - Segments type:`, typeof audiences, 'Length:', audiences.length);
+              console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
               
               // Check if we got real segments (not just ["all"])
               const hasRealSegments = audiences.length > 0 && 
                                      !(audiences.length === 1 && audiences[0] === 'all');
               
               if (hasRealSegments) {
-                console.log('[Lytics] ✅ Got real segments:', audiences);
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('✅ ✅ ✅ SUCCESS! Real segments received from Lytics:');
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log(JSON.stringify(audiences, null, 2));
+                console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('[Lytics] ✅ Storing segments in localStorage');
                 storeAudiencesInLocalStorage(userIdentifier, audiences);
-              } else if (attempt < maxAttempts) {
-                // If still ["all"], wait longer and try again
-                console.log(`[Lytics] ⏳ Segments still ["all"], retrying (attempt ${attempt + 1}/${maxAttempts})...`);
+                
+                // Check if "ui explorers" is in the segments
+                const hasUIExplorers = audiences.some(seg => 
+                  seg.toLowerCase().includes('ui') && seg.toLowerCase().includes('explorer')
+                );
+                if (hasUIExplorers) {
+                  console.log('[Lytics] ✅ "ui explorers" segment found in getSegments()!');
+                  console.log('[Lytics] 💡 If cookie is not updating, try:');
+                  console.log('   1. Wait 5-10 seconds for Lytics to update cookies');
+                  console.log('   2. Call window.refreshLyticsSegments()');
+                  console.log('   3. Refresh the page');
+                } else {
+                  console.log('[Lytics] ⚠️ "ui explorers" NOT found in segments');
+                  console.log('[Lytics] 💡 Available segments:', audiences);
+                  console.log('[Lytics] 💡 Check Lytics Dashboard → Audiences → "UI explorers"');
+                  console.log('[Lytics] 💡 Verify segment name matches exactly (case-sensitive)');
+                }
+              } else {
+              // DEBUG: Log why segments are still ["all"]
+              if (attempt === 1) {
+                console.log('[Lytics] 🔍 [DEBUG] First attempt - Segments are ["all"]');
+                console.log('[Lytics] 🔍 [DEBUG] This is normal - Lytics needs time to evaluate');
+                console.log('[Lytics] 🔍 [DEBUG] Payload that was sent:', identifyPayload);
+                console.log('[Lytics] 🔍 [DEBUG] Fields being checked by Contentstack Personalize:');
+                console.log('   - goal should equal "explore-for-fun"');
+                console.log('   - role should equal "ux-designer"');
+                console.log('   - Current values:', {
+                  goal: identifyPayload.goal,
+                  role: identifyPayload.role,
+                });
+              }
+              
+              if (attempt < maxAttempts) {
+                console.log(`[Lytics] ⏳ [DEBUG] Segments still ["all"], retrying in ${(attempt + 1) * 3000}ms (attempt ${attempt + 1}/${maxAttempts})...`);
                 checkSegments(attempt + 1, maxAttempts);
               } else {
-                console.warn('[Lytics] ⚠️ Segments still ["all"] after all attempts. This might mean:');
-                console.warn('  1. Audience rules in Lytics are not matching this user');
-                console.warn('  2. Lytics needs more time to process (check Lytics dashboard)');
-                console.warn('  3. Audience rules need to be configured correctly');
+                console.error('[Lytics] ❌ ❌ ❌ FAILED: Segments still ["all"] after all attempts');
+                console.error('[Lytics] 🔍 [DEBUG] Final debugging information:');
+                console.error('   📤 Payload sent:', JSON.stringify(identifyPayload, null, 2));
+                console.error('   📊 Final segments:', audiences);
+                console.error('   ⏰ Total wait time:', maxAttempts * 3000, 'ms');
+                console.error('');
+                console.error('[Lytics] 🔍 [DEBUG] Troubleshooting steps:');
+                console.error('   1. Check Lytics Dashboard → User Profiles → Search by email:', userData.email);
+                console.error('   2. Verify user attributes match Contentstack Personalize audience rules:');
+                console.error('      - goal should be: "explore-for-fun"');
+                console.error('      - role should be: "ux-designer"');
+                console.error('   3. Check Audiences → Edit Audience → Rules in Lytics');
+                console.error('   4. Verify field names match exactly:', {
+                  goal: identifyPayload.goal,
+                  role: identifyPayload.role,
+                  education: identifyPayload.education,
+                });
+                console.error('   5. Ensure audiences are Published (not Draft) in Lytics');
+                console.error('   6. Check Network tab → c.lytics.io/c → Payload section');
+                console.error('   7. If user exists in Lytics but cookie not updating:');
+                console.error('      - Wait 10-15 seconds after identify() call');
+                console.error('      - Call window.refreshLyticsSegments()');
+                console.error('      - Check cs-lytics-audiences cookie (set by Personalize SDK)');
+                
+                // Try getEntity as last resort
+                if (typeof window.jstag.getEntity === 'function') {
+                  console.log('[Lytics] 🔍 Trying getEntity() as last resort...');
+                  window.jstag.getEntity((error: any, entity: any) => {
+                    if (error) {
+                      console.error('[Lytics] ❌ getEntity() error:', error);
+                    } else {
+                      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                      console.log('📥 FROM LYTICS - Entity data received from Lytics:');
+                      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                      console.log(JSON.stringify(entity, null, 2));
+                      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                      const entityAudiences = entity?.data?.audiences || entity?.audiences || [];
+                      console.log('[Lytics] 📥 FROM LYTICS - Entity audiences:', entityAudiences);
+                      
+                      // Check user attributes in entity
+                      console.log('[Lytics] 🔍 User attributes in Lytics:', {
+                        goal: entity?.data?.goal || entity?.goal,
+                        role: entity?.data?.role || entity?.role,
+                        email: entity?.data?.email || entity?.email,
+                      });
+                    }
+                  });
+                }
               }
-            });
-          } else {
-            // Fallback to getEntity
-            fetchAndStoreAudiences(userIdentifier).catch((error) => {
-              console.warn('[Lytics] Failed to fetch and store audiences:', error);
-            });
-          }
-        }, attempt * 2000); // 2s, 4s, 6s, 8s, 10s delays
-      };
-      
-      // Start checking segments after initial delay
-      checkSegments(1);
-    } else {
-      console.warn('[Lytics] jstag.identify() is not available');
-    }
+            }
+          });
+        } else {
+          console.warn('[Lytics] ⚠️ [DEBUG] jstag.getSegments() is not available, trying getEntity() fallback');
+          // Fallback to getEntity
+          fetchAndStoreAudiences(userIdentifier).catch((error) => {
+            console.warn('[Lytics] ❌ [DEBUG] Failed to fetch and store audiences:', error);
+          });
+        }
+      }, attempt * 3000); // CHANGED: Increased to 3s, 6s, 9s, 12s, 15s, 18s, 21s, 24s delays
+    };
+    
+    // Start checking segments after initial delay
+    console.log('[Lytics] 🔍 [DEBUG] Starting segment check process...');
+    checkSegments(1);
   };
 
   // Use once() to wait for SDK ready, or call directly if already loaded
@@ -389,25 +577,481 @@ export function refreshLyticsSegments(): void {
     console.log('[Lytics] 🔄 Triggered pageView to refresh segments');
   }
   
-  // Also try to get segments after a short delay
+  // Also try to get segments after a delay
   setTimeout(() => {
-    if (typeof window.jstag.getSegments === 'function') {
+    if (window.jstag && typeof window.jstag.getSegments === 'function') {
       window.jstag.getSegments((segments: string[]) => {
-        const audiences = Array.isArray(segments) ? segments : [];
-        console.log('[Lytics] 📊 Current segments after refresh:', audiences);
-        
-        // Check if segments are still ["all"]
-        if (audiences.length === 1 && audiences[0] === 'all') {
-          console.warn('[Lytics] ⚠️ Segments still ["all"]. Possible issues:');
-          console.warn('  1. Audience rules in Lytics dashboard may not match user attributes');
-          console.warn('  2. Lytics needs more time to process (check Lytics dashboard)');
-          console.warn('  3. User attributes may not match audience criteria');
-          console.warn('  4. Lytics integration in Contentstack Personalize may need configuration');
-        }
+        console.log('[Lytics] 📥 Segments after refresh:', segments);
+        const cookieAudiences = getLyticsAudiencesFromCookies();
+        console.log('[Lytics] 📥 Audiences from cookies after refresh:', cookieAudiences);
       });
     }
   }, 2000);
 }
+
+/**
+ * Deep diagnostic - checks everything to find why segments aren't appearing
+ * Call from browser console: window.diagnoseSegmentIssue()
+ */
+export function diagnoseSegmentIssue(): void {
+  console.log('=== DEEP DIAGNOSTIC: WHY SEGMENTS AREN\'T APPEARING ===');
+  
+  if (!window.jstag) {
+    console.error('❌ jstag not available');
+    return;
+  }
+  
+  // 1. Check what Lytics returns
+  if (typeof window.jstag.getSegments === 'function') {
+    window.jstag.getSegments((segments: string[]) => {
+      const lyticsSegments = Array.isArray(segments) ? segments : [];
+      console.log('1. Lytics segments (jstag.getSegments()):', lyticsSegments);
+      
+      // 2. Check what's in Personalize cookie
+      const cookieAudiences = getLyticsAudiencesFromCookies();
+      console.log('2. Personalize cookie (cs-lytics-audiences):', cookieAudiences);
+      
+      // 3. Check user entity/attributes
+      if (typeof window.jstag.getEntity === 'function') {
+        window.jstag.getEntity((error: any, entity: any) => {
+          if (error) {
+            console.error('3. Error getting entity:', error);
+          } else {
+            console.log('3. User entity from Lytics:', entity);
+            const userGoal = entity?.data?.goal || entity?.goal;
+            const userRole = entity?.data?.role || entity?.role;
+            const userEmail = entity?.data?.email || entity?.email;
+            
+            console.log('');
+            console.log('4. User attributes:');
+            console.log('   email:', userEmail);
+            console.log('   goal:', userGoal);
+            console.log('   role:', userRole);
+            console.log('');
+            console.log('5. Contentstack Personalize "UI explorers" requires:');
+            console.log('   ✅ goal = "explore-for-fun"', userGoal === 'explore-for-fun' ? '✅ MATCH' : `❌ MISMATCH (got: "${userGoal}")`);
+            console.log('   ✅ role = "ux-designer"', userRole === 'ux-designer' ? '✅ MATCH' : `❌ MISMATCH (got: "${userRole}")`);
+            
+            if (userGoal !== 'explore-for-fun' || userRole !== 'ux-designer') {
+              console.log('');
+              console.log('❌ ❌ ❌ ROOT CAUSE FOUND!');
+              console.log('   User attributes do NOT match "UI explorers" audience rules!');
+              console.log('');
+              console.log('   🔧 Solution:');
+              console.log('      1. Update user profile with correct values:');
+              console.log('         - goal should be: "explore-for-fun"');
+              console.log('         - role should be: "ux-designer"');
+              console.log('      2. Call identifyUser() again with correct values');
+              console.log('      3. Wait 10-15 seconds for Lytics to re-evaluate');
+              return;
+            }
+          }
+          
+          // 4. Check if segments match
+          console.log('');
+          console.log('6. Segment comparison:');
+          const hasOnlyAll = lyticsSegments.length === 1 && lyticsSegments[0] === 'all';
+          
+          if (hasOnlyAll) {
+            console.log('   ⚠️ Lytics still returning ["all"] - evaluation not complete');
+            console.log('   💡 Possible reasons:');
+            console.log('      1. Lytics needs more time (can take 30-60 seconds)');
+            console.log('      2. User attributes don\'t match (but we checked above)');
+            console.log('      3. Audience is not Published in Lytics');
+            console.log('      4. Audience rules are incorrect');
+            console.log('');
+            console.log('   🔧 Next steps:');
+            console.log('      1. Check Lytics Dashboard → Audiences → "UI explorers"');
+            console.log('         - Verify it\'s Published (not Draft)');
+            console.log('         - Check Rules tab - verify field names match');
+            console.log('      2. Check Lytics Dashboard → User Profiles → Search by email');
+            console.log('         - Verify user attributes are stored correctly');
+            console.log('      3. Wait 30-60 seconds and call this function again');
+          } else {
+            console.log('   ✅ Lytics has real segments:', lyticsSegments);
+            const missingInCookie = lyticsSegments.filter(seg => !cookieAudiences.includes(seg));
+            if (missingInCookie.length > 0) {
+              console.log('   ⚠️ Segments missing in Personalize cookie:', missingInCookie);
+              console.log('   💡 This is a timing issue - Personalize SDK read too early');
+              console.log('   🔧 Solution: Refresh the page to force Personalize SDK to re-read');
+            } else {
+              console.log('   ✅ Segments match between Lytics and Personalize cookie');
+            }
+          }
+          
+          // 5. Check for "ui explorers" specifically
+          console.log('');
+          console.log('7. "ui explorers" segment check:');
+          const uiExplorerVariations = lyticsSegments.filter(seg => 
+            seg.toLowerCase().includes('ui') && seg.toLowerCase().includes('explorer')
+          );
+          const hasInCookie = cookieAudiences.some(seg => 
+            seg.toLowerCase().includes('ui') && seg.toLowerCase().includes('explorer')
+          );
+          
+          console.log('   In Lytics:', uiExplorerVariations.length > 0 ? `YES ✅ (${uiExplorerVariations.join(', ')})` : 'NO ❌');
+          console.log('   In Personalize cookie:', hasInCookie ? 'YES ✅' : 'NO ❌');
+          
+          if (uiExplorerVariations.length === 0) {
+            console.log('');
+            console.log('   ❌ "ui explorers" NOT found in Lytics segments');
+            console.log('   💡 Available segments:', lyticsSegments);
+            console.log('   💡 Check Lytics Dashboard → Audiences → "UI explorers"');
+            console.log('   💡 Verify segment name matches exactly (case-sensitive)');
+            console.log('   💡 Common variations: "ui-explorer", "UI Explorers", "ui_explorers"');
+          }
+        });
+      } else {
+        console.error('❌ jstag.getEntity() not available');
+      }
+    });
+  } else {
+    console.error('❌ jstag.getSegments() not available');
+  }
+}
+
+/**
+ * Wait for Lytics to finish evaluating segments, then force Personalize SDK to refresh
+ * This solves the issue where Personalize SDK reads segments before Lytics finishes evaluation
+ * Call from browser console: window.waitForLyticsAndRefreshPersonalize()
+ */
+export function waitForLyticsAndRefreshPersonalize(maxWaitSeconds: number = 60): void {
+  if (typeof window === 'undefined' || !window.jstag) {
+    console.warn('[Lytics] Cannot wait for segments - jstag not available');
+    return;
+  }
+  
+  console.log(`[Lytics] ⏳ Waiting for Lytics to finish evaluating segments (max ${maxWaitSeconds}s)...`);
+  console.log('[Lytics] 💡 This will check segments every 2 seconds until real segments appear');
+  console.log('[Lytics] 💡 Once segments are ready, it will refresh the page to force Personalize SDK to re-read');
+  console.log('[Lytics] 💡 If segments never appear, call window.diagnoseSegmentIssue() to find the root cause');
+  
+  const startTime = Date.now();
+  const maxWaitMs = maxWaitSeconds * 1000;
+  const checkInterval = 2000; // Check every 2 seconds
+  
+  const checkSegments = (attempt: number) => {
+    const elapsed = Date.now() - startTime;
+    
+    if (elapsed > maxWaitMs) {
+      console.error(`[Lytics] ❌ Timeout after ${maxWaitSeconds}s - segments still not ready`);
+      console.error('[Lytics] 💡 Call window.diagnoseSegmentIssue() to find the root cause');
+      console.error('[Lytics] 💡 Common issues:');
+      console.error('   1. User attributes don\'t match audience rules');
+      console.error('   2. Audience is not Published in Lytics');
+      console.error('   3. Segment name doesn\'t match exactly');
+      return;
+    }
+    
+    // Trigger pageView to force Lytics to re-evaluate
+    if (window.jstag?.pageView) {
+      window.jstag.pageView();
+    }
+    
+    // Check segments
+    if (typeof window.jstag.getSegments === 'function') {
+      window.jstag.getSegments((segments: string[]) => {
+        const audiences = Array.isArray(segments) ? segments : [];
+        const hasRealSegments = audiences.length > 0 && 
+                               !(audiences.length === 1 && audiences[0] === 'all');
+        
+        console.log(`[Lytics] 🔍 Attempt ${attempt} (${Math.round(elapsed / 1000)}s elapsed):`, audiences);
+        
+        if (hasRealSegments) {
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          console.log('✅ ✅ ✅ SUCCESS! Real segments found:', audiences);
+          console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+          
+          // Check if "ui explorers" is in the segments
+          const hasUIExplorers = audiences.some(seg => 
+            seg.toLowerCase().includes('ui') && seg.toLowerCase().includes('explorer')
+          );
+          
+          if (hasUIExplorers) {
+            console.log('[Lytics] ✅ "ui explorers" segment found!');
+          } else {
+            console.log('[Lytics] ⚠️ "ui explorers" NOT found in segments');
+            console.log('[Lytics] 💡 Available segments:', audiences);
+            console.log('[Lytics] 💡 Call window.diagnoseSegmentIssue() to find why');
+            console.log('[Lytics] 💡 Will still refresh page to update Personalize cookie');
+          }
+          
+          console.log('');
+          console.log('[Lytics] 🔄 Refreshing page in 2 seconds to force Personalize SDK to re-read segments...');
+          console.log('[Lytics] 💡 Personalize SDK will read updated segments from Lytics and update cs-lytics-audiences cookie');
+          
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+        } else {
+          // Continue checking
+          setTimeout(() => {
+            checkSegments(attempt + 1);
+          }, checkInterval);
+        }
+      });
+    } else {
+      console.warn('[Lytics] ⚠️ jstag.getSegments() not available');
+      setTimeout(() => {
+        checkSegments(attempt + 1);
+      }, checkInterval);
+    }
+  };
+  
+  // Start checking
+  checkSegments(1);
+}
+
+/**
+ * Compare Lytics segments with Personalize cookie to find mismatches
+ * Call from browser console: window.compareLyticsAndPersonalize()
+ */
+export function compareLyticsAndPersonalize(): void {
+  console.log('=== COMPARING LYTICS SEGMENTS vs PERSONALIZE COOKIE ===');
+  
+  // Get segments from Lytics
+  if (window.jstag && typeof window.jstag.getSegments === 'function') {
+    window.jstag.getSegments((segments: string[]) => {
+      const lyticsSegments = Array.isArray(segments) ? segments : [];
+      const cookieAudiences = getLyticsAudiencesFromCookies();
+      
+      console.log('1. Segments from Lytics (jstag.getSegments()):', lyticsSegments);
+      console.log('   Type:', typeof lyticsSegments, 'Length:', lyticsSegments.length);
+      console.log('2. Segments from Personalize cookie (cs-lytics-audiences):', cookieAudiences);
+      console.log('   Type:', typeof cookieAudiences, 'Length:', cookieAudiences.length);
+      console.log('');
+      
+      // Check if Lytics still only has ["all"]
+      const hasOnlyAll = lyticsSegments.length === 1 && lyticsSegments[0] === 'all';
+      if (hasOnlyAll) {
+        console.log('⚠️ ⚠️ ⚠️ LYTICS STILL EVALUATING!');
+        console.log('   Lytics segments are still ["all"] - evaluation not complete yet');
+        console.log('');
+        console.log('   💡 This means Lytics hasn\'t finished evaluating the user');
+        console.log('   💡 Possible reasons:');
+        console.log('      1. User attributes don\'t match audience rules');
+        console.log('      2. Audience is not Published in Lytics');
+        console.log('      3. Audience rules are incorrect');
+        console.log('      4. Lytics needs more time (can take 30-60 seconds)');
+        console.log('');
+        console.log('   🔧 Next steps:');
+        console.log('      1. Check Lytics Dashboard → User Profiles → Search by email');
+        console.log('      2. Verify user attributes match audience rules');
+        console.log('      3. Check Lytics Dashboard → Audiences → "UI explorers" → Rules');
+        console.log('      4. Verify audience is Published (not Draft)');
+        console.log('      5. Wait longer and call this function again');
+        return;
+      }
+      
+      // Find segments in Lytics but not in cookie
+      const missingInCookie = lyticsSegments.filter(seg => !cookieAudiences.includes(seg));
+      if (missingInCookie.length > 0) {
+        console.log('⚠️ ⚠️ ⚠️ MISMATCH DETECTED!');
+        console.log('   Segments in Lytics but NOT in Personalize cookie:', missingInCookie);
+        console.log('');
+        console.log('   💡 This means:');
+        console.log('      - Lytics has finished evaluating the user');
+        console.log('      - But Personalize SDK read segments too early (before evaluation)');
+        console.log('      - Personalize SDK cached the old segments in cs-lytics-audiences cookie');
+        console.log('');
+        console.log('   🔧 Solution:');
+        console.log('      1. Call window.waitForLyticsAndRefreshPersonalize()');
+        console.log('         This will wait for segments, then refresh page');
+        console.log('      2. Or manually refresh the page after Lytics finishes evaluation');
+        console.log('      3. Personalize SDK will re-read segments and update cookie');
+      } else {
+        console.log('✅ Segments match! Both Lytics and Personalize cookie have the same segments');
+      }
+      
+      // Find segments in cookie but not in Lytics (shouldn't happen, but check anyway)
+      const extraInCookie = cookieAudiences.filter(seg => !lyticsSegments.includes(seg));
+      if (extraInCookie.length > 0) {
+        console.log('⚠️ Segments in Personalize cookie but NOT in Lytics:', extraInCookie);
+        console.log('   💡 This might indicate stale cookie data');
+      }
+      
+          // Check specifically for "ui explorers" (case-insensitive, flexible matching)
+          // Note: Contentstack Personalize slug is "ui_explorers" (with underscore)
+          const uiExplorerVariations = lyticsSegments.filter(seg => {
+            const segLower = seg.toLowerCase();
+            return (segLower.includes('ui') && segLower.includes('explorer')) ||
+                   segLower === 'ui_explorers' ||
+                   segLower === 'ui-explorers' ||
+                   segLower === 'ui explorers';
+          });
+          const hasUIExplorersInCookie = cookieAudiences.some(seg => {
+            const segLower = seg.toLowerCase();
+            return (segLower.includes('ui') && segLower.includes('explorer')) ||
+                   segLower === 'ui_explorers' ||
+                   segLower === 'ui-explorers' ||
+                   segLower === 'ui explorers';
+          });
+          
+          console.log('');
+          console.log('3. "ui explorers" segment check (checking for: ui_explorers, ui-explorers, ui explorers):');
+          console.log('   In Lytics:', uiExplorerVariations.length > 0 ? `YES ✅ (${uiExplorerVariations.join(', ')})` : 'NO ❌');
+          console.log('   In Personalize cookie:', hasUIExplorersInCookie ? 'YES ✅' : 'NO ❌');
+          
+          // Check what the actual segment name is
+          const actualSegmentInLytics = uiExplorerVariations.length > 0 ? uiExplorerVariations[0] : null;
+          const actualSegmentInCookie = cookieAudiences.find(seg => {
+            const segLower = seg.toLowerCase();
+            return (segLower.includes('ui') && segLower.includes('explorer')) ||
+                   segLower === 'ui_explorers' ||
+                   segLower === 'ui-explorers' ||
+                   segLower === 'ui explorers';
+          });
+          
+          if (actualSegmentInLytics) {
+            console.log('   Actual segment name in Lytics:', actualSegmentInLytics);
+          }
+          if (actualSegmentInCookie) {
+            console.log('   Actual segment name in cookie:', actualSegmentInCookie);
+          }
+          
+          if (uiExplorerVariations.length > 0 && !hasUIExplorersInCookie) {
+            console.log('');
+            console.log('   ⚠️ "ui explorers" exists in Lytics but NOT in Personalize cookie!');
+            console.log('   💡 Found variations:', uiExplorerVariations);
+            console.log('   💡 This confirms the timing issue - Personalize SDK read too early');
+            console.log('   💡 Contentstack Personalize slug is "ui_explorers" (with underscore)');
+            console.log('   🔧 Call window.waitForLyticsAndRefreshPersonalize() to fix');
+          } else if (uiExplorerVariations.length === 0) {
+            console.log('');
+            console.log('   ❌ "ui explorers" NOT found in Lytics segments');
+            console.log('   💡 Available segments:', lyticsSegments);
+            console.log('   💡 Contentstack Personalize slug is "ui_explorers" (with underscore)');
+            console.log('   💡 Check Lytics Dashboard → Audiences → "UI explorers"');
+            console.log('   💡 Verify:');
+            console.log('      1. Audience is Published (not Draft)');
+            console.log('      2. User attributes match audience rules');
+            console.log('      3. Segment name in Lytics matches "ui_explorers"');
+          } else if (actualSegmentInLytics && actualSegmentInCookie && actualSegmentInLytics !== actualSegmentInCookie) {
+            console.log('');
+            console.log('   ⚠️ Segment name mismatch!');
+            console.log('   💡 Lytics has:', actualSegmentInLytics);
+            console.log('   💡 Cookie has:', actualSegmentInCookie);
+            console.log('   💡 This might cause issues - names should match');
+          }
+      
+      // Also check user entity to see what attributes Lytics has
+      if (window.jstag && typeof window.jstag.getEntity === 'function') {
+        window.jstag.getEntity((error: any, entity: any) => {
+          if (!error && entity) {
+            console.log('');
+            console.log('4. User attributes in Lytics:');
+            const userGoal = entity?.data?.goal || entity?.goal;
+            const userRole = entity?.data?.role || entity?.role;
+            console.log('   goal:', userGoal);
+            console.log('   role:', userRole);
+            console.log('');
+            console.log('   Contentstack Personalize "UI explorers" requires:');
+            console.log('   ✅ goal = "explore-for-fun"', userGoal === 'explore-for-fun' ? '✅ MATCH' : '❌ MISMATCH');
+            console.log('   ✅ role = "ux-designer"', userRole === 'ux-designer' ? '✅ MATCH' : '❌ MISMATCH');
+            
+            if (userGoal !== 'explore-for-fun' || userRole !== 'ux-designer') {
+              console.log('');
+              console.log('   ❌ User attributes do NOT match "UI explorers" criteria!');
+              console.log('   💡 This is why the segment is not appearing');
+              console.log('   💡 Update user profile with correct values');
+            }
+          }
+        });
+      }
+    });
+  } else {
+    console.log('❌ jstag.getSegments() not available');
+  }
+}
+
+/**
+ * Check if "ui explorers" segment exists and provide debugging info
+ * Call from browser console: window.checkUIExplorers()
+ */
+export function checkUIExplorersSegment(): void {
+  console.log('=== CHECKING "UI EXPLORERS" SEGMENT ===');
+  
+  // Check from jstag.getSegments()
+  if (window.jstag && typeof window.jstag.getSegments === 'function') {
+    window.jstag.getSegments((segments: string[]) => {
+      console.log('1. Segments from jstag.getSegments():', segments);
+      const hasUIExplorers = segments.some(seg => 
+        seg.toLowerCase().includes('ui') && seg.toLowerCase().includes('explorer')
+      );
+      console.log('   Has "ui explorers":', hasUIExplorers ? 'YES ✅' : 'NO ❌');
+      
+      if (!hasUIExplorers) {
+        console.log('   Available segments:', segments);
+      }
+    });
+  } else {
+    console.log('1. jstag.getSegments() not available');
+  }
+  
+  // Check from cookies
+  const cookieAudiences = getLyticsAudiencesFromCookies();
+  console.log('2. Audiences from cookies:', cookieAudiences);
+  const hasInCookies = hasLyticsSegment('ui explorers');
+  console.log('   Has "ui explorers" in cookies:', hasInCookies ? 'YES ✅' : 'NO ❌');
+  
+  if (!hasInCookies && cookieAudiences.length > 0) {
+    console.log('   Available segments in cookies:', cookieAudiences);
+    console.log('   💡 Segment name might be different. Check for variations:');
+    cookieAudiences.forEach(seg => {
+      if (seg.toLowerCase().includes('ui') || seg.toLowerCase().includes('explorer')) {
+        console.log(`      - "${seg}" (might be the one!)`);
+      }
+    });
+  }
+  
+  // Compare Lytics vs Personalize cookie
+  console.log('');
+  console.log('3. Comparing Lytics segments vs Personalize cookie:');
+  compareLyticsAndPersonalize();
+  
+  // Check user profile attributes from Lytics
+  if (window.jstag && typeof window.jstag.getEntity === 'function') {
+    window.jstag.getEntity((error: any, entity: any) => {
+      if (!error && entity) {
+        console.log('4. User profile from Lytics (getEntity):');
+        const userGoal = entity?.data?.goal || entity?.goal;
+        const userRole = entity?.data?.role || entity?.role;
+        console.log('   goal:', userGoal);
+        console.log('   role:', userRole);
+        console.log('');
+        console.log('   Contentstack Personalize "UI explorers" requires:');
+        console.log('   ✅ goal = "explore-for-fun"', userGoal === 'explore-for-fun' ? '✅ MATCH' : '❌ MISMATCH');
+        console.log('   ✅ role = "ux-designer"', userRole === 'ux-designer' ? '✅ MATCH' : '❌ MISMATCH');
+        
+        if (userGoal === 'explore-for-fun' && userRole === 'ux-designer') {
+          console.log('');
+          console.log('   ✅ User attributes match "UI explorers" criteria!');
+          console.log('   💡 If segment still not appearing:');
+          console.log('      1. Check Lytics Dashboard → Audiences → "UI explorers"');
+          console.log('      2. Verify audience is Published (not Draft)');
+          console.log('      3. Check segment name matches exactly');
+          console.log('      4. Call window.waitForLyticsAndRefreshPersonalize()');
+          console.log('         This will wait for segments, then refresh page');
+        } else {
+          console.log('');
+          console.log('   ❌ User attributes do NOT match "UI explorers" criteria');
+          console.log('   💡 Update user profile with correct values:');
+          console.log('      - goal should be: "explore-for-fun"');
+          console.log('      - role should be: "ux-designer"');
+        }
+      }
+    });
+  }
+  
+  console.log('=========================');
+  console.log('💡 If segment is missing:');
+  console.log('   1. Call window.compareLyticsAndPersonalize() to see mismatch');
+  console.log('   2. Call window.waitForLyticsAndRefreshPersonalize() to fix');
+  console.log('   3. Check Lytics Dashboard → Audiences → "ui explorers"');
+  console.log('   4. Verify audience is Published');
+  console.log('=========================');
+}
+
 
 // ============================================
 // Course & Learning Event Tracking
@@ -596,6 +1240,115 @@ export function getLyticsScriptContent(accountId: string): string {
 }
 
 /**
+ * Parse pipe-delimited cookie value (e.g., "|all|smt_new|" -> ["all", "smt_new"])
+ */
+function parsePipeDelimitedCookie(cookieValue: string): string[] {
+  if (!cookieValue) return [];
+  // Remove leading/trailing pipes and split by pipe
+  return cookieValue
+    .replace(/^\|+|\|+$/g, '') // Remove leading/trailing pipes
+    .split('|')
+    .filter(segment => segment.trim().length > 0); // Filter out empty strings
+}
+
+/**
+ * Get Lytics audiences from cookies (pipe-delimited format)
+ * Checks cs-lytics-audiences (Contentstack Personalize), lytics_audiences, and lytics_segments cookies
+ */
+export function getLyticsAudiencesFromCookies(): string[] {
+  if (typeof document === 'undefined') return [];
+  
+  const allCookies = document.cookie.split(';').map(c => c.trim());
+  
+  // Priority 1: Check cs-lytics-audiences cookie (set by Contentstack Personalize SDK)
+  // This is the most reliable source as it's set by Personalize after reading Lytics segments
+  const csAudiencesCookie = allCookies.find(c => c.startsWith('cs-lytics-audiences='));
+  if (csAudiencesCookie) {
+    const value = decodeURIComponent(csAudiencesCookie.split('=')[1]);
+    const audiences = parsePipeDelimitedCookie(value);
+    if (audiences.length > 0) {
+      console.log('[Lytics] 📥 Audiences from cs-lytics-audiences cookie (Contentstack Personalize):', audiences);
+      return audiences;
+    }
+  }
+  
+  // Priority 2: Check lytics_audiences cookie (pipe-delimited format: |all|smt_new|)
+  const audiencesCookie = allCookies.find(c => c.startsWith('lytics_audiences='));
+  if (audiencesCookie) {
+    const value = decodeURIComponent(audiencesCookie.split('=')[1]);
+    const audiences = parsePipeDelimitedCookie(value);
+    if (audiences.length > 0) {
+      console.log('[Lytics] 📥 Audiences from lytics_audiences cookie:', audiences);
+      return audiences;
+    }
+  }
+  
+  // Priority 3: Check lytics_segments cookie (pipe-delimited format)
+  const segmentsCookie = allCookies.find(c => c.startsWith('lytics_segments='));
+  if (segmentsCookie) {
+    const value = decodeURIComponent(segmentsCookie.split('=')[1]);
+    const segments = parsePipeDelimitedCookie(value);
+    if (segments.length > 0) {
+      console.log('[Lytics] 📥 Segments from lytics_segments cookie:', segments);
+      return segments;
+    }
+  }
+  
+  return [];
+}
+
+/**
+ * Check if a specific segment exists in Lytics cookies (case-insensitive, flexible matching)
+ * Handles variations like "ui explorers", "ui-explorers", "ui_explorers", "UI Explorers"
+ */
+export function hasLyticsSegment(segmentName: string): boolean {
+  const segments = getLyticsAudiencesFromCookies();
+  const normalizedSearch = segmentName.toLowerCase().trim();
+  
+  // Check for exact match
+  const exactMatch = segments.some(seg => seg.toLowerCase().trim() === normalizedSearch);
+  if (exactMatch) return true;
+  
+  // Check for flexible match (handles spaces, hyphens, underscores)
+  // e.g., "ui explorers" matches "ui-explorers", "ui_explorers", "UI Explorers"
+  const searchParts = normalizedSearch.split(/[\s\-_]+/).filter(p => p.length > 0);
+  if (searchParts.length > 0) {
+    return segments.some(seg => {
+      const segLower = seg.toLowerCase().trim();
+      // Check if all parts of the search term are in the segment
+      return searchParts.every(part => segLower.includes(part));
+    });
+  }
+  
+  return false;
+}
+
+/**
+ * Get the actual segment name from cookies (handles variations)
+ * Returns the actual segment name if found, or null
+ */
+export function getActualSegmentName(searchName: string): string | null {
+  const segments = getLyticsAudiencesFromCookies();
+  const normalizedSearch = searchName.toLowerCase().trim();
+  
+  // Try exact match first
+  const exactMatch = segments.find(seg => seg.toLowerCase().trim() === normalizedSearch);
+  if (exactMatch) return exactMatch;
+  
+  // Try flexible match
+  const searchParts = normalizedSearch.split(/[\s\-_]+/).filter(p => p.length > 0);
+  if (searchParts.length > 0) {
+    const flexibleMatch = segments.find(seg => {
+      const segLower = seg.toLowerCase().trim();
+      return searchParts.every(part => segLower.includes(part));
+    });
+    if (flexibleMatch) return flexibleMatch;
+  }
+  
+  return null;
+}
+
+/**
  * DEBUG: Check Lytics connection status and cookies
  * Call from browser console: window.checkLytics()
  */
@@ -629,6 +1382,9 @@ export function checkLyticsStatus(): void {
     const allCookies = document.cookie.split(';').map(c => c.trim());
     const seeridCookies = allCookies.filter(c => c.startsWith('seerid='));
     const segmentsCookies = allCookies.filter(c => c.startsWith('lytics_segments='));
+    const audiencesCookies = allCookies.filter(c => c.startsWith('lytics_audiences='));
+    const csAudiencesCookies = allCookies.filter(c => c.startsWith('cs-lytics-audiences='));
+    const flowsCookies = allCookies.filter(c => c.startsWith('lytics_flows='));
     
     console.log('7. seerid cookies found:', seeridCookies.length);
     if (seeridCookies.length > 1) {
@@ -648,7 +1404,74 @@ export function checkLyticsStatus(): void {
       console.log('   ❌ No seerid cookie found');
     }
     
-    console.log('8. lytics_segments cookies found:', segmentsCookies.length);
+    // Check cs-lytics-audiences cookie (set by Contentstack Personalize SDK)
+    console.log('8. cs-lytics-audiences cookies found:', csAudiencesCookies.length);
+    if (csAudiencesCookies.length > 0) {
+      csAudiencesCookies.forEach((cookie, index) => {
+        const value = decodeURIComponent(cookie.split('=')[1]);
+        const parsed = parsePipeDelimitedCookie(value);
+        console.log(`   cs-lytics-audiences ${index + 1} (raw):`, value);
+        console.log(`   cs-lytics-audiences ${index + 1} (parsed):`, parsed);
+        console.log(`   cs-lytics-audiences ${index + 1} (count):`, parsed.length, 'segments');
+        console.log('   💡 This cookie is set by Contentstack Personalize SDK after reading Lytics segments');
+        
+        // Check for "ui explorers" segment (case-insensitive)
+        const hasUIExplorers = parsed.some(seg => seg.toLowerCase().includes('ui') && seg.toLowerCase().includes('explorer'));
+        if (hasUIExplorers) {
+          console.log('   ✅ Found "ui explorers" segment in cs-lytics-audiences!');
+        } else {
+          console.log('   ⚠️ "ui explorers" segment NOT found in cs-lytics-audiences cookie');
+          console.log('   💡 Check if segment name matches exactly (case-sensitive):');
+          console.log('      - Dashboard shows: "ui explorers"');
+          console.log('      - Cookie contains:', parsed);
+        }
+      });
+    } else {
+      console.log('   ❌ No cs-lytics-audiences cookie found');
+      console.log('   💡 This cookie is set by Contentstack Personalize SDK');
+      console.log('   💡 If Personalize SDK is not initialized, this cookie won\'t exist');
+    }
+    
+    // Check lytics_audiences cookie (pipe-delimited format)
+    console.log('9. lytics_audiences cookies found:', audiencesCookies.length);
+    if (audiencesCookies.length > 0) {
+      audiencesCookies.forEach((cookie, index) => {
+        const value = decodeURIComponent(cookie.split('=')[1]);
+        const parsed = parsePipeDelimitedCookie(value);
+        console.log(`   lytics_audiences ${index + 1} (raw):`, value);
+        console.log(`   lytics_audiences ${index + 1} (parsed):`, parsed);
+        console.log(`   lytics_audiences ${index + 1} (count):`, parsed.length, 'segments');
+        
+        // Check for "ui explorers" segment (case-insensitive)
+        const hasUIExplorers = parsed.some(seg => seg.toLowerCase().includes('ui') && seg.toLowerCase().includes('explorer'));
+        if (hasUIExplorers) {
+          console.log('   ✅ Found "ui explorers" segment!');
+        } else {
+          console.log('   ⚠️ "ui explorers" segment NOT found in cookie');
+          console.log('   💡 Check if segment name matches exactly (case-sensitive):');
+          console.log('      - Dashboard shows: "ui explorers"');
+          console.log('      - Cookie contains:', parsed);
+        }
+      });
+    } else {
+      console.log('   ❌ No lytics_audiences cookie found');
+    }
+    
+    // Check lytics_flows cookie
+    console.log('10. lytics_flows cookies found:', flowsCookies.length);
+    if (flowsCookies.length > 0) {
+      flowsCookies.forEach((cookie, index) => {
+        const value = decodeURIComponent(cookie.split('=')[1]);
+        const parsed = parsePipeDelimitedCookie(value);
+        console.log(`   lytics_flows ${index + 1} (raw):`, value);
+        console.log(`   lytics_flows ${index + 1} (parsed):`, parsed);
+      });
+    } else {
+      console.log('   ❌ No lytics_flows cookie found');
+    }
+    
+    // Check lytics_segments cookie (array format)
+    console.log('11. lytics_segments cookies found:', segmentsCookies.length);
     if (segmentsCookies.length > 0) {
       segmentsCookies.forEach((cookie, index) => {
         const value = cookie.split('=')[1];
@@ -661,20 +1484,37 @@ export function checkLyticsStatus(): void {
     // Check cookie details using document.cookie API
     // Note: document.cookie only shows cookies for current domain
     // Cookies from other domains won't be visible here
-    console.log('9. All cookies for current domain (localhost):', document.cookie);
+    console.log('12. All cookies for current domain (localhost):', document.cookie);
     
     // Try to get segments from jstag
     if (window.jstag && typeof window.jstag.getSegments === 'function') {
       window.jstag.getSegments((segments: string[]) => {
-        console.log('9. Segments from jstag.getSegments():', segments);
+        console.log('13. Segments from jstag.getSegments():', segments);
         if (segments && segments.length > 0 && !(segments.length === 1 && segments[0] === 'all')) {
           console.log('   ✅ Real segments found!');
+          
+          // Check if "ui explorers" is in the segments
+          const hasUIExplorers = segments.some(seg => seg.toLowerCase().includes('ui') && seg.toLowerCase().includes('explorer'));
+          if (hasUIExplorers) {
+            console.log('   ✅ "ui explorers" found in getSegments()!');
+          } else {
+            console.log('   ⚠️ "ui explorers" NOT found in getSegments()');
+            console.log('   💡 Available segments:', segments);
+          }
         } else {
           console.log('   ⚠️ Segments still ["all"] - Lytics has not evaluated user yet');
         }
       });
     } else {
-      console.log('9. jstag.getSegments() not available');
+      console.log('13. jstag.getSegments() not available');
+    }
+    
+    // Get audiences from cookies using helper function (checks cs-lytics-audiences first)
+    const cookieAudiences = getLyticsAudiencesFromCookies();
+    console.log('14. Parsed audiences from cookies (priority: cs-lytics-audiences > lytics_audiences > lytics_segments):', cookieAudiences);
+    if (cookieAudiences.length > 0) {
+      const hasUIExplorers = hasLyticsSegment('ui explorers');
+      console.log('15. Has "ui explorers" segment:', hasUIExplorers ? 'YES ✅' : 'NO ❌');
     }
   }
   
@@ -686,17 +1526,47 @@ export function checkLyticsStatus(): void {
   console.log('   - Personalize SDK reads this to query Lytics for segments');
   console.log('   - Format: seerid=a8655926-a013-4a3d-9fd6-7bb62471472e');
   console.log('');
-  console.log('💡 About lytics_segments cookie:');
+  console.log('💡 About cs-lytics-audiences cookie:');
+  console.log('   - Set by Contentstack Personalize SDK after reading Lytics segments');
+  console.log('   - Contains pipe-delimited segment names: |all|smt_new|ui-explorers|');
+  console.log('   - Format: |segment1|segment2|segment3|');
+  console.log('   - This is the PRIMARY source for Personalize SDK');
+  console.log('   - Only exists if Personalize SDK is initialized');
+  console.log('');
+  console.log('💡 About lytics_audiences cookie:');
   console.log('   - Set by Lytics after audience evaluation');
-  console.log('   - Contains array of segment names user belongs to');
-  console.log('   - Format: ["Intensive Learners", "Career Transitioners"]');
-  console.log('   - Default: ["all"] if segments not evaluated yet');
+  console.log('   - Contains pipe-delimited segment names: |all|smt_new|ui-explorers|');
+  console.log('   - Format: |segment1|segment2|segment3|');
+  console.log('   - Default: |all| if segments not evaluated yet');
+  console.log('');
+  console.log('💡 Troubleshooting "ui explorers" not appearing:');
+  console.log('   1. Check Lytics Dashboard → Audiences → "ui explorers"');
+  console.log('   2. Verify audience is Published (not Draft)');
+  console.log('   3. Check audience rules match your user data');
+  console.log('   4. Verify exact segment name (case-sensitive):');
+  console.log('      - Dashboard: "ui explorers"');
+  console.log('      - Cookie might have: "ui-explorers", "UI Explorers", etc.');
+  console.log('   5. Wait 5-10 seconds after identify() call for evaluation');
+  console.log('   6. Try refreshing page or calling jstag.pageView()');
   console.log('=========================');
 }
 
-// Make debug function available globally
+// Make debug functions available globally
 if (typeof window !== 'undefined') {
-  (window as unknown as { testLytics: typeof sendTestEvent; checkLytics: typeof checkLyticsStatus }).testLytics = sendTestEvent;
-  (window as unknown as { testLytics: typeof sendTestEvent; checkLytics: typeof checkLyticsStatus }).checkLytics = checkLyticsStatus;
+  const globalFunctions = {
+    testLytics: sendTestEvent,
+    checkLytics: checkLyticsStatus,
+    checkUIExplorers: checkUIExplorersSegment,
+    compareLyticsAndPersonalize: compareLyticsAndPersonalize,
+    diagnoseSegmentIssue: diagnoseSegmentIssue,
+    refreshLyticsSegments: refreshLyticsSegments,
+    waitForLyticsAndRefreshPersonalize: waitForLyticsAndRefreshPersonalize,
+    getLyticsAudiencesFromCookies: getLyticsAudiencesFromCookies,
+    hasLyticsSegment: hasLyticsSegment,
+    getActualSegmentName: getActualSegmentName,
+  };
+  
+  Object.assign(window as unknown as typeof globalFunctions, globalFunctions);
 }
+
 

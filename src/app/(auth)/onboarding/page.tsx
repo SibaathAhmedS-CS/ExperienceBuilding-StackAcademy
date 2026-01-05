@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { syncPreferencesToLytics } from '@/services/preferenceTracking';
 import Link from 'next/link';
 import {
   BookOpen,
@@ -192,6 +193,24 @@ export default function OnboardingPage() {
     return labelToSlug(selectedOption.label);
   };
 
+  // Helper function to convert topic UIDs to semantic slugs
+  // Converts array of Contentstack UIDs to array of semantic slugs (e.g., ["CSS", "Python"] -> ["css", "python"])
+  const getTopicsValue = (topicUids: string[]): string[] => {
+    if (!topicUids || topicUids.length === 0 || !steps[3]) return [];
+    
+    const topicsStep = steps[3];
+    
+    // Convert each UID to its semantic slug
+    return topicUids
+      .map(uid => {
+        const selectedOption = topicsStep.options.find(opt => opt.id === uid);
+        if (!selectedOption) return null;
+        // Convert label to semantic slug (e.g., "CSS" -> "css", "Python Programming" -> "python-programming")
+        return labelToSlug(selectedOption.label);
+      })
+      .filter((slug): slug is string => slug !== null); // Filter out null values
+  };
+
   // Helper function to extract numeric schedule value from option label and convert to minutes
   // Returns as string since schedule column is TEXT (trigger converts to daily_goal_minutes INTEGER)
   // Handles different units: "5 minutes" -> "5", "1 hour" -> "60", "2 hours" -> "120"
@@ -268,8 +287,8 @@ export default function OnboardingPage() {
       const roleValue = getOptionValue(1, selections[1]?.[0]);
       // Step 2: Education (e.g., "Bachelor's Degree" -> "bachelors-degree")
       const educationValue = getOptionValue(2, selections[2]?.[0]);
-      // Step 3: Topics - keep as array of UIDs (or convert to slugs if needed)
-      const topicsValue = selections[3] || [];
+      // Step 3: Topics - convert array of UIDs to semantic slugs (e.g., ["CSS", "Python"] -> ["css", "python"])
+      const topicsValue = getTopicsValue(selections[3] || []);
       // Step 4: Schedule - extract numeric value and convert to minutes
       // Handles: "5 minutes" -> "5", "1 hour" -> "60", "2 hours" -> "120"
       const scheduleValue = getScheduleValue(selections[4]?.[0]);
@@ -282,7 +301,7 @@ export default function OnboardingPage() {
           goal: goalValue, // Save semantic value ("start-career") instead of UID
           role: roleValue, // Save semantic value ("data-scientist") instead of UID
           education: educationValue, // Save semantic value ("bachelors-degree") instead of UID
-          topics: topicsValue, // Keep as array (could convert to slugs if needed)
+          topics: topicsValue, // Save as array of semantic slugs (e.g., ["css", "python", "react"]) instead of Contentstack UIDs
           schedule: scheduleValue, // Save as numeric string ("5", "15", "30", "60") instead of Contentstack UID
           completed_at: new Date().toISOString(), // Mark as completed
         })
@@ -301,6 +320,29 @@ export default function OnboardingPage() {
         console.log('Preferences saved successfully:', data);
       }
 
+      // Sync preferences to Lytics for audience matching
+      // Get user profile for full name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      syncPreferencesToLytics(
+        {
+          email: user.email || '',
+          user_id: user.id,
+          full_name: profile?.full_name || undefined,
+        },
+        {
+          goal: goalValue,
+          role: roleValue,
+          education: educationValue,
+          topics: topicsValue,
+          schedule: scheduleValue,
+          daily_goal_minutes: scheduleValue ? parseInt(scheduleValue, 10) : null,
+        }
+      );
 
       // Clear skip cookie since preferences are now saved
       document.cookie = 'skipped_onboarding=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';

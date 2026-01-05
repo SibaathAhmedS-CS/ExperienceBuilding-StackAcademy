@@ -1,6 +1,4 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/auth/callback/route": "app/auth/callback/route.js",
-  "/(main)/home/page": "app/(main)/home/page.js",
-  "/(auth)/login/page": "app/(auth)/login/page.js"
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(main)/home/page": "app/(main)/home/page.js"
 }

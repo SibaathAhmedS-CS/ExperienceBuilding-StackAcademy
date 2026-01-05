@@ -12,6 +12,7 @@ import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
 import { useCourses, transformCourseToCard, TransformedCourse } from '@/hooks/useCourses';
+import { syncPreferencesToLytics } from '@/services/preferenceTracking';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { 
@@ -411,8 +412,8 @@ export default function HomePage() {
   const supabase = createClient();
 
   useEffect(() => {
-    // Check for Supabase user session
-    const checkUser = async () => {
+    // Check for Supabase user session and sync preferences to Lytics
+    const checkUserAndSyncPreferences = async () => {
       try {
         const { data: { user: authUser }, error } = await supabase.auth.getUser();
         
@@ -430,19 +431,46 @@ export default function HomePage() {
           .maybeSingle();
 
         // Set user data for header
-        setUser({
+        const userData = {
           name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
           email: authUser.email || '',
           coursesCompleted: 0, // TODO: Get from database
           coursesInProgress: 0, // TODO: Get from database
-        });
+        };
+        setUser(userData);
+
+        // Fetch user preferences from Supabase
+        const { data: preferences } = await supabase
+          .from('user_preferences')
+          .select('goal, role, education, topics, schedule, daily_goal_minutes')
+          .eq('user_id', authUser.id)
+          .maybeSingle();
+
+        // Sync preferences to Lytics for audience matching
+        if (preferences) {
+          syncPreferencesToLytics(
+            {
+              email: authUser.email || '',
+              user_id: authUser.id,
+              full_name: profile?.full_name || undefined,
+            },
+            {
+              goal: preferences.goal,
+              role: preferences.role,
+              education: preferences.education,
+              topics: preferences.topics,
+              schedule: preferences.schedule,
+              daily_goal_minutes: preferences.daily_goal_minutes,
+            }
+          );
+        }
       } catch (error) {
         console.error('Error checking user:', error);
         router.push('/login');
       }
     };
 
-    checkUser();
+    checkUserAndSyncPreferences();
   }, [supabase, router]);
 
   // Use CMS courses for filtering by category

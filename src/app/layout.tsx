@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
 import { Providers } from '@/components/Providers';
+import { getLyticsScriptContent, getLyticsAccountId } from '@/lib/lytics';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -20,8 +21,19 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const lyticsAccountId = getLyticsAccountId();
+  const lyticsScript = lyticsAccountId ? getLyticsScriptContent(lyticsAccountId) : null;
+
   return (
     <html lang="en">
+      <head>
+        {lyticsScript && (
+          <script
+            dangerouslySetInnerHTML={{ __html: lyticsScript }}
+            data-lytics="true"
+          />
+        )}
+      </head>
       <body>
         <Providers>
           {children}
