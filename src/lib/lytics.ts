@@ -6,11 +6,17 @@
  */
 
 // Extend Window interface to include jstag
+// Based on Lytics JavaScript Tag API: https://docs.lytics.com/docs/lytics-javascript-tag#installation
 declare global {
   interface Window {
     jstag: {
       send: (data: Record<string, unknown>) => void;
       getEntity?: (callback: (error: any, entity: any) => void) => void;
+      getSegments?: (callback: (segments: string[]) => void) => void;
+      identify?: (data: Record<string, unknown>) => void;
+      pageView?: () => void;
+      init?: (config: { src: string }) => void;
+      isLoaded?: boolean;
       mock?: boolean;
       _q?: Array<{ method: string; args: unknown[] }>;
       config?: Record<string, unknown>;
@@ -82,9 +88,131 @@ export function sendEvent(eventData: Record<string, unknown>): void {
 }
 
 /**
+ * Store audiences in localStorage
+ * Key format: lytics_audiences_{userIdentifier}
+ */
+export function storeAudiencesInLocalStorage(userIdentifier: string, audiences: string[]): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const key = `lytics_audiences_${userIdentifier}`;
+    const data = {
+      audiences,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(key, JSON.stringify(data));
+    console.log('[Lytics] 💾 Stored audiences in localStorage:', { key, audiences });
+  } catch (error) {
+    console.warn('[Lytics] Failed to store audiences in localStorage:', error);
+  }
+}
+
+/**
+ * Get audiences from localStorage
+ * Returns null if not found or if data is stale (older than 1 hour)
+ */
+export function getAudiencesFromLocalStorage(userIdentifier: string): string[] | null {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const key = `lytics_audiences_${userIdentifier}`;
+    const stored = localStorage.getItem(key);
+    
+    if (!stored) return null;
+    
+    const data = JSON.parse(stored);
+    const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+    const isStale = Date.now() - data.timestamp > oneHour;
+    
+    if (isStale) {
+      console.log('[Lytics] ⏰ Stored audiences are stale, will refresh from Lytics');
+      localStorage.removeItem(key);
+      return null;
+    }
+    
+    console.log('[Lytics] 📦 Retrieved audiences from localStorage:', data.audiences);
+    return Array.isArray(data.audiences) ? data.audiences : null;
+  } catch (error) {
+    console.warn('[Lytics] Failed to get audiences from localStorage:', error);
+    return null;
+  }
+}
+
+/**
+ * Clear audiences from localStorage
+ */
+export function clearAudiencesFromLocalStorage(userIdentifier: string): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const key = `lytics_audiences_${userIdentifier}`;
+    localStorage.removeItem(key);
+    console.log('[Lytics] 🗑️ Cleared audiences from localStorage:', key);
+  } catch (error) {
+    console.warn('[Lytics] Failed to clear audiences from localStorage:', error);
+  }
+}
+
+/**
+ * Get audiences from Lytics and store in localStorage
+ * This should be called after identifyUser() to cache audiences
+ */
+export function fetchAndStoreAudiences(userIdentifier: string): Promise<string[]> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.jstag) {
+      console.log('[Lytics] jstag not available for fetching audiences');
+      resolve([]);
+      return;
+    }
+
+    // Wait a bit for Lytics to process the identify call
+    setTimeout(() => {
+      // Try jstag.getSegments() first (recommended)
+      if (typeof window.jstag.getSegments === 'function') {
+        window.jstag.getSegments((segments: string[]) => {
+          const audiences = Array.isArray(segments) ? segments : [];
+          if (audiences.length > 0) {
+            storeAudiencesInLocalStorage(userIdentifier, audiences);
+          }
+          console.log('[Lytics] 📊 Fetched and stored audiences:', audiences);
+          resolve(audiences);
+        });
+        return;
+      }
+
+      // Fallback to getEntity()
+      if (typeof (window.jstag as any).getEntity === 'function') {
+        (window.jstag as any).getEntity((error: any, entity: any) => {
+          if (error) {
+            console.warn('[Lytics] Error getting entity:', error);
+            resolve([]);
+            return;
+          }
+
+          const audiences = entity?.data?.audiences || 
+                          entity?.data?.segments || 
+                          entity?.audiences || 
+                          [];
+          const audiencesArray = Array.isArray(audiences) ? audiences : [];
+          
+          if (audiencesArray.length > 0) {
+            storeAudiencesInLocalStorage(userIdentifier, audiencesArray);
+          }
+          console.log('[Lytics] 📊 Fetched and stored audiences from entity:', audiencesArray);
+          resolve(audiencesArray);
+        });
+      } else {
+        resolve([]);
+      }
+    }, 1000); // Wait 1 second for Lytics to process
+  });
+}
+
+/**
  * Identify user with profile data
  * This syncs user data from your application to Lytics user profile
  * Field names match Lytics audience definition expectations
+ * After identifying, fetches and stores audiences in localStorage
  */
 export function identifyUser(userData: {
   email: string;
@@ -142,6 +270,13 @@ export function identifyUser(userData: {
   }
 
   sendEvent(eventData);
+  
+  // After sending identify, fetch and store audiences
+  // Use email or user_id as identifier
+  const userIdentifier = userData.user_id || userData.email || 'anonymous';
+  fetchAndStoreAudiences(userIdentifier).catch((error) => {
+    console.warn('[Lytics] Failed to fetch and store audiences:', error);
+  });
 }
 
 /**
@@ -323,18 +458,22 @@ export function sendTestEvent(): void {
 
 /**
  * Generate the Lytics JavaScript tag script content
- * Uses the EXACT official Lytics JStag Version 3 format
+ * Uses the EXACT official Lytics JStag Version 3 format from documentation
+ * Reference: https://docs.lytics.com/docs/lytics-javascript-tag#installation
  */
 export function getLyticsScriptContent(accountId: string): string {
-  // EXACT official Lytics snippet - DO NOT MODIFY
-  return `
+  // EXACT official Lytics snippet from documentation - DO NOT MODIFY
+  return `<!-- Start Lytics Tracking Tag Version 3 -->
   !function(){"use strict";var o=window.jstag||(window.jstag={}),r=[];function n(e){o[e]=function(){for(var n=arguments.length,t=new Array(n),i=0;i<n;i++)t[i]=arguments[i];r.push([e,t])}}n("send"),n("mock"),n("identify"),n("pageView"),n("unblock"),n("getid"),n("setid"),n("loadEntity"),n("getEntity"),n("on"),n("once"),n("call"),o.loadScript=function(n,t,i){var e=document.createElement("script");e.async=!0,e.src=n,e.onload=t,e.onerror=i;var o=document.getElementsByTagName("script")[0],r=o&&o.parentNode||document.head||document.body,c=o||r.lastChild;return null!=c?r.insertBefore(e,c):r.appendChild(e),this},o.init=function n(t){return this.config=t,this.loadScript(t.src,function(){if(o.init===n)throw new Error("Load error!");o.init(o.config),function(){for(var n=0;n<r.length;n++){var t=r[n][0],i=r[n][1];o[t].apply(o,i)}r=void 0}()}),this}}();
+  // Define config and initialize Lytics tracking tag.
+  // - The setup below will disable the automatic sending of Page Analysis Information (to prevent duplicative sends, as this same information will be included in the jstag.pageView() call below, by default)
   jstag.init({
     src: 'https://c.lytics.io/api/tag/${accountId}/latest.min.js'
   });
+  
+  // You may need to send a page view, depending on your use-case
   jstag.pageView();
-  console.log("[Lytics] 📡 Initialized with account: ${accountId.substring(0, 8)}...");
-  `;
+  console.log("[Lytics] 📡 Initialized with account: ${accountId.substring(0, 8)}...");`;
 }
 
 /**

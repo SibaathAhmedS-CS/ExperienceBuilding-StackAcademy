@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import Personalize from '@contentstack/personalize-edge-sdk';
 import { setPersonalizeVariant } from '@/lib/contentstack';
-import { onLyticsReady, isLyticsReady } from '@/lib/lytics';
+import { onLyticsReady, isLyticsReady, getAudiencesFromLocalStorage, storeAudiencesInLocalStorage } from '@/lib/lytics';
+import { createClient } from '@/utils/supabase/client';
 
 /**
  * Contentstack Personalize + Lytics Integration (Option 3)
@@ -76,10 +77,29 @@ export function usePersonalize() {
   }, []);
 
   /**
-   * Get audiences from Lytics using jstag.getEntity()
+   * Get audiences from Lytics using jstag.getSegments()
    * This is the Lytics-driven approach - audiences come from Lytics, not local logic
+   * Reference: https://docs.lytics.com/docs/lytics-javascript-tag#installation
+   * 
+   * According to Lytics docs, jstag.getSegments() returns a list of audiences 
+   * the user is a member of and should only be called after the user profile has loaded.
+   * 
+   * This function checks localStorage first, then fetches from Lytics if needed.
    */
-  const getAudiencesFromLytics = useCallback((): Promise<string[]> => {
+  const getAudiencesFromLytics = useCallback(async (): Promise<string[]> => {
+    // First, try to get user identifier
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    const userIdentifier = user?.id || user?.email || 'anonymous';
+    
+    // Check localStorage first (fast, cached)
+    const cachedAudiences = getAudiencesFromLocalStorage(userIdentifier);
+    if (cachedAudiences && cachedAudiences.length > 0) {
+      console.log('[Personalize] 📦 Using cached audiences from localStorage:', cachedAudiences);
+      return cachedAudiences;
+    }
+    
+    // If not in cache, fetch from Lytics
     return new Promise((resolve) => {
       if (typeof window === 'undefined' || !window.jstag) {
         console.log('[Personalize] Lytics jstag not available');
@@ -87,7 +107,23 @@ export function usePersonalize() {
         return;
       }
 
-      // Use jstag.getEntity to get user's audience memberships
+      // First try jstag.getSegments() - recommended method per Lytics docs
+      if (typeof window.jstag.getSegments === 'function') {
+        window.jstag.getSegments((segments: string[]) => {
+          const audiences = Array.isArray(segments) ? segments : [];
+          console.log('[Personalize] 📊 Audiences from jstag.getSegments():', audiences);
+          
+          // Store in localStorage for future use
+          if (audiences.length > 0) {
+            storeAudiencesInLocalStorage(userIdentifier, audiences);
+          }
+          
+          resolve(audiences);
+        });
+        return;
+      }
+
+      // Fallback to jstag.getEntity() if getSegments() is not available
       if (typeof (window.jstag as any).getEntity === 'function') {
         (window.jstag as any).getEntity((error: any, entity: any) => {
           if (error) {
@@ -97,21 +133,23 @@ export function usePersonalize() {
           }
 
           // Extract audiences from Lytics entity
-          // Audiences are typically in entity.data.audiences or entity.data.segments
           const audiences = entity?.data?.audiences || 
                           entity?.data?.segments || 
                           entity?.audiences || 
                           [];
+          const audiencesArray = Array.isArray(audiences) ? audiences : [];
           
-          console.log('[Personalize] 📊 Lytics entity data:', {
-            audiences,
-            hasAudiences: Array.isArray(audiences) && audiences.length > 0,
-          });
-
-          resolve(Array.isArray(audiences) ? audiences : []);
+          console.log('[Personalize] 📊 Audiences from jstag.getEntity():', audiencesArray);
+          
+          // Store in localStorage for future use
+          if (audiencesArray.length > 0) {
+            storeAudiencesInLocalStorage(userIdentifier, audiencesArray);
+          }
+          
+          resolve(audiencesArray);
         });
       } else {
-        console.warn('[Personalize] jstag.getEntity() is not available');
+        console.warn('[Personalize] Neither jstag.getSegments() nor jstag.getEntity() is available');
         resolve([]);
       }
     });
@@ -134,7 +172,8 @@ export function usePersonalize() {
         console.log('[Personalize] ✅ Lytics is ready');
         
         // Small delay to ensure Lytics has processed any pending identify calls
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // and the user profile has loaded (required for getSegments())
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         if (!isMounted) return;
 

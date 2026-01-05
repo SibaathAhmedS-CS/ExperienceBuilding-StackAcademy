@@ -7,8 +7,7 @@ import {
   onLyticsReady, 
   identifyUser, 
   trackPageView,
-  getLyticsAccountId,
-  getLyticsScriptContent
+  clearAudiencesFromLocalStorage
 } from '@/lib/lytics';
 
 // ============================================
@@ -67,39 +66,39 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [scriptLoaded, setScriptLoaded] = useState(false);
 
-  // Load Lytics script
+  // Check if Lytics script is already loaded (from layout.tsx)
   useEffect(() => {
-    const accountId = getLyticsAccountId();
+    console.log('[LyticsProvider] 🔧 Checking Lytics script...');
     
-    console.log('[LyticsProvider] 🔧 Initializing Lytics...');
-    console.log('[LyticsProvider] Account ID:', accountId ? `${accountId.substring(0, 8)}...` : 'NOT SET');
+    // Check if script is already loaded (from layout.tsx)
+    const existingScript = document.querySelector('script[id="lytics-tag"]') || 
+                          document.querySelector('script[data-lytics]');
     
-    if (!accountId) {
-      console.error('[LyticsProvider] ❌ No Lytics account ID configured!');
-      console.error('[LyticsProvider] Add NEXT_PUBLIC_LYTICS_ACCOUNT_ID to your .env.local file');
-      return;
-    }
-
-    // Check if script is already loaded
-    if (document.querySelector('script[data-lytics]')) {
-      console.log('[LyticsProvider] Script already loaded');
+    if (existingScript || (typeof window !== 'undefined' && window.jstag)) {
+      console.log('[LyticsProvider] ✅ Lytics script already loaded from layout.tsx');
       setScriptLoaded(true);
       return;
     }
 
-    // Create and inject the script
-    const script = document.createElement('script');
-    script.setAttribute('data-lytics', 'true');
-    script.innerHTML = getLyticsScriptContent(accountId);
-    document.head.appendChild(script);
-    
-    console.log('[LyticsProvider] 🚀 Lytics script injected with Account ID:', accountId.substring(0, 8) + '...');
-    console.log('[LyticsProvider] 💡 TIP: Call window.testLytics() in console to send test events!');
-    setScriptLoaded(true);
+    // If script not found, wait a bit for it to load (layout.tsx uses afterInteractive strategy)
+    const checkInterval = setInterval(() => {
+      if (typeof window !== 'undefined' && window.jstag) {
+        console.log('[LyticsProvider] ✅ Lytics script loaded');
+        clearInterval(checkInterval);
+        setScriptLoaded(true);
+      }
+    }, 100);
 
-    return () => {
-      // Don't remove script on unmount as it might be needed
-    };
+    // Timeout after 5 seconds
+    setTimeout(() => {
+      clearInterval(checkInterval);
+      if (typeof window !== 'undefined' && window.jstag) {
+        setScriptLoaded(true);
+      } else {
+        console.warn('[LyticsProvider] ⚠️ Lytics script not found after 5 seconds');
+        setScriptLoaded(true); // Set anyway to allow app to continue
+      }
+    }, 5000);
   }, []);
 
   // Wait for Lytics to be ready
@@ -224,6 +223,10 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
         console.log('[LyticsProvider] User signed out');
         setIsIdentified(false);
         setUserEmail(null);
+        // Clear stored audiences on sign out
+        if (user?.email || user?.id) {
+          clearAudiencesFromLocalStorage(user.id || user.email || '');
+        }
       }
     });
 
