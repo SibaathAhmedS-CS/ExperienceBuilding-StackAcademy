@@ -9,13 +9,13 @@
 export function sendIdentifyEvent(userData: {
   email: string;
   user_id?: string;
-  full_name?: string;
-  goal?: string;
-  role?: string;
-  education?: string;
-  schedule?: string;
-  daily_goal_minutes?: number;
-  topics?: string[];
+  full_name?: string | null;
+  goal?: string | null;
+  role?: string | null;
+  education?: string | null;
+  schedule?: string | null;
+  daily_goal_minutes?: number | null;
+  topics?: string[] | null;
 }) {
   if (typeof window === 'undefined') return;
 
@@ -28,24 +28,38 @@ export function sendIdentifyEvent(userData: {
     }
 
     try {
-      jstag.send({
+      // Build event payload, converting null to undefined for cleaner JSON
+      const eventPayload: Record<string, any> = {
         _e: 'identify',
         email: userData.email,
-        user_id: userData.user_id,
-        full_name: userData.full_name,
-        goal: userData.goal,
-        role: userData.role,
-        education: userData.education,
-        schedule: userData.schedule,
-        daily_goal_minutes: userData.daily_goal_minutes,
-        topics: userData.topics,
-        // Mapped Lytics field names
-        career_intent: userData.goal,
-        job_role: userData.role,
-        education_background: userData.education,
-        minutes_per_day_target: userData.daily_goal_minutes,
         url: window.location.href,
-      });
+      };
+
+      // Add optional fields only if they have values (not null/undefined)
+      if (userData.user_id) eventPayload.user_id = userData.user_id;
+      if (userData.full_name) eventPayload.full_name = userData.full_name;
+      if (userData.goal) {
+        eventPayload.goal = userData.goal;
+        eventPayload.career_intent = userData.goal;
+      }
+      if (userData.role) {
+        eventPayload.role = userData.role;
+        eventPayload.job_role = userData.role;
+      }
+      if (userData.education) {
+        eventPayload.education = userData.education;
+        eventPayload.education_background = userData.education;
+      }
+      if (userData.schedule) eventPayload.schedule = userData.schedule;
+      if (userData.daily_goal_minutes != null) {
+        eventPayload.daily_goal_minutes = userData.daily_goal_minutes;
+        eventPayload.minutes_per_day_target = userData.daily_goal_minutes;
+      }
+      if (userData.topics && userData.topics.length > 0) {
+        eventPayload.topics = userData.topics;
+      }
+
+      jstag.send(eventPayload);
       
       if (process.env.NODE_ENV === 'development') {
         console.log('✅ Identify event sent to Lytics');
