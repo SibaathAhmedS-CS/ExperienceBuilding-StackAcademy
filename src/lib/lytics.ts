@@ -260,13 +260,21 @@ export function identifyUser(userData: {
 
   // Build identify payload matching the exact structure required
   // Structure: email, identified_at, user_id, name, goal, role, education, topics, daily_goal_minutes
+  // IMPORTANT: Always include email and user_id to prevent "anonymous_profiles" segment
   const identifyPayload: Record<string, unknown> = {
     email: userData.email,
     identified_at: new Date().toISOString(),
   };
 
+  // CRITICAL: Always include user_id to identify the user (prevents anonymous_profiles)
+  if (userData.user_id) {
+    identifyPayload.user_id = userData.user_id;
+  } else if (userData.email) {
+    // Fallback: use email as user_id if user_id not provided
+    identifyPayload.user_id = userData.email;
+  }
+  
   // Add optional fields if they exist (matching exact structure)
-  if (userData.user_id) identifyPayload.user_id = userData.user_id;
   if (userData.full_name) identifyPayload.name = userData.full_name;
   
   // Add preference fields (original field names only - no mapped fields)
@@ -325,17 +333,30 @@ export function identifyUser(userData: {
     daily_goal_minutes: identifyPayload.daily_goal_minutes,
   });
 
+  // Prevent duplicate identify calls for the same user
+  const userIdentifier = userData.user_id || userData.email || 'anonymous';
+  const identifyKey = `lytics_identify_${userIdentifier}`;
+  
+  // Check if we're already identifying this user
+  if (typeof window !== 'undefined') {
+    const isIdentifying = (window as any)[identifyKey];
+    if (isIdentifying) {
+      console.log('[Lytics] ⏭️ [DEBUG] Already identifying user, skipping duplicate call');
+      return;
+    }
+    // Mark as identifying
+    (window as any)[identifyKey] = true;
+  }
+
   // Helper function to call identify
   const callIdentify = () => {
-    const userIdentifier = userData.user_id || userData.email || 'anonymous';
-    
     // CHANGED: Try both identify() and send() methods for better compatibility
     let identifyMethodUsed = 'none';
     
     // Method 1: Try jstag.identify() first
     if (window.jstag?.identify) {
       try {
-        window.jstag.identify(identifyPayload);
+      window.jstag.identify(identifyPayload);
         identifyMethodUsed = 'identify()';
         console.log('[Lytics] ✅ Called jstag.identify() - Data sent to Lytics above');
       } catch (error) {
@@ -368,14 +389,18 @@ export function identifyUser(userData: {
     
     if (identifyMethodUsed === 'none') {
       console.warn('[Lytics] ⚠️ Neither jstag.identify() nor jstag.send() is available');
+      // Clear identifying flag
+      if (typeof window !== 'undefined') {
+        (window as any)[identifyKey] = false;
+      }
       return;
     }
     
     console.log('[Lytics] ✅ [DEBUG] User identification sent via:', identifyMethodUsed);
     console.log('[Lytics] ✅ [DEBUG] User identified:', {
-      email: userData.email,
-      user_id: userData.user_id,
-      hasPreferences: !!(userData.goal || userData.role),
+        email: userData.email,
+        user_id: userData.user_id,
+        hasPreferences: !!(userData.goal || userData.role),
       method: identifyMethodUsed,
     });
     
@@ -411,22 +436,29 @@ export function identifyUser(userData: {
         
           // Try to get segments
           if (typeof window.jstag.getSegments === 'function') {
+            console.log(`[Lytics] 🔍 [DEBUG] Calling jstag.getSegments() - Attempt ${attempt}/${maxAttempts}`);
             window.jstag.getSegments((segments: string[]) => {
               const audiences = Array.isArray(segments) ? segments : [];
               
               // FROM LYTICS: Log segments received from Lytics
               console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-              console.log(`📥 FROM LYTICS - Attempt ${attempt}/${maxAttempts} - Segments received from Lytics:`);
+              console.log(`📥 FROM LYTICS - Attempt ${attempt}/${maxAttempts} - Segments received from jstag.getSegments():`);
               console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
               console.log(JSON.stringify(audiences, null, 2));
               console.log(`[Lytics] 📥 FROM LYTICS - Segments type:`, typeof audiences, 'Length:', audiences.length);
+              console.log(`[Lytics] 📥 FROM LYTICS - Raw segments value:`, segments);
               console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
               
-              // Check if we got real segments (not just ["all"])
-              const hasRealSegments = audiences.length > 0 && 
-                                     !(audiences.length === 1 && audiences[0] === 'all');
+              // Check if we got real segments (not just ["all"] or ["all", "smt_new"])
+              const managedSegmentsOnly = audiences.length <= 2 && 
+                                         audiences.every(seg => ['all', 'smt_new', 'anonymous_profiles'].includes(seg));
+              const hasRealSegments = audiences.length > 0 && !managedSegmentsOnly;
               
               if (hasRealSegments) {
+                // Clear identifying flag on success
+                if (typeof window !== 'undefined') {
+                  (window as any)[identifyKey] = false;
+                }
                 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                 console.log('✅ ✅ ✅ SUCCESS! Real segments received from Lytics:');
                 console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -452,10 +484,10 @@ export function identifyUser(userData: {
                   console.log('[Lytics] 💡 Verify segment name matches exactly (case-sensitive)');
                 }
               } else {
-              // DEBUG: Log why segments are still ["all"]
+              // DEBUG: Log why segments are still only managed segments
               if (attempt === 1) {
-                console.log('[Lytics] 🔍 [DEBUG] First attempt - Segments are ["all"]');
-                console.log('[Lytics] 🔍 [DEBUG] This is normal - Lytics needs time to evaluate');
+                console.log('[Lytics] 🔍 [DEBUG] First attempt - Segments are:', audiences);
+                console.log('[Lytics] 🔍 [DEBUG] Only managed segments found - Lytics needs time to evaluate custom audiences');
                 console.log('[Lytics] 🔍 [DEBUG] Payload that was sent:', identifyPayload);
                 console.log('[Lytics] 🔍 [DEBUG] Fields being checked by Contentstack Personalize:');
                 console.log('   - goal should equal "explore-for-fun"');
@@ -463,14 +495,21 @@ export function identifyUser(userData: {
                 console.log('   - Current values:', {
                   goal: identifyPayload.goal,
                   role: identifyPayload.role,
+                  education: identifyPayload.education,
+                  topics: identifyPayload.topics,
                 });
               }
               
               if (attempt < maxAttempts) {
-                console.log(`[Lytics] ⏳ [DEBUG] Segments still ["all"], retrying in ${(attempt + 1) * 3000}ms (attempt ${attempt + 1}/${maxAttempts})...`);
+                console.log(`[Lytics] ⏳ [DEBUG] Segments still only managed segments:`, audiences);
+                console.log(`[Lytics] ⏳ [DEBUG] Retrying in ${(attempt + 1) * 3000}ms (attempt ${attempt + 1}/${maxAttempts})...`);
                 checkSegments(attempt + 1, maxAttempts);
-              } else {
-                console.error('[Lytics] ❌ ❌ ❌ FAILED: Segments still ["all"] after all attempts');
+    } else {
+                // Clear identifying flag on failure
+                if (typeof window !== 'undefined') {
+                  (window as any)[identifyKey] = false;
+                }
+                console.error('[Lytics] ❌ ❌ ❌ FAILED: Only managed segments after all attempts:', audiences);
                 console.error('[Lytics] 🔍 [DEBUG] Final debugging information:');
                 console.error('   📤 Payload sent:', JSON.stringify(identifyPayload, null, 2));
                 console.error('   📊 Final segments:', audiences);
@@ -547,6 +586,13 @@ export function identifyUser(userData: {
   // This ensures we don't miss the call if SDK is already ready
   if (isLyticsReady() && window.jstag.identify) {
     callIdentify();
+  }
+  
+  // Clear identifying flag after 30 seconds as safety measure
+  if (typeof window !== 'undefined') {
+    setTimeout(() => {
+      (window as any)[identifyKey] = false;
+    }, 30000);
   }
 }
 
@@ -1567,6 +1613,15 @@ if (typeof window !== 'undefined') {
   };
   
   Object.assign(window as unknown as typeof globalFunctions, globalFunctions);
+  
+  // Also import explainSegments if available
+  import('./explainSegments').then(module => {
+    if (module.explainSegments) {
+      (window as any).explainSegments = module.explainSegments;
+    }
+  }).catch(() => {
+    // Ignore if module doesn't exist
+  });
 }
 
 

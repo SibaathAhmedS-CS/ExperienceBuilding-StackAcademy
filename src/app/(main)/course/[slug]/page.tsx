@@ -30,6 +30,8 @@ import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { usePersonalizeSdk } from '@/hooks/usePersonalizeSdk';
+import { trackCourseView } from '@/services/interestTracking';
 import styles from './page.module.css';
 
 // Mock user data
@@ -285,7 +287,7 @@ export default function CoursePage() {
     if (slug && selectedLanguage) {
       fetchCourse();
     }
-  }, [slug, supabase, selectedLanguage]);
+  }, [slug, supabase, selectedLanguage, personalizeSdk]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');

@@ -163,7 +163,7 @@
 /******/ 		// This function allow to reference async chunks
 /******/ 		__webpack_require__.u = function(chunkId) {
 /******/ 			// return url for filenames based on template
-/******/ 			return undefined;
+/******/ 			return "static/chunks/" + chunkId + ".js";
 /******/ 		};
 /******/ 	}();
 /******/ 	
@@ -192,7 +192,7 @@
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	!function() {
-/******/ 		__webpack_require__.h = function() { return "ee11d0470e1010d5"; }
+/******/ 		__webpack_require__.h = function() { return "970ec08e0984bf29"; }
 /******/ 	}();
 /******/ 	
 /******/ 	/* webpack/runtime/global */
@@ -830,7 +830,7 @@
 /******/ 		// [resolve, reject, Promise] = chunk loading, 0 = chunk loaded
 /******/ 		var installedChunks = __webpack_require__.hmrS_jsonp = __webpack_require__.hmrS_jsonp || {
 /******/ 			"webpack": 0,
-/******/ 			"css-src_app_main_course_slug_page_module_css-src_app_main_home_page_module_css-src_app_page_m-b05370": 0,
+/******/ 			"css-src_app_main_home_page_module_css-src_app_page_module_css-src_components_Carousel_Carouse-1e66fb": 0,
 /******/ 			"css-src_app_globals_css": 0,
 /******/ 			"css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css": 0
 /******/ 		};
@@ -844,7 +844,7 @@
 /******/ 					if(installedChunkData) {
 /******/ 						promises.push(installedChunkData[2]);
 /******/ 					} else {
-/******/ 						if(/^(app(\/(\((auth\)\/((login|onboarding)\/page|layout)|main\)\/((course\/\[slug\]|home)\/page|layout))|layout|page)|\-pages\-internals)|main\-app)$/.test(chunkId)) {
+/******/ 						if(/^(_app\-pages\-browser_src_lib_(explainSegment|lytic)s_ts|app(\/(\((auth\)\/l(ayout|ogin\/page)|main\)\/(home\/page|layout))|layout|page)|\-pages\-internals)|main\-app)$/.test(chunkId)) {
 /******/ 							// setup Promise in chunk cache
 /******/ 							var promise = new Promise(function(resolve, reject) { installedChunkData = installedChunks[chunkId] = [resolve, reject]; });
 /******/ 							promises.push(installedChunkData[2] = promise);

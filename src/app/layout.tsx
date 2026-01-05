@@ -27,12 +27,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {lyticsScript && (
-          <script
-            dangerouslySetInnerHTML={{ __html: lyticsScript }}
-            data-lytics="true"
-          />
-        )}
       </head>
       <body>
         <Providers>

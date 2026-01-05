@@ -439,31 +439,28 @@ export default function HomePage() {
         };
         setUser(userData);
 
-        // Fetch user preferences from Supabase
+        // Fetch user preferences from Supabase first
         const { data: preferences } = await supabase
           .from('user_preferences')
           .select('goal, role, education, topics, schedule, daily_goal_minutes')
           .eq('user_id', authUser.id)
           .maybeSingle();
 
-        // Sync preferences to Lytics for audience matching
-        if (preferences) {
-          syncPreferencesToLytics(
-            {
-              email: authUser.email || '',
-              user_id: authUser.id,
-              full_name: profile?.full_name || undefined,
-            },
-            {
-              goal: preferences.goal,
-              role: preferences.role,
-              education: preferences.education,
-              topics: preferences.topics,
-              schedule: preferences.schedule,
-              daily_goal_minutes: preferences.daily_goal_minutes,
-            }
-          );
-        }
+        // Identify user in Lytics with preferences (single call instead of two)
+        // This prevents "anonymous_profiles" segment and includes preferences in one call
+        const { identifyUser } = await import('@/lib/lytics');
+        identifyUser({
+          email: authUser.email || '',
+          user_id: authUser.id,
+          full_name: profile?.full_name || undefined,
+          // Include preferences if they exist
+          goal: preferences?.goal || null,
+          role: preferences?.role || null,
+          education: preferences?.education || null,
+          topics: preferences?.topics || [],
+          schedule: preferences?.schedule || null,
+          daily_goal_minutes: preferences?.daily_goal_minutes || null,
+        });
       } catch (error) {
         console.error('Error checking user:', error);
         router.push('/login');

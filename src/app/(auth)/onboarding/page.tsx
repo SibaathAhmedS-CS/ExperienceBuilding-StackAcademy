@@ -2,6 +2,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { syncPreferencesToLytics } from '@/services/preferenceTracking';
+import { syncPreferencesToPersonalize } from '@/services/interestTracking';
+import { usePersonalizeSdk } from '@/hooks/usePersonalizeSdk';
 import Link from 'next/link';
 import {
   BookOpen,
