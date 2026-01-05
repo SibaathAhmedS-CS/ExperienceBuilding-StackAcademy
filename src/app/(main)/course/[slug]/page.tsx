@@ -199,6 +199,9 @@ export default function CoursePage() {
   
   // Get selected language for locale-aware content fetching
   const { selectedLanguage } = useLanguage();
+  
+  // Get Personalize SDK instance for tracking
+  const { sdk: personalizeSdk } = usePersonalizeSdk();
 
   // Refs for scroll navigation
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -230,6 +233,21 @@ export default function CoursePage() {
         const course = await getCourseBySlug(slug, selectedLanguage);
         if (course) {
           setCourseData(course);
+          
+          // Track course view to Personalize SDK and Lytics
+          if (personalizeSdk && course) {
+            // Extract topics from course (assuming course has topics field)
+            const topics = course.topics ? normalizeArray(course.topics).map((t: any) => t.title || t.slug) : [];
+            const topicUids = course.topics ? normalizeArray(course.topics).map((t: any) => t.uid) : [];
+            
+            trackCourseView(personalizeSdk, {
+              slug: course.slug || slug,
+              title: course.title || '',
+              topic: topics.length > 0 ? topics : undefined,
+              topic_uid: topicUids.length > 0 ? topicUids : undefined,
+              category: course.category?.title || course.category?.slug || undefined,
+            });
+          }
           
           // Expand first module by default
           const modules = normalizeArray(course.modules);
