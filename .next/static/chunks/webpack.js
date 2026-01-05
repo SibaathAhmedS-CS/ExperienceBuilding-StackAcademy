@@ -192,7 +192,7 @@
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	!function() {
-/******/ 		__webpack_require__.h = function() { return "c000b12dd5010ef9"; }
+/******/ 		__webpack_require__.h = function() { return "0629f8c41009705f"; }
 /******/ 	}();
 /******/ 	
 /******/ 	/* webpack/runtime/global */
@@ -830,9 +830,13 @@
 /******/ 		// [resolve, reject, Promise] = chunk loading, 0 = chunk loaded
 /******/ 		var installedChunks = __webpack_require__.hmrS_jsonp = __webpack_require__.hmrS_jsonp || {
 /******/ 			"webpack": 0,
-/******/ 			"css-src_app_main_course_slug_page_module_css-src_app_main_home_page_module_css-src_app_page_m-b05370": 0,
+/******/ 			"css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-4ec962": 0,
 /******/ 			"css-src_app_globals_css": 0,
-/******/ 			"css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css": 0
+/******/ 			"css-src_app_page_module_css": 0,
+/******/ 			"css-src_app_auth_auth_module_css-src_app_auth_onboarding_onboarding_module_css": 0,
+/******/ 			"css-src_app_main_course_slug_enroll-success_page_module_css": 0,
+/******/ 			"css-src_app_main_course_slug_completion-success_page_module_css": 0,
+/******/ 			"css-src_app_main_certificate_enrollmentId_page_module_css": 0
 /******/ 		};
 /******/ 		
 /******/ 		__webpack_require__.f.j = function(chunkId, promises) {
@@ -844,7 +848,7 @@
 /******/ 					if(installedChunkData) {
 /******/ 						promises.push(installedChunkData[2]);
 /******/ 					} else {
-/******/ 						if(/^(app(\/(\((auth\)\/l(ayout|ogin\/page)|main\)\/((course\/\[slug\]|home)\/page|layout))|layout|page)|\-pages\-internals)|main\-app)$/.test(chunkId)) {
+/******/ 						if(!/^(css\-src_app_(main_c(ourse_slug_((completion|enroll)\-success_page_module_css|page_module_css\-src_app_main_courses_page_module_css\-src_app_mai\-4ec962)|ertificate_enrollmentId_page_module_css)|((auth_auth_module_css\-src_app_auth_onboarding_onboarding|page)_module|globals)_css)|webpack)$/.test(chunkId)) {
 /******/ 							// setup Promise in chunk cache
 /******/ 							var promise = new Promise(function(resolve, reject) { installedChunkData = installedChunks[chunkId] = [resolve, reject]; });
 /******/ 							promises.push(installedChunkData[2] = promise);

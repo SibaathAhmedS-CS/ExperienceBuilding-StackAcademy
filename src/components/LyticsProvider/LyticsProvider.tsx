@@ -177,11 +177,11 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
           .map((e: Enrollment) => e.course_id);
         
         // Extract unique categories from course_domain
-        const categories = [...new Set(
+        const categories = Array.from(new Set(
           enrollments
             .map((e: Enrollment) => (e as Enrollment & { course_domain?: string }).course_domain)
-            .filter(Boolean)
-        )] as string[];
+            .filter(Boolean) as string[]
+        ));
         if (categories.length > 0) {
           lyticsData.categories_explored = categories;
         }
