@@ -12,7 +12,6 @@ import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
 import { useCourses, transformCourseToCard, TransformedCourse } from '@/hooks/useCourses';
-import { usePersonalize } from '@/hooks/usePersonalize';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { 
@@ -216,7 +215,7 @@ interface CardBlockData {
   title: string;
   description: string;
   ctaButton?: CMSLink;
-  query?: CourseQuery;  // Query parameters from variant for filtering courses
+  query?: CourseQuery;  // Query parameters for filtering courses
 }
 
 // Helper to extract data from page sections
@@ -261,9 +260,8 @@ function extractHomePageData(pageData: PageEntry | null) {
       // Determine card block type based on order (first = top_courses, second = recommended)
       const type: CardBlockType = cardBlocks.length === 0 ? 'top_courses' : 'recommended';
       
-      // Log query for personalization debugging
       if (query) {
-        console.log(`[Personalize] Card Block "${title}" query:`, query);
+        console.log(`Card Block "${title}" query:`, query);
       }
       
       cardBlocks.push({ type, title, description, ctaButton, query });
@@ -274,7 +272,7 @@ function extractHomePageData(pageData: PageEntry | null) {
 }
 
 /**
- * Filter courses based on query parameters from card block variants
+ * Filter courses based on query parameters from card blocks
  * Matches courses by title keywords, difficulty, and duration
  * Falls back to other courses if not enough matches
  */
@@ -348,53 +346,17 @@ function filterCoursesByQuery(
 export default function HomePage() {
   const [user, setUser] = useState<typeof mockUser | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [testVariant, setTestVariant] = useState<string | null>(null);
-  
-  // Check for URL query param to override variant (for testing)
-  // Usage: /home?variant=0 through /home?variant=5
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const urlParams = new URLSearchParams(window.location.search);
-      const variantParam = urlParams.get('variant');
-      if (variantParam !== null) {
-        const variantNum = parseInt(variantParam, 10);
-        if (variantNum >= 0 && variantNum <= 5) {
-          const testVariantId = `cs_personalize_0_${variantNum}`;
-          setTestVariant(testVariantId);
-          console.log(`[Test] 🧪 Using test variant from URL: ${testVariantId}`);
-        }
-      }
-    }
-  }, []);
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
   
-  // Get personalization state (determines user's audience and variant)
-  // variantParam is the full variant UID (e.g., cs_personalize_0_2)
-  const { isReady: personalizeReady, variantParam } = usePersonalize();
-  
-  // Use test variant if set, otherwise use personalized variant
-  const effectiveVariant = testVariant || variantParam;
-  
-  // Fetch page data from Contentstack WITH variant support
-  // Pass effectiveVariant (full UID) to get personalized content
-  const { pageData, isLoading } = usePage('Home Page', effectiveVariant);
-  
-  // Log personalization status
-  useEffect(() => {
-    if (personalizeReady || testVariant) {
-      console.log('[Personalization] Status:', {
-        variant: effectiveVariant || 'base',
-        isTestMode: !!testVariant,
-      });
-    }
-  }, [personalizeReady, effectiveVariant, testVariant]);
+  // Fetch page data from Contentstack
+  const { pageData, isLoading } = usePage('Home Page');
   
   // Fetch courses from CMS
   const { courses: cmsCourses, isLoading: coursesLoading } = useCourses();
   
-  // Extract section data from CMS (includes query params from variants)
+  // Extract section data from CMS
   const homeData = extractHomePageData(pageData);
   
   // Get card blocks with queries
@@ -623,7 +585,7 @@ export default function HomePage() {
                   {recommendedBlock?.title || 'Recommended for You'}
                 </h2>
                 <p className={styles.sectionSubtitle}>
-                  {recommendedBlock?.description || 'Personalized course recommendations based on your interests'}
+                  {recommendedBlock?.description || 'Course recommendations based on your interests'}
                 </p>
               </div>
               {recommendedBlock?.ctaButton && (

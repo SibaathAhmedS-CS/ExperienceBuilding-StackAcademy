@@ -160,7 +160,7 @@ export default function LoginPage() {
           </div>
         </div>
         <h2 className={onboardingStyles.curatingTitle}>Curating Your Experience</h2>
-        <p className={onboardingStyles.curatingSubtitle}>Loading your personalized content...</p>
+        <p className={onboardingStyles.curatingSubtitle}>Loading your content...</p>
       </div>
     );
   }

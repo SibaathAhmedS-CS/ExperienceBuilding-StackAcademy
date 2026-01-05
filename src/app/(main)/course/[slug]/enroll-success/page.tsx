@@ -7,7 +7,6 @@ import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, normalizeArray, LessonEntry } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { sendCourseEnrollmentWebhook } from '@/utils/webhook';
-import { trackCourseClick } from '@/services/interestTracking';
 import styles from './page.module.css';
 
 export default function EnrollmentSuccessPage() {
@@ -110,13 +109,6 @@ export default function EnrollmentSuccessPage() {
               } else {
                 console.log('✅ Enrollment created via direct insert:', insertData);
                 
-                // Track enrollment in Lytics
-                trackCourseEnroll({
-                  course_slug: course.slug || slug,
-                  course_title: course.title,
-                  course_category: course.taxonomies?.[0]?.term_uid || 'general',
-                });
-                console.log('[Lytics] Course enrollment tracked');
                 
                 // Send enrollment webhook notification to Contentstack Automate
                 try {
@@ -154,15 +146,6 @@ export default function EnrollmentSuccessPage() {
             } else {
               console.log('✅ Enrollment created/updated successfully:', enrollment);
               
-              // Track enrollment in Lytics
-              const courseCategory = course.taxonomies?.[0]?.title || course.taxonomies?.[0]?.term_uid;
-              trackCourseClick({
-                uid: course.uid,
-                title: course.title,
-                slug: course.slug || slug,
-                category: courseCategory,
-              });
-              console.log('[Lytics] Course enrollment tracked');
               
               // Send enrollment webhook notification to Contentstack Automate
               try {

@@ -33,7 +33,6 @@ import {
 } from 'lucide-react';
 import styles from './onboarding.module.css';
 import { useOnboarding } from '@/hooks/useOnboarding';
-import { sendIdentifyEvent } from '@/lib/lytics-simple';
 
 // Comprehensive icon map
 const iconMap: Record<string, LucideIcon> = {
@@ -302,20 +301,6 @@ export default function OnboardingPage() {
         console.log('Preferences saved successfully:', data);
       }
 
-      // Send identify event to Lytics with user preferences
-      // This ensures Lytics profile is updated immediately after onboarding
-      sendIdentifyEvent({
-        email: user.email || '',
-        user_id: user.id,
-        full_name: user.user_metadata?.full_name,
-        goal: goalValue,
-        role: roleValue,
-        education: educationValue,
-        topics: topicsValue,
-        schedule: scheduleValue,
-        daily_goal_minutes: scheduleValue ? parseInt(scheduleValue, 10) : undefined,
-      });
-      console.log('[Lytics] User identified after onboarding');
 
       // Clear skip cookie since preferences are now saved
       document.cookie = 'skipped_onboarding=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';

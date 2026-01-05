@@ -1,7 +1,5 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
-// @ts-ignore - Package will be installed
-import Personalize from '@contentstack/personalize-edge-sdk'
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({
@@ -91,88 +89,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // ============================================
-  // CONTENTSTACK PERSONALIZE INTEGRATION
-  // ============================================
-  const projectUid = process.env.NEXT_PUBLIC_CONTENTSTACK_PERSONALIZE_PROJECT_UID;
-
-  // Skip Personalize for API routes and static files
-  if (
-    !projectUid ||
-    request.nextUrl.pathname.startsWith('/api') ||
-    request.nextUrl.pathname.startsWith('/_next') ||
-    request.nextUrl.pathname.startsWith('/favicon.ico')
-  ) {
-    return response;
-  }
-
-  try {
-    // Set custom edge API URL if provided
-    if (process.env.NEXT_PUBLIC_CONTENTSTACK_PERSONALIZE_EDGE_API_URL) {
-      Personalize.setEdgeApiUrl(process.env.NEXT_PUBLIC_CONTENTSTACK_PERSONALIZE_EDGE_API_URL);
-    }
-
-    // Create Request object for Personalize SDK
-    const headers = new Headers();
-    request.headers.forEach((value, key) => {
-      headers.set(key, value);
-    });
-    
-    // Add cookies to headers
-    const cookieString = request.cookies
-      .getAll()
-      .map(cookie => `${cookie.name}=${cookie.value}`)
-      .join('; ');
-    if (cookieString) {
-      headers.set('Cookie', cookieString);
-    }
-    
-    const personalizeRequest = new Request(request.url, {
-      method: request.method,
-      headers: headers,
-    });
-    
-    // Initialize Personalize SDK
-    const personalizeSdk = await Personalize.init(projectUid, {
-      request: personalizeRequest,
-    });
-
-    // Get the variant parameter from the SDK
-    const variantParam = personalizeSdk.getVariantParam();
-    
-    // Add cookies for visitor identification
-    await personalizeSdk.addStateToResponse(response as any);
-    
-    // Ensure response is not cached
-    response.headers.set('cache-control', 'no-store');
-    
-    // If variant exists, add it as a header and modify the URL
-    if (variantParam) {
-      response.headers.set('x-personalize-variant', variantParam);
-      
-      const url = new URL(request.url);
-      url.searchParams.set(Personalize.VARIANT_QUERY_PARAM, variantParam);
-      
-      const rewriteUrl = new URL(url.pathname + url.search, request.url);
-      const rewriteResponse = NextResponse.rewrite(rewriteUrl);
-      
-      // Copy Supabase cookies to rewrite response
-      request.cookies.getAll().forEach(cookie => {
-        rewriteResponse.cookies.set(cookie.name, cookie.value);
-      });
-      
-      await personalizeSdk.addStateToResponse(rewriteResponse as any);
-      rewriteResponse.headers.set('cache-control', 'no-store');
-      rewriteResponse.headers.set('x-personalize-variant', variantParam);
-      
-      return rewriteResponse;
-    }
-    
-    return response;
-  } catch (error) {
-    console.error('❌ [Middleware] Personalize error:', error);
-    return response;
-  }
+  return response
 }
 
 export const config = {

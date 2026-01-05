@@ -4,7 +4,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Star, Clock, Users, BookOpen } from 'lucide-react';
 import styles from './CourseCard.module.css';
-import { trackCourseClick } from '@/services/interestTracking';
 
 interface CourseCardProps {
   uid: string;
@@ -56,18 +55,6 @@ export default function CourseCard({
     return count.toString();
   };
 
-  // Handle course click tracking
-  const handleClick = () => {
-    trackCourseClick({
-      uid,
-      title,
-      slug,
-      category,
-      difficulty_level: level,
-      instructorName,
-    });
-  };
-
   // Use redirectTo if provided, otherwise navigate to course detail page
   const href = redirectTo || `/course/${slug}`;
 
@@ -75,7 +62,6 @@ export default function CourseCard({
     <Link 
       href={href} 
       className={`${styles.card} ${styles[variant]}`}
-      onClick={handleClick}
     >
       {/* Thumbnail */}
       <div className={styles.thumbnail}>
