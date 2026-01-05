@@ -7,7 +7,8 @@ import {
   onLyticsReady, 
   identifyUser, 
   trackPageView,
-  clearAudiencesFromLocalStorage
+  clearAudiencesFromLocalStorage,
+  refreshLyticsSegments
 } from '@/lib/lytics';
 
 // ============================================
@@ -199,6 +200,12 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
         courses_completed: lyticsData.courses_completed?.length || 0,
         categories_explored: lyticsData.categories_explored,
       });
+      
+      // Wait a bit, then refresh segments to ensure they're evaluated
+      // Lytics needs time to process the identify call and evaluate audience rules
+      setTimeout(() => {
+        refreshLyticsSegments();
+      }, 2000);
 
     } catch (error) {
       console.error('[LyticsProvider] Error syncing user to Lytics:', error);
@@ -224,9 +231,12 @@ export function LyticsProvider({ children }: LyticsProviderProps) {
         setIsIdentified(false);
         setUserEmail(null);
         // Clear stored audiences on sign out
-        if (user?.email || user?.id) {
-          clearAudiencesFromLocalStorage(user.id || user.email || '');
-        }
+        // Get user before clearing (user might be null after sign out)
+        supabase.auth.getUser().then(({ data: { user: currentUser } }) => {
+          if (currentUser?.email || currentUser?.id) {
+            clearAudiencesFromLocalStorage(currentUser.id || currentUser.email || '');
+          }
+        });
       }
     });
 

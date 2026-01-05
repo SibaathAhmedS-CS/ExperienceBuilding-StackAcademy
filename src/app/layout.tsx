@@ -3,6 +3,9 @@ import { Toaster } from 'react-hot-toast';
 import { Providers } from '@/components/Providers';
 import Script from 'next/script';
 import './globals.css';
+// Import check functions for debugging
+import '@/lib/checkPersonalizeConfig';
+import '@/lib/checkCookies';
 
 export const metadata: Metadata = {
   title: 'StackAcademy - Learn New Skills Everyday',
