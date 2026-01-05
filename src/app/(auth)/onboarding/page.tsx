@@ -33,7 +33,7 @@ import {
 } from 'lucide-react';
 import styles from './onboarding.module.css';
 import { useOnboarding } from '@/hooks/useOnboarding';
-import { identifyUser } from '@/lib/lytics';
+import { sendIdentifyEvent } from '@/lib/lytics-simple';
 
 // Comprehensive icon map
 const iconMap: Record<string, LucideIcon> = {
@@ -304,7 +304,7 @@ export default function OnboardingPage() {
 
       // Send identify event to Lytics with user preferences
       // This ensures Lytics profile is updated immediately after onboarding
-      identifyUser({
+      sendIdentifyEvent({
         email: user.email || '',
         user_id: user.id,
         full_name: user.user_metadata?.full_name,
@@ -313,7 +313,7 @@ export default function OnboardingPage() {
         education: educationValue,
         topics: topicsValue,
         schedule: scheduleValue,
-        daily_goal_minutes: scheduleValue ? parseInt(scheduleValue, 10) : null,
+        daily_goal_minutes: scheduleValue ? parseInt(scheduleValue, 10) : undefined,
       });
       console.log('[Lytics] User identified after onboarding');
 

@@ -372,7 +372,7 @@ export default function HomePage() {
   
   // Get personalization state (determines user's audience and variant)
   // variantParam is the full variant UID (e.g., cs_personalize_0_2)
-  const { isInitialized: personalizeReady, variantParam, audienceName } = usePersonalize();
+  const { isReady: personalizeReady, variantParam } = usePersonalize();
   
   // Use test variant if set, otherwise use personalized variant
   const effectiveVariant = testVariant || variantParam;
@@ -385,12 +385,11 @@ export default function HomePage() {
   useEffect(() => {
     if (personalizeReady || testVariant) {
       console.log('[Personalization] Status:', {
-        audience: testVariant ? 'TEST_OVERRIDE' : (audienceName || 'none'),
         variant: effectiveVariant || 'base',
         isTestMode: !!testVariant,
       });
     }
-  }, [personalizeReady, effectiveVariant, audienceName, testVariant]);
+  }, [personalizeReady, effectiveVariant, testVariant]);
   
   // Fetch courses from CMS
   const { courses: cmsCourses, isLoading: coursesLoading } = useCourses();

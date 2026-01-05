@@ -94,12 +94,7 @@ export async function middleware(request: NextRequest) {
   // ============================================
   // CONTENTSTACK PERSONALIZE INTEGRATION
   // ============================================
-  // This runs on every request to determine personalization variant
-  // The SDK reads Lytics cookies (seerid, lytics_segments) automatically
-  // and queries the Lytics-Contentstack integration for audience memberships
-
-  const projectUid = process.env.NEXT_PUBLIC_PERSONALIZE_PROJECT_UID || 
-                     process.env.NEXT_PUBLIC_CONTENTSTACK_PERSONALIZE_PROJECT_UID;
+  const projectUid = process.env.NEXT_PUBLIC_CONTENTSTACK_PERSONALIZE_PROJECT_UID;
 
   // Skip Personalize for API routes and static files
   if (
@@ -114,20 +109,16 @@ export async function middleware(request: NextRequest) {
   try {
     // Set custom edge API URL if provided
     if (process.env.NEXT_PUBLIC_CONTENTSTACK_PERSONALIZE_EDGE_API_URL) {
-      (Personalize as any).setEdgeApiUrl(process.env.NEXT_PUBLIC_CONTENTSTACK_PERSONALIZE_EDGE_API_URL);
+      Personalize.setEdgeApiUrl(process.env.NEXT_PUBLIC_CONTENTSTACK_PERSONALIZE_EDGE_API_URL);
     }
 
-    // Create a proper Request object for Personalize SDK
-    // The SDK expects a Request-like object with Headers that have .get() method
+    // Create Request object for Personalize SDK
     const headers = new Headers();
-
-    // Copy all headers from the original request
     request.headers.forEach((value, key) => {
       headers.set(key, value);
     });
-
-    // Add cookies to headers (IMPORTANT: This includes Lytics cookies like seerid!)
-    // The SDK reads these cookies to determine user's Lytics segments
+    
+    // Add cookies to headers
     const cookieString = request.cookies
       .getAll()
       .map(cookie => `${cookie.name}=${cookie.value}`)
@@ -135,114 +126,57 @@ export async function middleware(request: NextRequest) {
     if (cookieString) {
       headers.set('Cookie', cookieString);
     }
-
-    // Create Request object that the SDK expects
+    
     const personalizeRequest = new Request(request.url, {
       method: request.method,
       headers: headers,
     });
-
-    // Initialize Personalize SDK with the request
-    // The SDK will:
-    // 1. Read Lytics cookies (seerid, lytics_segments) from the request
-    // 2. Query the Lytics-Contentstack integration for audience memberships
-    // 3. Map Lytics segments to Personalize audiences
-    // 4. Determine the appropriate variant
+    
+    // Initialize Personalize SDK
     const personalizeSdk = await Personalize.init(projectUid, {
       request: personalizeRequest,
-    } as any);
+    });
 
     // Get the variant parameter from the SDK
-    // This is the variant UID (e.g., 'cs_personalize_0_2') that should be used
-    // to fetch personalized content from Contentstack
-    let variantParam = personalizeSdk.getVariantParam();
+    const variantParam = personalizeSdk.getVariantParam();
     
-    // Debug: Log what the SDK returns
-    console.log('[Middleware] Personalize SDK getVariantParam():', variantParam);
-    
-    // If getVariantParam() returns null/empty, try getExperiences() to see what's available
-    if (!variantParam) {
-      try {
-        const experiences = personalizeSdk.getExperiences();
-        console.log('[Middleware] Personalize SDK getExperiences():', JSON.stringify(experiences, null, 2));
-        
-        if (Array.isArray(experiences) && experiences.length > 0) {
-          const firstExp = experiences[0];
-          console.log('[Middleware] First experience:', {
-            shortUid: firstExp.shortUid,
-            activeVariantShortUid: firstExp.activeVariantShortUid,
-          });
-          
-          // If activeVariantShortUid exists, build the variant UID
-          if (firstExp.activeVariantShortUid !== null && firstExp.activeVariantShortUid !== undefined) {
-            variantParam = `cs_personalize_${firstExp.shortUid}_${firstExp.activeVariantShortUid}`;
-            console.log('[Middleware] Built variant UID from experience:', variantParam);
-          } else {
-            console.warn('[Middleware] ⚠️ activeVariantShortUid is null - No variant matched!');
-            console.warn('[Middleware] This means user does not belong to any audience with a variant');
-          }
-        }
-      } catch (error) {
-        console.error('[Middleware] Error getting experiences:', error);
-      }
-    }
-
-    // Add SDK state to response (sets cookies for visitor identification)
-    // This ensures the SDK can track the user across requests
+    // Add cookies for visitor identification
     await personalizeSdk.addStateToResponse(response as any);
-
-    // Ensure response is not cached (personalization is dynamic)
+    
+    // Ensure response is not cached
     response.headers.set('cache-control', 'no-store');
-
+    
     // If variant exists, add it as a header and modify the URL
     if (variantParam) {
-      // Set the variant as a header (for server-side access)
-      // Components can read this via: headers.get('x-personalize-variant')
       response.headers.set('x-personalize-variant', variantParam);
-
-      // Also add to URL query parameter (for client-side access)
-      // This allows the variant to be accessible in both server and client components
+      
       const url = new URL(request.url);
-      const variantQueryParam = (Personalize as any).VARIANT_QUERY_PARAM || 'cs_personalize_variant';
-      url.searchParams.set(variantQueryParam, variantParam);
-
-      // Use rewrite to modify the internal URL without changing browser URL
-      // This keeps the URL clean while still passing the variant
+      url.searchParams.set(Personalize.VARIANT_QUERY_PARAM, variantParam);
+      
       const rewriteUrl = new URL(url.pathname + url.search, request.url);
       const rewriteResponse = NextResponse.rewrite(rewriteUrl);
-
-      // Copy all cookies and headers to rewrite response
-      await personalizeSdk.addStateToResponse(rewriteResponse as any);
-      rewriteResponse.headers.set('cache-control', 'no-store');
-      rewriteResponse.headers.set('x-personalize-variant', variantParam);
-
+      
       // Copy Supabase cookies to rewrite response
       request.cookies.getAll().forEach(cookie => {
         rewriteResponse.cookies.set(cookie.name, cookie.value);
       });
-
+      
+      await personalizeSdk.addStateToResponse(rewriteResponse as any);
+      rewriteResponse.headers.set('cache-control', 'no-store');
+      rewriteResponse.headers.set('x-personalize-variant', variantParam);
+      
       return rewriteResponse;
-    } else {
-      // No variant found, but still return response with SDK state
-      return response;
     }
+    
+    return response;
   } catch (error) {
-    // Don't block the request if Personalize fails
-    // Log error but continue with normal response
-    console.error('[Middleware] Personalize error:', error);
+    console.error('❌ [Middleware] Personalize error:', error);
     return response;
   }
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!api|_next/static|_next/image|favicon.ico).*)',
   ],
-}
+};

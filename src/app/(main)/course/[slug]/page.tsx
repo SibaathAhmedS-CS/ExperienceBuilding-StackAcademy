@@ -30,7 +30,8 @@ import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { trackCourseView, trackCourseEnroll } from '@/lib/lytics';
+import { trackCourseView } from '@/services/interestTracking';
+import { usePersonalize } from '@/hooks/usePersonalize';
 import styles from './page.module.css';
 
 // Mock user data
@@ -198,6 +199,9 @@ export default function CoursePage() {
   
   // Get selected language for locale-aware content fetching
   const { selectedLanguage } = useLanguage();
+  
+  // Get Personalize SDK for tracking course views
+  const { personalizeSdk } = usePersonalize();
 
   // Refs for scroll navigation
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -230,20 +234,21 @@ export default function CoursePage() {
         if (course) {
           setCourseData(course);
           
-          // Track course view in Lytics
-          // Extract category from taxonomies (course_categories taxonomy)
-          const courseCategory = course.taxonomies && course.taxonomies.length > 0
-            ? course.taxonomies[0].term_uid
-            : 'general';
-          
-          trackCourseView({
-            course_slug: course.slug || slug,
-            course_title: course.title,
-            course_category: courseCategory,
-            instructor_name: typeof course.author === 'object' && course.author && !Array.isArray(course.author)
-              ? (course.author as AuthorEntry).title 
-              : undefined,
-          });
+          // Track course view - updates Personalize SDK with course interests
+          if (personalizeSdk) {
+            const courseCategory = course.taxonomies && course.taxonomies.length > 0
+              ? course.taxonomies[0].title || course.taxonomies[0].term_uid
+              : undefined;
+            
+            const difficultyLevel = course.difficulty_level || undefined;
+            
+            trackCourseView(personalizeSdk, {
+              uid: course.uid,
+              title: course.title,
+              category: courseCategory,
+              difficulty_level: difficultyLevel,
+            });
+          }
           
           // Expand first module by default
           const modules = normalizeArray(course.modules);
