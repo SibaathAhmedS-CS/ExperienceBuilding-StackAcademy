@@ -75,6 +75,48 @@ export function usePersonalize() {
     });
   }, []);
 
+  /**
+   * Get audiences from Lytics using jstag.getEntity()
+   * This is the Lytics-driven approach - audiences come from Lytics, not local logic
+   */
+  const getAudiencesFromLytics = useCallback((): Promise<string[]> => {
+    return new Promise((resolve) => {
+      if (typeof window === 'undefined' || !window.jstag) {
+        console.log('[Personalize] Lytics jstag not available');
+        resolve([]);
+        return;
+      }
+
+      // Use jstag.getEntity to get user's audience memberships
+      if (typeof (window.jstag as any).getEntity === 'function') {
+        (window.jstag as any).getEntity((error: any, entity: any) => {
+          if (error) {
+            console.warn('[Personalize] Error getting entity from Lytics:', error);
+            resolve([]);
+            return;
+          }
+
+          // Extract audiences from Lytics entity
+          // Audiences are typically in entity.data.audiences or entity.data.segments
+          const audiences = entity?.data?.audiences || 
+                          entity?.data?.segments || 
+                          entity?.audiences || 
+                          [];
+          
+          console.log('[Personalize] 📊 Lytics entity data:', {
+            audiences,
+            hasAudiences: Array.isArray(audiences) && audiences.length > 0,
+          });
+
+          resolve(Array.isArray(audiences) ? audiences : []);
+        });
+      } else {
+        console.warn('[Personalize] jstag.getEntity() is not available');
+        resolve([]);
+      }
+    });
+  }, []);
+
   // Initialize Personalize SDK after Lytics is ready
   useEffect(() => {
     let isMounted = true;
@@ -108,23 +150,39 @@ export function usePersonalize() {
           return;
         }
 
-        // Step 3: Initialize Personalize SDK
-        // When Lytics integration is configured in Contentstack Personalize:
-        // - The SDK automatically reads the Lytics cookie
-        // - Fetches audience memberships from Lytics
-        // - Maps Lytics audiences to Contentstack Personalize audiences
+        // Step 3: Get audiences from Lytics
+        // Even with Lytics integration, we need to explicitly get audiences and set them
+        const lyticsAudiences = await getAudiencesFromLytics();
+        console.log('[Personalize] 🎯 Audiences from Lytics:', lyticsAudiences);
+
+        // Step 4: Initialize Personalize SDK
         console.log('[Personalize] 📦 Initializing SDK with Project:', PERSONALIZE_PROJECT_UID.substring(0, 8) + '...');
         
-        // Type assertion to handle SDK type definitions
-        (Personalize as any).init(PERSONALIZE_PROJECT_UID, {
+        // Initialize the SDK
+        const personalizeInstance = (Personalize as any).init(PERSONALIZE_PROJECT_UID, {
           edgeMode: true,  // Uses edge-based personalization for faster response
         });
 
-        // Step 4: Get personalization data from SDK
-        // The SDK has already determined the audience from Lytics!
-        // When Lytics integration is configured, we DON'T need to call setAudiences()
-        // The SDK reads audiences directly from Lytics
-        const personalizeData = (Personalize as any).get();
+        // Step 5: Set audiences on Personalize SDK (from Lytics)
+        // The SDK needs audiences to be set explicitly, even with Lytics integration
+        if (lyticsAudiences.length > 0) {
+          (Personalize as any).setAudiences(lyticsAudiences);
+          console.log('[Personalize] ✅ Set audiences on SDK:', lyticsAudiences);
+        }
+
+        // Step 6: Get personalization data from SDK
+        // Check if get() exists and is a function before calling
+        let personalizeData: any = null;
+        
+        if (typeof (Personalize as any).get === 'function') {
+          personalizeData = (Personalize as any).get();
+        } else if (personalizeInstance && typeof personalizeInstance.get === 'function') {
+          // If init() returns an instance, try calling get() on it
+          personalizeData = personalizeInstance.get();
+        } else {
+          console.warn('[Personalize] ⚠️ Personalize.get() is not available. SDK may not be initialized correctly.');
+          throw new Error('Personalize SDK get() method is not available');
+        }
 
         console.log('[Personalize] 🎭 SDK Response:', {
           variantParam: personalizeData?.variantParam || 'base (no variant)',
@@ -202,12 +260,28 @@ export function usePersonalize() {
       await waitForLytics();
       await new Promise(resolve => setTimeout(resolve, 300));
       
+      // Get fresh audiences from Lytics
+      const lyticsAudiences = await getAudiencesFromLytics();
+      
       // Re-initialize to get fresh data
-      (Personalize as any).init(PERSONALIZE_PROJECT_UID, {
+      const personalizeInstance = (Personalize as any).init(PERSONALIZE_PROJECT_UID, {
         edgeMode: true,
       });
       
-      const personalizeData = (Personalize as any).get();
+      // Set audiences
+      if (lyticsAudiences.length > 0) {
+        (Personalize as any).setAudiences(lyticsAudiences);
+      }
+      
+      // Get personalization data
+      let personalizeData: any = null;
+      if (typeof (Personalize as any).get === 'function') {
+        personalizeData = (Personalize as any).get();
+      } else if (personalizeInstance && typeof personalizeInstance.get === 'function') {
+        personalizeData = personalizeInstance.get();
+      } else {
+        throw new Error('Personalize SDK get() method is not available');
+      }
       
       const variantParam = personalizeData?.variantParam || '';
       const audiences = personalizeData?.audiences || [];
@@ -234,7 +308,7 @@ export function usePersonalize() {
         error: error instanceof Error ? error : new Error('Refresh failed'),
       }));
     }
-  }, [waitForLytics]);
+  }, [waitForLytics, getAudiencesFromLytics]);
 
   return {
     ...state,

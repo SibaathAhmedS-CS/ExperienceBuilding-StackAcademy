@@ -10,6 +10,7 @@ declare global {
   interface Window {
     jstag: {
       send: (data: Record<string, unknown>) => void;
+      getEntity?: (callback: (error: any, entity: any) => void) => void;
       mock?: boolean;
       _q?: Array<{ method: string; args: unknown[] }>;
       config?: Record<string, unknown>;
