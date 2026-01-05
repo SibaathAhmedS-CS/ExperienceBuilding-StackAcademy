@@ -236,16 +236,23 @@ export default function CoursePage() {
           
           // Track course view to Personalize SDK and Lytics
           if (personalizeSdk && course) {
-            // Extract topics from course (assuming course has topics field)
-            const topics = course.topics ? normalizeArray(course.topics).map((t: any) => t.title || t.slug) : [];
-            const topicUids = course.topics ? normalizeArray(course.topics).map((t: any) => t.uid) : [];
+            // Extract categories/topics from taxonomies
+            // Courses use taxonomies array: [{ taxonomy_uid: "course_categories", term_uid: "development" }, ...]
+            const taxonomies = course.taxonomies || [];
+            const categoryTermUids = taxonomies
+              .filter((t: any) => t.taxonomy_uid === 'course_categories' || !t.taxonomy_uid) // Filter for course categories or fallback
+              .map((t: any) => t.term_uid)
+              .filter(Boolean); // Remove any undefined/null values
+            
+            // Use first category as the main category, term_uid as both topic and category
+            const mainCategory = categoryTermUids.length > 0 ? categoryTermUids[0] : undefined;
             
             trackCourseView(personalizeSdk, {
               slug: course.slug || slug,
               title: course.title || '',
-              topic: topics.length > 0 ? topics : undefined,
-              topic_uid: topicUids.length > 0 ? topicUids : undefined,
-              category: course.category?.title || course.category?.slug || undefined,
+              topic: categoryTermUids.length > 0 ? categoryTermUids : undefined, // Use term_uid as topics
+              topic_uid: categoryTermUids.length > 0 ? categoryTermUids : undefined, // Same as topic for now
+              category: mainCategory, // First category term_uid
             });
           }
           

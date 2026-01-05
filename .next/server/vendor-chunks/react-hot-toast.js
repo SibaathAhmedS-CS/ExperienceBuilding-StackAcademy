@@ -29,14 +29,12 @@ eval("__webpack_require__.r(__webpack_exports__);\n/* harmony export */ __webpac
 
 __webpack_require__.r(__webpack_exports__);
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
-/* harmony export */   $$typeof: () => (/* binding */ $$typeof),
 /* harmony export */   CheckmarkIcon: () => (/* binding */ e0),
 /* harmony export */   ErrorIcon: () => (/* binding */ e1),
 /* harmony export */   LoaderIcon: () => (/* binding */ e2),
 /* harmony export */   ToastBar: () => (/* binding */ e3),
 /* harmony export */   ToastIcon: () => (/* binding */ e4),
 /* harmony export */   Toaster: () => (/* binding */ e5),
-/* harmony export */   __esModule: () => (/* binding */ __esModule),
 /* harmony export */   "default": () => (__WEBPACK_DEFAULT_EXPORT__),
 /* harmony export */   resolveValue: () => (/* binding */ e6),
 /* harmony export */   toast: () => (/* binding */ e7),
@@ -45,14 +43,6 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */ });
 /* harmony import */ var next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! next/dist/build/webpack/loaders/next-flight-loader/module-proxy */ "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-loader/module-proxy.js");
 
-const proxy = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`/Users/sibaath.ahmed/Desktop/Experience Building/ExperienceBuilding-StackAcademy/node_modules/react-hot-toast/dist/index.mjs`)
-
-// Accessing the __esModule property and exporting $$typeof are required here.
-// The __esModule getter forces the proxy target to create the default export
-// and the $$typeof value is for rendering logic to determine if the module
-// is a client boundary.
-const { __esModule, $$typeof } = proxy;
-const __default__ = proxy.default;
 
 const e0 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`/Users/sibaath.ahmed/Desktop/Experience Building/ExperienceBuilding-StackAcademy/node_modules/react-hot-toast/dist/index.mjs#CheckmarkIcon`);
 
@@ -65,7 +55,6 @@ const e3 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__W
 const e4 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`/Users/sibaath.ahmed/Desktop/Experience Building/ExperienceBuilding-StackAcademy/node_modules/react-hot-toast/dist/index.mjs#ToastIcon`);
 
 const e5 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`/Users/sibaath.ahmed/Desktop/Experience Building/ExperienceBuilding-StackAcademy/node_modules/react-hot-toast/dist/index.mjs#Toaster`);
-
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = ((0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`/Users/sibaath.ahmed/Desktop/Experience Building/ExperienceBuilding-StackAcademy/node_modules/react-hot-toast/dist/index.mjs#default`));
 
 const e6 = (0,next_dist_build_webpack_loaders_next_flight_loader_module_proxy__WEBPACK_IMPORTED_MODULE_0__.createProxy)(String.raw`/Users/sibaath.ahmed/Desktop/Experience Building/ExperienceBuilding-StackAcademy/node_modules/react-hot-toast/dist/index.mjs#resolveValue`);
