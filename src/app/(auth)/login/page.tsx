@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { Mail, Lock, Eye, EyeOff, BookOpen, ArrowRight, Chrome } from 'lucide-react';
 import { useAuthBranding } from '@/hooks/useAuthBranding';
 import { IconEntry, normalizeArray } from '@/types/contentstack';
+import lyticsService from '@/services/lytics';
 import styles from '../auth.module.css';
 import onboardingStyles from '../onboarding/onboarding.module.css';
 
@@ -44,11 +45,14 @@ export default function LoginPage() {
             router.push('/onboarding');
           }
         } else {
-          // No session - show login form
+          // No session - set anonymous profile in Lytics (doesn't clear cookies)
+          lyticsService.setAnonymousProfile();
           setCheckingSession(false);
         }
       } catch (error) {
         console.error('Error checking session:', error);
+        // Set anonymous profile even on error (doesn't clear cookies)
+        lyticsService.setAnonymousProfile();
         setCheckingSession(false);
       }
     };
@@ -86,11 +90,43 @@ export default function LoginPage() {
       .maybeSingle();
 
     if (prefs) {
-      // Case 1.1: Preferences exist -> show curating content animation and redirect to home
+      // Case 1.1: Preferences exist -> identify user with preferences, wait for audience processing, then refresh
       setRedirectingToHome(true);
-      setTimeout(() => {
-        router.push('/home');
-      }, 2000);
+      
+      // Import preference tracking to sync preferences
+      const { syncPreferencesToLytics } = await import('@/services/preferenceTracking');
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.user.id)
+        .single();
+      
+      const { data: userPrefs } = await supabase
+        .from('user_preferences')
+        .select('goal, role, education, topics, schedule, daily_goal_minutes')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+      
+      if (userPrefs) {
+        await syncPreferencesToLytics(
+          {
+            email: data.user.email || '',
+            user_id: data.user.id,
+            full_name: profile?.full_name || undefined,
+          },
+          userPrefs
+        );
+        
+        // Wait a bit for audience processing, then refresh to show new audience
+        setTimeout(() => {
+          window.location.href = '/home';
+        }, 3000);
+      } else {
+        // No preferences but user exists - just redirect
+        setTimeout(() => {
+          router.push('/home');
+        }, 2000);
+      }
     } else {
       // Case 1.2: No preferences -> redirect to onboarding (normal redirect, no special animation)
       router.push('/onboarding');

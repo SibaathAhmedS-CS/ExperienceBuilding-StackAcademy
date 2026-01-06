@@ -3,8 +3,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Star, Clock, Users, BookOpen } from 'lucide-react';
-import { trackCourseClick } from '@/services/interestTracking';
-import { usePersonalizeSdk } from '@/hooks/usePersonalizeSdk';
+import lyticsService from '@/services/lytics';
 import styles from './CourseCard.module.css';
 
 interface CourseCardProps {
@@ -59,20 +58,18 @@ export default function CourseCard({
 
   // Use redirectTo if provided, otherwise navigate to course detail page
   const href = redirectTo || `/course/${slug}`;
-  
-  // Get Personalize SDK instance for tracking
-  const { sdk: personalizeSdk } = usePersonalizeSdk();
 
   const handleClick = () => {
-    // Track course click to Lytics and Personalize SDK
-    if (personalizeSdk) {
-      trackCourseClick(personalizeSdk, {
-        slug,
-        title,
-        category,
-        url: href,
-      });
-    }
+    // Track course click using service layer
+    lyticsService.trackClick('course_card', {
+      action: 'course_click',
+      course_slug: slug,
+      course_title: title,
+      course_category: category,
+      course_level: level,
+      destination_url: href,
+      location: 'course_card',
+    });
   };
 
   return (
@@ -80,6 +77,14 @@ export default function CourseCard({
       href={href} 
       onClick={handleClick}
       className={`${styles.card} ${styles[variant]}`}
+      data-lytics-click={JSON.stringify({
+        action: 'course_click',
+        course_slug: slug,
+        course_title: title,
+        course_category: category,
+        course_level: level,
+      })}
+      data-lytics-element="course_card"
     >
       {/* Thumbnail */}
       <div className={styles.thumbnail}>

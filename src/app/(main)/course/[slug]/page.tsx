@@ -30,8 +30,7 @@ import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { usePersonalizeSdk } from '@/hooks/usePersonalizeSdk';
-import { trackCourseView } from '@/services/interestTracking';
+import { trackCourseView } from '@/services/preferenceTracking';
 import styles from './page.module.css';
 
 // Mock user data
@@ -199,9 +198,6 @@ export default function CoursePage() {
   
   // Get selected language for locale-aware content fetching
   const { selectedLanguage } = useLanguage();
-  
-  // Get Personalize SDK instance for tracking
-  const { sdk: personalizeSdk } = usePersonalizeSdk();
 
   // Refs for scroll navigation
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -234,25 +230,14 @@ export default function CoursePage() {
         if (course) {
           setCourseData(course);
           
-          // Track course view to Personalize SDK and Lytics
-          if (personalizeSdk && course) {
-            // Extract categories/topics from taxonomies
-            // Courses use taxonomies array: [{ taxonomy_uid: "course_categories", term_uid: "development" }, ...]
-            const taxonomies = course.taxonomies || [];
-            const categoryTermUids = taxonomies
-              .filter((t: any) => t.taxonomy_uid === 'course_categories' || !t.taxonomy_uid) // Filter for course categories or fallback
-              .map((t: any) => t.term_uid)
-              .filter(Boolean); // Remove any undefined/null values
-            
-            // Use first category as the main category, term_uid as both topic and category
-            const mainCategory = categoryTermUids.length > 0 ? categoryTermUids[0] : undefined;
-            
-            trackCourseView(personalizeSdk, {
-              slug: course.slug || slug,
-              title: course.title || '',
-              topic: categoryTermUids.length > 0 ? categoryTermUids : undefined, // Use term_uid as topics
-              topic_uid: categoryTermUids.length > 0 ? categoryTermUids : undefined, // Same as topic for now
-              category: mainCategory, // First category term_uid
+          // Track course view to Lytics
+          if (course) {
+            const author = normalizeArray(course.author)[0];
+            trackCourseView({
+              course_slug: course.slug || slug,
+              course_title: course.title || '',
+              course_category: undefined, // Category not available in CourseEntry
+              instructor_name: author?.title || undefined,
             });
           }
           
@@ -312,7 +297,7 @@ export default function CoursePage() {
     if (slug && selectedLanguage) {
       fetchCourse();
     }
-  }, [slug, supabase, selectedLanguage, personalizeSdk]);
+  }, [slug, supabase, selectedLanguage]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');

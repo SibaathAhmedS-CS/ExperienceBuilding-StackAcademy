@@ -1,14 +1,28 @@
 {
-  "app/(main)/home/page.tsx -> @/lib/lytics": {
-    "id": "app/(main)/home/page.tsx -> @/lib/lytics",
+  "app/(auth)/login/page.tsx -> @/services/preferenceTracking": {
+    "id": "app/(auth)/login/page.tsx -> @/services/preferenceTracking",
     "files": [
-      "static/chunks/_app-pages-browser_src_lib_lytics_ts.js"
+      "static/chunks/_app-pages-browser_src_services_preferenceTracking_ts.js"
     ]
   },
-  "lib/lytics.ts -> ./explainSegments": {
-    "id": "lib/lytics.ts -> ./explainSegments",
+  "app/(main)/home/page.tsx -> @/services/lytics": {
+    "id": "app/(main)/home/page.tsx -> @/services/lytics",
+    "files": []
+  },
+  "app/(main)/home/page.tsx -> @/services/personalize": {
+    "id": "app/(main)/home/page.tsx -> @/services/personalize",
     "files": [
-      "static/chunks/_app-pages-browser_src_lib_explainSegments_ts.js"
+      "static/chunks/_app-pages-browser_src_services_personalize_ts.js"
+    ]
+  },
+  "app/page.tsx -> @/services/lytics": {
+    "id": "app/page.tsx -> @/services/lytics",
+    "files": []
+  },
+  "services/preferenceTracking.ts -> ./personalize": {
+    "id": "services/preferenceTracking.ts -> ./personalize",
+    "files": [
+      "static/chunks/_app-pages-browser_src_services_personalize_ts.js"
     ]
   }
 }

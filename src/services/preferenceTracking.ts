@@ -2,11 +2,11 @@
 'use client';
 
 /**
- * Track user preferences for Contentstack Personalize and Lytics
+ * Track user preferences for Lytics
  * Syncs user preferences from Supabase to Lytics for audience matching
  */
 
-import { identifyUser } from '@/lib/lytics';
+import lyticsService from './lytics';
 
 export interface UserPreferences {
   goal: string | null;
@@ -66,17 +66,43 @@ export async function syncPreferencesToLytics(
         },
       });
 
-      // Use identifyUser helper which handles field mapping and audience fetching
-      identifyUser({
+      // Use lyticsService to identify user with preferences
+      // Wait for audience processing to complete so segments are available
+      lyticsService.identifyUser({
         email: userData.email,
-        user_id: userData.user_id,
-        full_name: userData.full_name,
-        goal: preferences.goal,
-        role: preferences.role,
-        education: preferences.education,
-        topics: preferences.topics || [],
-        schedule: preferences.schedule,
-        daily_goal_minutes: preferences.daily_goal_minutes,
+        id: userData.user_id,
+        name: userData.full_name,
+        createdAt: new Date().toISOString(),
+      }, {
+        waitForAudienceProcessing: true,
+        preferences: {
+          goal: preferences.goal,
+          role: preferences.role,
+          education: preferences.education,
+          topics: preferences.topics,
+          schedule: preferences.schedule,
+          daily_goal_minutes: preferences.daily_goal_minutes,
+        },
+        onSegmentsReady: async (segments) => {
+          console.log('[PreferenceTracking] ✅ Audience processing complete after identify:');
+          console.log('[PreferenceTracking] 📋 User segments:', JSON.stringify(segments, null, 2));
+          
+          // Initialize Personalize SDK after segments are ready
+          try {
+            const personalizeService = await import('./personalize');
+            console.log('[PreferenceTracking] 🔍 Initializing Personalize SDK with user:', userData.user_id);
+            
+            // Wait a bit for segments to be fully processed
+            setTimeout(async () => {
+              await personalizeService.default.initWithUser(
+                userData.user_id,
+                userData.email
+              );
+            }, 1000);
+          } catch (error) {
+            console.error('[PreferenceTracking] ❌ Failed to initialize Personalize SDK:', error);
+          }
+        }
       });
 
       // Log in development for debugging
@@ -117,68 +143,14 @@ export function trackCourseView(
     instructor_name?: string;
   }
 ) {
-  if (typeof window === 'undefined') return;
-
-  // Check if Lytics is available
-  const checkAndSendEvent = () => {
-    const jstag = (window as any).jstag;
-    
-    if (!jstag) {
-      // Lytics not loaded yet, retry after a short delay
-      setTimeout(checkAndSendEvent, 100);
-      return;
-    }
-  
-    // Check if jstag has send method
-    if (typeof jstag.send !== 'function') {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ jstag.send is not a function');
-      }
-      return;
-    }
-  
-    try {
-      // Prepare event data
-      const eventData: Record<string, any> = {
-        _e: 'course_view',
-        course_slug: courseData.course_slug,
-        timestamp: new Date().toISOString(),
-      };
-  
-      // Add optional fields
-      if (courseData.course_title) {
-        eventData.course_title = courseData.course_title;
-      }
-      if (courseData.course_category) {
-        eventData.course_category = courseData.course_category;
-      }
-      if (courseData.instructor_name) {
-        eventData.instructor_name = courseData.instructor_name;
-      }
-  
-      // Send event to Lytics using jstag.send()
-      jstag.send(eventData);
-      
-      // Log in development for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.log('✅ Course view tracked to Lytics:', eventData);
-      }
-    } catch (error) {
-      // Handle errors gracefully - don't break the click functionality
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Error tracking course view to Lytics:', error);
-      }
-    }
-  };
-  
-  // Start checking for Lytics
-  checkAndSendEvent();
+  lyticsService.trackCourseView({
+    slug: courseData.course_slug,
+    title: courseData.course_title,
+    category: courseData.course_category,
+    instructor_name: courseData.instructor_name,
+  });
 }
 
-/**
- * Track when user clicks on a course
- * Sends event to Lytics for analytics and personalization
- */
 export function trackCourseClick(
   courseData: {
     course_slug: string;
@@ -187,61 +159,11 @@ export function trackCourseClick(
     course_url?: string;
   }
 ) {
-  if (typeof window === 'undefined') return;
-
-  // Check if Lytics is available
-  const checkAndSendEvent = () => {
-    const jstag = (window as any).jstag;
-    
-    if (!jstag) {
-      // Lytics not loaded yet, retry after a short delay
-      setTimeout(checkAndSendEvent, 100);
-      return;
-    }
-  
-    // Check if jstag has send method
-    if (typeof jstag.send !== 'function') {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('⚠️ jstag.send is not a function');
-      }
-      return;
-    }
-  
-    try {
-      // Prepare event data
-      const eventData: Record<string, any> = {
-        _e: 'course_click',
-        course_slug: courseData.course_slug,
-        timestamp: new Date().toISOString(),
-      };
-  
-      // Add optional fields
-      if (courseData.course_title) {
-        eventData.course_title = courseData.course_title;
-      }
-      if (courseData.course_category) {
-        eventData.course_category = courseData.course_category;
-      }
-      if (courseData.course_url) {
-        eventData.course_url = courseData.course_url;
-      }
-  
-      // Send event to Lytics using jstag.send()
-      jstag.send(eventData);
-      
-      // Log in development for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.log('✅ Course click tracked to Lytics:', eventData);
-      }
-    } catch (error) {
-      // Handle errors gracefully - don't break the click functionality
-      if (process.env.NODE_ENV === 'development') {
-        console.error('❌ Error tracking course click to Lytics:', error);
-      }
-    }
-  };
-  
-  // Start checking for Lytics
-  checkAndSendEvent();
+  lyticsService.trackClick('course_card', {
+    course_slug: courseData.course_slug,
+    course_title: courseData.course_title,
+    course_category: courseData.course_category,
+    course_url: courseData.course_url,
+  });
 }
 

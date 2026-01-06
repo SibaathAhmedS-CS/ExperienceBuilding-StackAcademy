@@ -29,6 +29,7 @@ import {
   ProfileDropdownItem 
 } from '@/types/contentstack';
 import { useLanguage } from '@/contexts/LanguageContext';
+import lyticsService from '@/services/lytics';
 
 // Icon mapping - maps CMS icon names to Lucide components
 const iconMap: Record<string, LucideIcon> = {
@@ -351,6 +352,10 @@ export default function Header({ variant = 'landing', user, headerData }: Header
       // Wait a moment to show the loading screen
       await new Promise(resolve => setTimeout(resolve, 1500));
 
+      // Clear user session and set anonymous profile in Lytics before signing out
+      lyticsService.clearUser();
+      lyticsService.setAnonymousProfile();
+      
       // Sign out from Supabase
       await supabase.auth.signOut();
       
@@ -366,8 +371,10 @@ export default function Header({ variant = 'landing', user, headerData }: Header
         document.head.removeChild(style);
       }
       
-      // Redirect to landing page
-      router.push('/');
+      // Small delay to ensure cookies are cleared, then reload page
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 200);
     } catch (error) {
       console.error('Error signing out:', error);
       // Still redirect even if there's an error
