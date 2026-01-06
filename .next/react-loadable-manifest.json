@@ -1,14 +1,6 @@
 {
-  "app/(main)/home/page.tsx -> @/lib/lytics": {
-    "id": "app/(main)/home/page.tsx -> @/lib/lytics",
-    "files": [
-      "static/chunks/_app-pages-browser_src_lib_lytics_ts.js"
-    ]
-  },
-  "lib/lytics.ts -> ./explainSegments": {
-    "id": "lib/lytics.ts -> ./explainSegments",
-    "files": [
-      "static/chunks/_app-pages-browser_src_lib_explainSegments_ts.js"
-    ]
+  "app/(main)/home/page.tsx -> @/services/lytics": {
+    "id": "app/(main)/home/page.tsx -> @/services/lytics",
+    "files": []
   }
 }

@@ -16,7 +16,10 @@
       ],
       "wasm": [],
       "assets": [],
-      "environments": {}
+      "env": {
+        "__NEXT_BUILD_ID": "development",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "5LYu7tbk5LboMCYZJQ6gp4WDQ3G/h2bFIhml+N8Ybzg="
+      }
     }
   },
   "functions": {},

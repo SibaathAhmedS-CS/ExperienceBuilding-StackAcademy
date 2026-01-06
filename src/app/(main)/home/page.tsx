@@ -446,20 +446,22 @@ export default function HomePage() {
           .eq('user_id', authUser.id)
           .maybeSingle();
 
-        // Identify user in Lytics with preferences (single call instead of two)
-        // This prevents "anonymous_profiles" segment and includes preferences in one call
-        const { identifyUser } = await import('@/lib/lytics');
-        identifyUser({
+        // Identify user in Lytics with preferences
+        const lyticsService = await import('@/services/lytics');
+        lyticsService.default.identifyUser({
           email: authUser.email || '',
-          user_id: authUser.id,
-          full_name: profile?.full_name || undefined,
-          // Include preferences if they exist
-          goal: preferences?.goal || null,
-          role: preferences?.role || null,
-          education: preferences?.education || null,
-          topics: preferences?.topics || [],
-          schedule: preferences?.schedule || null,
-          daily_goal_minutes: preferences?.daily_goal_minutes || null,
+          id: authUser.id,
+          name: profile?.full_name || undefined,
+          createdAt: authUser.created_at,
+        }, {
+          preferences: preferences ? {
+            goal: preferences.goal,
+            role: preferences.role,
+            education: preferences.education,
+            topics: preferences.topics,
+            schedule: preferences.schedule,
+            daily_goal_minutes: preferences.daily_goal_minutes,
+          } : undefined,
         });
       } catch (error) {
         console.error('Error checking user:', error);

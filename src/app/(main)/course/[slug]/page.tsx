@@ -30,8 +30,7 @@ import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { usePersonalizeSdk } from '@/hooks/usePersonalizeSdk';
-import { trackCourseView } from '@/services/interestTracking';
+import { trackCourseView } from '@/services/preferenceTracking';
 import styles from './page.module.css';
 
 // Mock user data
@@ -199,9 +198,6 @@ export default function CoursePage() {
   
   // Get selected language for locale-aware content fetching
   const { selectedLanguage } = useLanguage();
-  
-  // Get Personalize SDK instance for tracking
-  const { sdk: personalizeSdk } = usePersonalizeSdk();
 
   // Refs for scroll navigation
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -234,18 +230,14 @@ export default function CoursePage() {
         if (course) {
           setCourseData(course);
           
-          // Track course view to Personalize SDK and Lytics
-          if (personalizeSdk && course) {
-            // Extract topics from course (assuming course has topics field)
-            const topics = course.topics ? normalizeArray(course.topics).map((t: any) => t.title || t.slug) : [];
-            const topicUids = course.topics ? normalizeArray(course.topics).map((t: any) => t.uid) : [];
-            
-            trackCourseView(personalizeSdk, {
-              slug: course.slug || slug,
-              title: course.title || '',
-              topic: topics.length > 0 ? topics : undefined,
-              topic_uid: topicUids.length > 0 ? topicUids : undefined,
-              category: course.category?.title || course.category?.slug || undefined,
+          // Track course view to Lytics
+          if (course) {
+            const author = normalizeArray(course.author)[0];
+            trackCourseView({
+              course_slug: course.slug || slug,
+              course_title: course.title || '',
+              course_category: undefined, // Category not available in CourseEntry
+              instructor_name: author?.title || undefined,
             });
           }
           
@@ -305,7 +297,7 @@ export default function CoursePage() {
     if (slug && selectedLanguage) {
       fetchCourse();
     }
-  }, [slug, supabase, selectedLanguage, personalizeSdk]);
+  }, [slug, supabase, selectedLanguage]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
