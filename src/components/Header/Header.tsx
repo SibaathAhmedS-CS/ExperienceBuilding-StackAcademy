@@ -354,9 +354,14 @@ export default function Header({ variant = 'landing', user, headerData }: Header
       // Sign out from Supabase
       await supabase.auth.signOut();
       
-      // Clear any local storage
+      // Clear application localStorage
       localStorage.removeItem('user');
       localStorage.removeItem('skipped_onboarding');
+      
+      // Clear Lytics data (cookies + localStorage)
+      // This clears personalized segments but keeps seerid for anonymous tracking
+      const { clearAllLyticsData } = await import('@/lib/lytics');
+      clearAllLyticsData();
       
       // Clean up
       if (document.body.contains(logoutOverlay)) {

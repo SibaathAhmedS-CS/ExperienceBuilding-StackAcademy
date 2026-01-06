@@ -1,6 +1,18 @@
 {
+  "app/(auth)/login/page.tsx -> @/lib/lytics": {
+    "id": "app/(auth)/login/page.tsx -> @/lib/lytics",
+    "files": [
+      "static/chunks/_app-pages-browser_src_lib_lytics_ts.js"
+    ]
+  },
   "app/(main)/home/page.tsx -> @/lib/lytics": {
     "id": "app/(main)/home/page.tsx -> @/lib/lytics",
+    "files": [
+      "static/chunks/_app-pages-browser_src_lib_lytics_ts.js"
+    ]
+  },
+  "components/Header/Header.tsx -> @/lib/lytics": {
+    "id": "components/Header/Header.tsx -> @/lib/lytics",
     "files": [
       "static/chunks/_app-pages-browser_src_lib_lytics_ts.js"
     ]

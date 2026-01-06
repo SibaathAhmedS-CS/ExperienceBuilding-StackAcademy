@@ -337,6 +337,11 @@ export function identifyUser(userData: {
   const userIdentifier = userData.user_id || userData.email || 'anonymous';
   const identifyKey = `lytics_identify_${userIdentifier}`;
   
+  // Store user ownership for cookie validation
+  if (userData.user_id && typeof window !== 'undefined') {
+    storeLyticsUserOwnership(userData.user_id);
+  }
+  
   // Check if we're already identifying this user
   if (typeof window !== 'undefined') {
     const isIdentifying = (window as any)[identifyKey];
@@ -361,29 +366,6 @@ export function identifyUser(userData: {
         console.log('[Lytics] ✅ Called jstag.identify() - Data sent to Lytics above');
       } catch (error) {
         console.error('[Lytics] ❌ Error calling jstag.identify():', error);
-      }
-    }
-    
-    // Method 2: Also try jstag.send() with _e: 'identify' as fallback/alternative
-    if (window.jstag?.send) {
-      try {
-        const sendPayload = {
-          _e: 'identify',
-          ...identifyPayload
-        };
-        window.jstag.send(sendPayload);
-        if (identifyMethodUsed === 'none') {
-          identifyMethodUsed = 'send()';
-        } else {
-          identifyMethodUsed = 'both';
-        }
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('📤 TO LYTICS - Also sent via jstag.send() with _e: "identify":');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log(JSON.stringify(sendPayload, null, 2));
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      } catch (error) {
-        console.error('[Lytics] ❌ Error calling jstag.send():', error);
       }
     }
     
@@ -1595,6 +1577,106 @@ export function checkLyticsStatus(): void {
   console.log('   5. Wait 5-10 seconds after identify() call for evaluation');
   console.log('   6. Try refreshing page or calling jstag.pageView()');
   console.log('=========================');
+}
+
+// ============================================
+// Cookie and Storage Management
+// ============================================
+
+/**
+ * Clear all Lytics-related cookies
+ * Called on logout or when user session changes
+ * Note: seerid cookie is NOT cleared (for anonymous tracking continuity)
+ */
+export function clearLyticsCookies(): void {
+  if (typeof document === 'undefined') return;
+  
+  // Clear cs-lytics-audiences cookie (set by Personalize SDK)
+  document.cookie = 'cs-lytics-audiences=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  
+  // Clear lytics_audiences cookie
+  document.cookie = 'lytics_audiences=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  
+  // Clear lytics_segments cookie
+  document.cookie = 'lytics_segments=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  
+  // Note: seerid cookie is NOT cleared (for anonymous tracking continuity)
+  // It may be set on .lytics.io domain, so we can't clear it from our domain anyway
+  
+  console.log('[Lytics] 🗑️ Cleared Lytics cookies (cs-lytics-audiences, lytics_audiences, lytics_segments)');
+}
+
+/**
+ * Clear all Lytics-related localStorage
+ * Called on logout or when user session changes
+ */
+export function clearLyticsLocalStorage(): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    // Clear all lytics_audiences_* keys
+    Object.keys(localStorage).forEach(key => {
+      if (key.startsWith('lytics_audiences_') || 
+          key.startsWith('lytics_identify_')) {
+        localStorage.removeItem(key);
+      }
+    });
+    
+    // Clear other Lytics-related keys
+    localStorage.removeItem('lytics_anonymous_id');
+    localStorage.removeItem('lytics_last_user_id'); // Clear user ownership tracking
+    
+    console.log('[Lytics] 🗑️ Cleared Lytics localStorage');
+  } catch (error) {
+    console.warn('[Lytics] ⚠️ Error clearing localStorage:', error);
+  }
+}
+
+/**
+ * Clear all Lytics data (cookies + localStorage)
+ * Use this on logout
+ */
+export function clearAllLyticsData(): void {
+  clearLyticsCookies();
+  clearLyticsLocalStorage();
+}
+
+/**
+ * Validate if current user matches stored cookie ownership
+ * Returns true if cookie is valid for current user, false if stale
+ */
+export function validateLyticsCookieOwnership(userId: string): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  try {
+    // Check if we have a stored user_id for the last identified user
+    const lastIdentifiedUserId = localStorage.getItem('lytics_last_user_id');
+    
+    // If no stored user_id, assume cookie is stale (from previous session)
+    if (!lastIdentifiedUserId) {
+      return false;
+    }
+    
+    // Check if stored user_id matches current user
+    return lastIdentifiedUserId === userId;
+  } catch (error) {
+    console.warn('[Lytics] ⚠️ Error validating cookie ownership:', error);
+    return false;
+  }
+}
+
+/**
+ * Store current user_id for cookie ownership validation
+ */
+export function storeLyticsUserOwnership(userId: string): void {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    localStorage.setItem('lytics_last_user_id', userId);
+    console.log('[Lytics] 💾 Stored user ownership:', userId);
+  } catch (error) {
+    console.warn('[Lytics] ⚠️ Error storing user ownership:', error);
+  }
 }
 
 // Make debug functions available globally

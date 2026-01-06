@@ -78,6 +78,17 @@ export default function LoginPage() {
       .update({ last_login_at: new Date().toISOString() })
       .eq('id', data.user.id);
 
+    // Clear any stale Lytics data from previous user
+    // This ensures clean slate for current user
+    const { clearAllLyticsData, validateLyticsCookieOwnership, identifyUser } = await import('@/lib/lytics');
+    
+    // Validate cookie ownership - if cookie doesn't match current user, clear it
+    const cookieIsValid = validateLyticsCookieOwnership(data.user.id);
+    if (!cookieIsValid) {
+      console.log('[Login] 🧹 Clearing stale Lytics data from previous user');
+      clearAllLyticsData();
+    }
+
     // CASE 1.1 & 1.2: Check if preferences exist
     const { data: prefs } = await supabase
       .from('user_preferences')
@@ -86,8 +97,37 @@ export default function LoginPage() {
       .maybeSingle();
 
     if (prefs) {
-      // Case 1.1: Preferences exist -> show curating content animation and redirect to home
+      // Case 1.1: Preferences exist -> sync to Lytics and redirect to home
       setRedirectingToHome(true);
+      
+      // Get user preferences and profile for Lytics sync
+      const { data: preferences } = await supabase
+        .from('user_preferences')
+        .select('goal, role, education, topics, schedule, daily_goal_minutes')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+      
+      // Get user profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.user.id)
+        .maybeSingle();
+      
+      // Immediately identify user in Lytics to re-link seerid
+      // This ensures seerid points to current user, not previous user
+      identifyUser({
+        email: data.user.email || '',
+        user_id: data.user.id,
+        full_name: profile?.full_name || undefined,
+        goal: preferences?.goal || null,
+        role: preferences?.role || null,
+        education: preferences?.education || null,
+        topics: preferences?.topics || [],
+        schedule: preferences?.schedule || null,
+        daily_goal_minutes: preferences?.daily_goal_minutes || null,
+      });
+      
       setTimeout(() => {
         router.push('/home');
       }, 2000);
