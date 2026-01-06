@@ -269,16 +269,28 @@ export default function LandingPage() {
               </p>
               
               <div className={styles.heroCta}>
-                <Link 
-                  href={hasCMSHero && hero?.primary_cta?.href ? hero.primary_cta.href : '/signup'} 
+                <Link
+                  href={hasCMSHero && hero?.primary_cta?.href ? hero.primary_cta.href : '/signup'}
                   className={styles.primaryBtn}
+                  data-lytics-click='{"action": "cta_click", "button_type": "primary", "location": "hero", "text": "Get Started"}'
                 >
                   {hasCMSHero && hero?.primary_cta?.title ? hero.primary_cta.title : 'Get Started'}
                   <ArrowRight size={20} />
                 </Link>
-                <button className={styles.secondaryBtn}>
+                <button
+                  className={styles.secondaryBtn}
+                  data-lytics-click='{"action": "cta_click", "button_type": "secondary", "location": "hero", "text": "How it Works"}'
+                >
                   <Play size={20} fill="var(--primary-500)" />
                   <span>{hasCMSHero && hero?.secondary_cta?.title ? hero.secondary_cta.title : 'How it Works'}</span>
+                </button>
+                <button
+                  className={styles.secondaryBtn}
+                  data-lytics-click='{"action": "test_click", "button_type": "test", "location": "hero", "text": "Test Lytics Tracking"}'
+                  style={{ marginLeft: '10px', backgroundColor: '#ff6b6b', border: 'none' }}
+                  onClick={() => console.log('Test button clicked - check console for Lytics tracking')}
+                >
+                  Test Tracking
                 </button>
               </div>
 
@@ -648,10 +660,72 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* Lytics Debug Section - Only show in development */}
+        {process.env.NODE_ENV === 'development' && (
+          <section className="section" style={{ backgroundColor: '#f8f9fa', padding: '20px 0' }}>
+            <div className="container">
+              <div style={{
+                backgroundColor: 'white',
+                padding: '20px',
+                borderRadius: '8px',
+                border: '1px solid #e9ecef',
+                fontFamily: 'monospace',
+                fontSize: '14px'
+              }}>
+                <h3 style={{ margin: '0 0 15px 0', color: '#333' }}>🔍 Lytics Debug Panel</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  <div>
+                    <strong>Anonymous User ID:</strong>
+                    <div style={{ marginTop: '5px', fontSize: '12px', color: '#666' }}>
+                      {typeof window !== 'undefined' ? localStorage.getItem('lytics_anonymous_id') || 'Not set' : 'SSR'}
+                    </div>
+                  </div>
+                  <div>
+                    <strong>Lytics Status:</strong>
+                    <div style={{ marginTop: '5px', fontSize: '12px', color: '#666' }}>
+                      {typeof window !== 'undefined' && typeof window.jstag !== 'undefined' ? '✅ Loaded' : '⏳ Loading...'}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ marginTop: '15px', fontSize: '12px', color: '#666' }}>
+                  <strong>Debug Commands:</strong>
+                  <div style={{ marginTop: '5px' }}>
+                    • <code>window.lyticsDebug.identifyAnonymous()</code> - Re-identify user<br/>
+                    • <code>window.lyticsDebug.trackPageView()</code> - Track page view<br/>
+                    • <code>window.lyticsDebug.sendTestEvent()</code> - Send test event<br/>
+                    • <code>window.lyticsDebug.getAnonymousId()</code> - Get user ID
+                  </div>
+                </div>
+                <button
+                  style={{
+                    marginTop: '10px',
+                    padding: '8px 16px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px'
+                  }}
+                  onClick={() => {
+                    if (typeof window !== 'undefined' && (window as any).lyticsDebug && typeof (window as any).lyticsDebug.sendTestEvent === 'function') {
+                      (window as any).lyticsDebug.sendTestEvent();
+                    } else {
+                      console.log('Lytics debug not available yet');
+                    }
+                  }}
+                >
+                  Send Test Event
+                </button>
+              </div>
+            </div>
+          </section>
+        )}
+
         {/* FAQ Section */}
         <section id="faq" className="section">
           <div className="container">
-            <FAQ 
+            <FAQ
               items={fallbackFaqs}
               title="Frequently Asked Questions"
               subtitle="Have questions? We've got answers."
