@@ -9,6 +9,8 @@ import { useAuthBranding } from '@/hooks/useAuthBranding';
 import { IconEntry, normalizeArray } from '@/types/contentstack';
 import styles from '../auth.module.css';
 import onboardingStyles from '../onboarding/onboarding.module.css';
+import { clearLyticsCookies } from '@/lib/lytics';
+import { initializeReloadTracking } from '@/utils/reloadManager';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -24,6 +26,7 @@ export default function LoginPage() {
 
   // Check if user is already logged in on mount
   useEffect(() => {
+    clearLyticsCookies()
     const checkSession = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -57,6 +60,7 @@ export default function LoginPage() {
   }, [supabase, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    
     e.preventDefault();
     setIsLoading(true);
     setError('');
@@ -99,6 +103,9 @@ export default function LoginPage() {
     if (prefs) {
       // Case 1.1: Preferences exist -> sync to Lytics and redirect to home
       setRedirectingToHome(true);
+      
+      // Initialize reload tracking for exactly 2 reloads
+      initializeReloadTracking();
       
       // Get user preferences and profile for Lytics sync
       const { data: preferences } = await supabase

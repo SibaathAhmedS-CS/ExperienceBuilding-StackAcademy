@@ -194,8 +194,9 @@ export async function getEntryByUrl<T = ContentstackEntry>(
  * Fetch Page entry by title with all nested references
  * This is the main function for fetching page content
  * Supports locale for fetching localized content
+ * Supports variant aliases for Personalize SDK variant-specific content
  */
-export async function getPage(title: string, locale?: string): Promise<PageEntry | null> {
+export async function getPage(title: string, locale?: string, variantAliases?: string[]): Promise<PageEntry | null> {
   try {
     const targetLocale = locale || getCurrentLocale();
     
@@ -218,6 +219,12 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
 
     // Set locale for content fetching
     query.language(targetLocale);
+    
+    // Add variant aliases if provided (for Personalize SDK)
+    if (variantAliases && variantAliases.length > 0) {
+      query.variants(variantAliases);
+      console.log(`[Contentstack] Fetching page "${title}" with variant aliases:`, variantAliases);
+    }
 
     const result = await query.toJSON().find();
     let pageEntry = result[0]?.[0] as PageEntry || null;
@@ -243,6 +250,11 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
         ]);
       fallbackQuery.language(FALLBACK_LOCALE);
       
+      // Add variant aliases to fallback query as well
+      if (variantAliases && variantAliases.length > 0) {
+        fallbackQuery.variants(variantAliases);
+      }
+      
       const fallbackResult = await fallbackQuery.toJSON().find();
       pageEntry = fallbackResult[0]?.[0] as PageEntry || null;
     }
@@ -262,8 +274,9 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
 
 /**
  * Fetch Page entry by URL
+ * Supports variant aliases for Personalize SDK variant-specific content
  */
-export async function getPageByUrl(url: string, locale?: string): Promise<PageEntry | null> {
+export async function getPageByUrl(url: string, locale?: string, variantAliases?: string[]): Promise<PageEntry | null> {
   try {
     const targetLocale = locale || getCurrentLocale();
     let pageEntry: PageEntry | null = null;
@@ -286,6 +299,12 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
         ]);
       
       query.language(targetLocale);
+      
+      // Add variant aliases if provided (for Personalize SDK)
+      if (variantAliases && variantAliases.length > 0) {
+        query.variants(variantAliases);
+        console.log(`[Contentstack] Fetching page by URL "${url}" with variant aliases:`, variantAliases);
+      }
 
       const result = await query.toJSON().find();
       pageEntry = result[0]?.[0] as PageEntry || null;
@@ -309,6 +328,11 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
             'section.testimonial_block.testimonial.author',
           ]);
         fallbackQuery.language(FALLBACK_LOCALE);
+        
+        // Add variant aliases to fallback query as well
+        if (variantAliases && variantAliases.length > 0) {
+          fallbackQuery.variants(variantAliases);
+        }
         
         const fallbackResult = await fallbackQuery.toJSON().find();
         pageEntry = fallbackResult[0]?.[0] as PageEntry || null;

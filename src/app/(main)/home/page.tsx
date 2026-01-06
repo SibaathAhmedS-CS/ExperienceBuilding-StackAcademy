@@ -13,6 +13,8 @@ import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
 import { useCourses, transformCourseToCard, TransformedCourse } from '@/hooks/useCourses';
 import { syncPreferencesToLytics } from '@/services/preferenceTracking';
+import { shouldTriggerReloads, handleReload, cleanupReloadTracking } from '@/utils/reloadManager';
+import { initializeSilentReloadTracking, shouldTriggerSilentReloads, handleSilentReload, cleanupSilentReloadTracking } from '@/utils/silentReloadManager';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { 
@@ -461,6 +463,24 @@ export default function HomePage() {
           schedule: preferences?.schedule || null,
           daily_goal_minutes: preferences?.daily_goal_minutes || null,
         });
+
+        // Handle reload sequence after login (exactly 3 reloads)
+        // This ensures Lytics processes the user and sets cookies properly
+        if (shouldTriggerReloads()) {
+          const shouldReload = handleReload();
+          
+          if (shouldReload) {
+            // Wait a bit for Lytics to process, then reload
+            const reloadDelay = 1500; // 1.5 seconds between reloads
+            setTimeout(() => {
+              window.location.reload();
+            }, reloadDelay);
+            return; // Exit early, reload will happen
+          } else {
+            // Reload sequence complete, clean up tracking
+            cleanupReloadTracking();
+          }
+        }
       } catch (error) {
         console.error('Error checking user:', error);
         router.push('/login');
@@ -469,6 +489,110 @@ export default function HomePage() {
 
     checkUserAndSyncPreferences();
   }, [supabase, router]);
+
+  // Separate effect for silent reloads - runs after page is fully loaded and rendered
+  useEffect(() => {
+    // Prevent multiple executions on the same page load
+    const executionKey = 'silent_reload_executed';
+    if (sessionStorage.getItem(executionKey) === 'true') {
+      return; // Already executed on this page load
+    }
+
+    // Initialize silent reload tracking on first home page load (only if not in login reload sequence)
+    if (!shouldTriggerSilentReloads() && !shouldTriggerReloads()) {
+      initializeSilentReloadTracking();
+    }
+
+    // Mark as executed to prevent multiple runs
+    sessionStorage.setItem(executionKey, 'true');
+
+    // Flag to prevent handleSilentReloads from running multiple times (stored in sessionStorage)
+    const handledKey = 'silent_reload_handled';
+    if (sessionStorage.getItem(handledKey) === 'true') {
+      return; // Already handled on this page load
+    }
+
+    // Wait for page to be fully rendered before starting silent reloads
+    const handleSilentReloads = () => {
+      // Prevent multiple calls using sessionStorage
+      if (sessionStorage.getItem(handledKey) === 'true') {
+        return;
+      }
+      sessionStorage.setItem(handledKey, 'true');
+
+      // Handle silent reload sequence after home screen loads (exactly 2 reloads)
+      // These happen silently without affecting the user experience
+      if (shouldTriggerSilentReloads()) {
+        const shouldSilentReload = handleSilentReload();
+        
+        if (shouldSilentReload) {
+          // Silent reload - use requestIdleCallback to reload when browser is idle
+          // This makes the reload truly silent as it happens when browser has free time
+          const performSilentReload = () => {
+            // Clear execution flags before reload so it can run again after reload
+            sessionStorage.removeItem(executionKey);
+            sessionStorage.removeItem(handledKey);
+            // Reload happens when browser is idle - user won't notice
+            window.location.reload();
+          };
+
+          if ('requestIdleCallback' in window) {
+            // Use requestIdleCallback for truly silent reload when browser is idle
+            (window as any).requestIdleCallback(performSilentReload, { timeout: 2000 });
+          } else {
+            // Fallback: wait for next animation frame to ensure page is rendered
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                performSilentReload();
+              });
+            });
+          }
+        } else {
+          // Silent reload sequence complete, clean up tracking
+          cleanupSilentReloadTracking();
+          sessionStorage.removeItem(executionKey);
+          sessionStorage.removeItem(handledKey);
+        }
+      } else {
+        // Not in silent reload sequence, clean up execution flags
+        sessionStorage.removeItem(executionKey);
+        sessionStorage.removeItem(handledKey);
+      }
+    };
+
+    // Wait for page to be fully loaded and rendered
+    // Use multiple checks to ensure page is ready
+    let checkTimeout: NodeJS.Timeout | null = null;
+    let hasExecuted = false;
+    
+    const checkAndExecute = () => {
+      if (hasExecuted || sessionStorage.getItem(handledKey) === 'true') {
+        return; // Already executed or handled, stop checking
+      }
+      
+      if (document.readyState === 'complete' && document.body) {
+        hasExecuted = true;
+        // Wait for React to finish rendering
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            handleSilentReloads();
+          });
+        });
+      } else {
+        checkTimeout = setTimeout(checkAndExecute, 100);
+      }
+    };
+
+    // Start checking after a brief delay to ensure page is rendered
+    setTimeout(checkAndExecute, 100);
+
+    // Cleanup function
+    return () => {
+      if (checkTimeout) {
+        clearTimeout(checkTimeout);
+      }
+    };
+  }, []); // Empty deps - only run once on mount
 
   // Use CMS courses for filtering by category
   const allDisplayCourses = cmsTopCourses.length > 0 ? transformedCourses : [...topCourses, ...recommendedCourses];

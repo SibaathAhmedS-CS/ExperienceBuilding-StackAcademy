@@ -1591,14 +1591,18 @@ export function checkLyticsStatus(): void {
 export function clearLyticsCookies(): void {
   if (typeof document === 'undefined') return;
   
+  
   // Clear cs-lytics-audiences cookie (set by Personalize SDK)
   document.cookie = 'cs-lytics-audiences=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
   
-  // Clear lytics_audiences cookie
-  document.cookie = 'lytics_audiences=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+  document.cookie = 'seerid=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+  document.cookie = 'cs-personalize-manifest=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+
+  document.cookie = 'cs-personalize-user-uidt=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
   
-  // Clear lytics_segments cookie
-  document.cookie = 'lytics_segments=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  document.cookie = 'cs-lytics-flows=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
   
   // Note: seerid cookie is NOT cleared (for anonymous tracking continuity)
   // It may be set on .lytics.io domain, so we can't clear it from our domain anyway

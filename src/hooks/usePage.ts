@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { PageEntry } from '@/types/contentstack';
 import { getPage, getPageByUrl } from '@/lib/contentstack';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { usePersonalizeSdk } from '@/hooks/usePersonalizeSdk';
 
 /**
  * Custom hook to fetch page data from Contentstack by title
@@ -15,13 +16,32 @@ export function usePage(title: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const { selectedLanguage } = useLanguage();
+  const { sdk: personalizeSdk, isReady: sdkReady } = usePersonalizeSdk();
 
   useEffect(() => {
     async function fetchPage() {
       try {
         setIsLoading(true);
         
-        const data = await getPage(title, selectedLanguage);
+        // Get variant aliases from Personalize SDK if available
+        let variantAliases: string[] | undefined;
+        if (sdkReady && personalizeSdk) {
+          try {
+            // Use getVariantAliases() instead of getVariantParam()
+            variantAliases = personalizeSdk.getVariantAliases();
+            if (variantAliases && variantAliases.length > 0) {
+              console.log(`[Personalize] Using variant aliases:`, variantAliases);
+            } else {
+              console.log(`[Personalize] No variant aliases available (SDK ready but no variant)`);
+            }
+          } catch (err) {
+            console.warn('[Personalize] Could not get variant aliases:', err);
+          }
+        } else {
+          console.log(`[Personalize] SDK not ready yet, fetching without variant`);
+        }
+        
+        const data = await getPage(title, selectedLanguage, variantAliases);
         
         setPageData(data);
         
@@ -29,6 +49,8 @@ export function usePage(title: string) {
           console.log(`Page "${title}" fetched:`, {
             sectionsCount: data.section?.length || 0,
             hasHeader: !!data.header,
+            variantAliases: variantAliases || [],
+            sdkReady,
           });
         }
       } catch (err) {
@@ -39,10 +61,11 @@ export function usePage(title: string) {
       }
     }
 
-    if (title) {
-      fetchPage();
-    }
-  }, [title, selectedLanguage]);
+    if (!title) return;
+
+    // Always fetch, but refetch when SDK becomes ready to get variant-specific content
+    fetchPage();
+  }, [title, selectedLanguage, sdkReady, personalizeSdk]);
 
   return { pageData, isLoading, error };
 }
@@ -55,12 +78,32 @@ export function usePageByUrl(url: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const { selectedLanguage } = useLanguage();
+  const { sdk: personalizeSdk, isReady: sdkReady } = usePersonalizeSdk();
 
   useEffect(() => {
     async function fetchPage() {
       try {
         setIsLoading(true);
-        const data = await getPageByUrl(url, selectedLanguage);
+        
+        // Get variant aliases from Personalize SDK if available
+        let variantAliases: string[] | undefined;
+        if (sdkReady && personalizeSdk) {
+          try {
+            // Use getVariantAliases() instead of getVariantParam()
+            variantAliases = personalizeSdk.getVariantAliases();
+            if (variantAliases && variantAliases.length > 0) {
+              console.log(`[Personalize] Using variant aliases:`, variantAliases);
+            } else {
+              console.log(`[Personalize] No variant aliases available (SDK ready but no variant)`);
+            }
+          } catch (err) {
+            console.warn('[Personalize] Could not get variant aliases:', err);
+          }
+        } else {
+          console.log(`[Personalize] SDK not ready yet, fetching without variant`);
+        }
+        
+        const data = await getPageByUrl(url, selectedLanguage, variantAliases);
         setPageData(data);
       } catch (err) {
         console.error('Error fetching page by URL:', err);
@@ -70,10 +113,11 @@ export function usePageByUrl(url: string) {
       }
     }
 
-    if (url) {
-      fetchPage();
-    }
-  }, [url, selectedLanguage]);
+    if (!url) return;
+
+    // Always fetch, but refetch when SDK becomes ready to get variant-specific content
+    fetchPage();
+  }, [url, selectedLanguage, sdkReady, personalizeSdk]);
 
   return { pageData, isLoading, error };
 }

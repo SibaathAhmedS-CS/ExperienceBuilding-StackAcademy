@@ -29,6 +29,7 @@ import {
   ProfileDropdownItem 
 } from '@/types/contentstack';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { clearAllLyticsData } from '@/lib/lytics';
 
 // Icon mapping - maps CMS icon names to Lucide components
 const iconMap: Record<string, LucideIcon> = {
@@ -290,6 +291,7 @@ export default function Header({ variant = 'landing', user, headerData }: Header
   const supabase = createClient();
 
   const handleLogout = async () => {
+    clearAllLyticsData
     try {
       // Create full-screen logout loading overlay
       const logoutOverlay = document.createElement('div');
@@ -354,14 +356,9 @@ export default function Header({ variant = 'landing', user, headerData }: Header
       // Sign out from Supabase
       await supabase.auth.signOut();
       
-      // Clear application localStorage
+      // Clear any local storage
       localStorage.removeItem('user');
       localStorage.removeItem('skipped_onboarding');
-      
-      // Clear Lytics data (cookies + localStorage)
-      // This clears personalized segments but keeps seerid for anonymous tracking
-      const { clearAllLyticsData } = await import('@/lib/lytics');
-      clearAllLyticsData();
       
       // Clean up
       if (document.body.contains(logoutOverlay)) {
