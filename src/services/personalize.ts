@@ -73,6 +73,7 @@ export const initPersonalize = async (config: {
       const personalizeRequest = new Request(window.location.href, {
         method: 'GET',
         headers: new Headers(),
+        credentials: 'include', // Add this to include cookies in cross-site requests
       });
       console.log('[Personalize] 🔍 DEBUG: Calling Personalize.init() with projectUid and options...');
       personalizeSdk = await Personalize.init(projectUid, {
@@ -80,7 +81,7 @@ export const initPersonalize = async (config: {
         ...initOptions
       });
       console.log('[Personalize] ✅ DEBUG: Personalize.init() completed (client-side)');
-    } else {
+    }else {
       console.log('[Personalize] 🔍 DEBUG: Server-side initialization');
       console.log('[Personalize] 🔍 DEBUG: Calling Personalize.init() with projectUid and options...');
       personalizeSdk = await Personalize.init(projectUid, Object.keys(initOptions).length > 0 ? initOptions : undefined);
