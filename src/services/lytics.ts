@@ -491,8 +491,7 @@ const clearSegmentsCookie = (): void => {
     'seerid',
     'seerses',
     'cs-lytics-audiences',
-    'cs-lytics-flows',
-    'cs-personalize-manifest',
+    'cs-lytics-flows'
   ];
   
   // Also clear cookies that start with cs-personalize-user-uid
