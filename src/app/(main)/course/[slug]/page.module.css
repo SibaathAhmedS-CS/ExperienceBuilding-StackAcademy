@@ -980,6 +980,18 @@
   gap: 28px;
 }
 
+.loadingMessage,
+.noCoursesMessage {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--neutral-600);
+  font-size: 1rem;
+}
+
+.loadingMessage {
+  color: var(--primary-600);
+}
+
 /* FAQ */
 .faqSection {
   padding: 80px 0;

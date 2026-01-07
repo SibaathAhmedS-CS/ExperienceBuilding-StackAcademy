@@ -302,3 +302,65 @@ export async function getCourseEnrollmentCount(
   }
 }
 
+/**
+ * Get instructor statistics based on all courses by the author
+ * Returns average rating, total courses count, and total students enrolled
+ */
+export interface InstructorStats {
+  averageRating: number;
+  coursesCount: number;
+  studentsCount: number;
+}
+
+export async function getInstructorStats(
+  authorUid: string,
+  courseUids: string[]
+): Promise<InstructorStats> {
+  const supabase = createClient();
+
+  try {
+    // If no courses, return zero stats
+    if (courseUids.length === 0) {
+      return {
+        averageRating: 0,
+        coursesCount: 0,
+        studentsCount: 0,
+      };
+    }
+
+    // Get all reviews for courses by this author
+    const { data: reviews, error: reviewsError } = await supabase
+      .from('course_reviews')
+      .select('rating')
+      .in('course_id', courseUids);
+
+    // Calculate average rating
+    let averageRating = 0;
+    if (!reviewsError && reviews && reviews.length > 0) {
+      const sum = reviews.reduce((acc, review) => acc + (review.rating || 0), 0);
+      averageRating = Math.round((sum / reviews.length) * 10) / 10; // Round to 1 decimal
+    }
+
+    // Get total students enrolled across all courses
+    const { data: enrollments, error: enrollmentsError } = await supabase
+      .from('enrollments')
+      .select('course_id')
+      .in('course_id', courseUids);
+
+    const studentsCount = !enrollmentsError && enrollments ? enrollments.length : 0;
+
+    return {
+      averageRating,
+      coursesCount: courseUids.length,
+      studentsCount,
+    };
+  } catch (error) {
+    console.error('Error in getInstructorStats:', error);
+    return {
+      averageRating: 0,
+      coursesCount: courseUids.length,
+      studentsCount: 0,
+    };
+  }
+}
+

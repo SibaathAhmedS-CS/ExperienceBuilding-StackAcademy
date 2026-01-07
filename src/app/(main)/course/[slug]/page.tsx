@@ -26,13 +26,16 @@ import Footer from '@/components/Footer';
 import CourseCard from '@/components/CourseCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
-import { getCourseBySlug } from '@/lib/contentstack';
+import { getCourseBySlug, getAllCourses, getCoursesByAuthorUid, getCourseByUid } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
+import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
 import { useLanguage } from '@/contexts/LanguageContext';
+import LocaleMismatchPopup from '@/components/LocaleMismatchPopup';
 import { trackCourseView } from '@/services/preferenceTracking';
-import { getCourseReviewStats, getTopReviews, getCourseEnrollmentCount } from '@/services/reviews';
+import { getCourseReviewStats, getTopReviews, getCourseEnrollmentCount, getInstructorStats, type InstructorStats } from '@/services/reviews';
 import type { CourseReview } from '@/services/reviews';
+import { transformCourseToCard, TransformedCourse } from '@/hooks/useCourses';
 import styles from './page.module.css';
 
 // Mock user data
@@ -85,57 +88,7 @@ const DUMMY_DB_DATA = {
   ],
 };
 
-// Recommended courses - using real CMS course slugs
-const recommendedCourses = [
-  {
-    uid: 'bltab2bba525506ec98',
-    title: 'Python for Data Science',
-    slug: 'python-data-science',
-    thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600',
-    instructorName: 'Priya Sharma',
-    level: 'beginner' as const,
-    duration: '40 hours',
-    rating: 4.8,
-    reviewsCount: 12400,
-    studentsEnrolled: 52000,
-  },
-  {
-    uid: 'blte66355d66dec039d',
-    title: 'Complete React Developer Course',
-    slug: 'react-developer-course',
-    thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600',
-    instructorName: 'Sarah Johnson',
-    level: 'beginner' as const,
-    duration: '35 hours',
-    rating: 4.9,
-    reviewsCount: 15600,
-    studentsEnrolled: 68000,
-  },
-  {
-    uid: 'blt71c92f2be109835e',
-    title: 'Docker and Kubernetes Mastery',
-    slug: 'docker-kubernetes-mastery',
-    thumbnail: 'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=600',
-    instructorName: 'James Liu',
-    level: 'intermediate' as const,
-    duration: '38 hours',
-    rating: 4.9,
-    reviewsCount: 4500,
-    studentsEnrolled: 15000,
-  },
-  {
-    uid: 'bltc50b57b3e30df2ff',
-    title: 'Node.js Backend Masterclass',
-    slug: 'nodejs-backend-masterclass',
-    thumbnail: 'https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=600',
-    instructorName: 'Alex Rivera',
-    level: 'intermediate' as const,
-    duration: '42 hours',
-    rating: 4.8,
-    reviewsCount: 9200,
-    studentsEnrolled: 35000,
-  },
-];
+// Recommended courses will be fetched dynamically based on current course's category
 
 const faqs = [
   {
@@ -184,6 +137,7 @@ export default function CoursePage() {
   const supabase = createClient();
   
   const [user, setUser] = useState<typeof mockUser | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<TabType>('about');
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
@@ -197,12 +151,17 @@ export default function CoursePage() {
   const [reviewStats, setReviewStats] = useState({ averageRating: 0, totalReviews: 0, ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } });
   const [topReviews, setTopReviews] = useState<CourseReview[]>([]);
   const [studentsEnrolled, setStudentsEnrolled] = useState(0);
+  const [recommendedCourses, setRecommendedCourses] = useState<TransformedCourse[]>([]);
+  const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
+  const [instructorStats, setInstructorStats] = useState<InstructorStats>({ averageRating: 0, coursesCount: 0, studentsCount: 0 });
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
   
   // Get selected language for locale-aware content fetching
-  const { selectedLanguage } = useLanguage();
+  const { selectedLanguage, setSelectedLanguage } = useLanguage();
+  const [showLocalePopup, setShowLocalePopup] = useState(false);
+  const [enrolledLocale, setEnrolledLocale] = useState<string | null>(null);
 
   // Refs for scroll navigation
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -227,24 +186,122 @@ export default function CoursePage() {
     setCompletedLessonIds([]);
     setEnrollmentId(null);
     setExpandedModules([]);
+    setShowLocalePopup(false);
+    setEnrolledLocale(null);
     
     async function fetchCourse() {
       try {
-        // Pass selectedLanguage to fetch localized content
-        const course = await getCourseBySlug(slug, selectedLanguage);
+        // First, check if user is enrolled to get enrolled locale
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        setCurrentUser(authUser);
+        
+        let enrolledLocaleForFetch: string | null = null;
+        let courseUidFromEnrollment: string | null = null;
+        
+        // If user is logged in, check all enrollments to find course by slug match
+        // We need to check enrollments first to get the enrolled locale
+        if (authUser) {
+          // Get all enrollments for this user
+          const { data: enrollments } = await supabase
+            .from('enrollments')
+            .select('course_id, enrolled_locale, status, id')
+            .eq('user_id', authUser.id);
+          
+          if (enrollments && enrollments.length > 0) {
+            // Try to find course by fetching by UID (not slug) since slug might differ across locales
+            for (const enrollment of enrollments) {
+              try {
+                // Fetch course by UID in enrolled locale
+                const enrolledLocale = enrollment.enrolled_locale || 'en-us';
+                const courseByUid = await getCourseByUid(enrollment.course_id, enrolledLocale);
+                
+                // Check if slug matches (course might have different slug in different locales)
+                if (courseByUid && (courseByUid.slug === slug || courseByUid.uid === enrollment.course_id)) {
+                  // Found matching course from enrollment!
+                  enrolledLocaleForFetch = enrolledLocale;
+                  courseUidFromEnrollment = enrollment.course_id;
+                  setIsEnrolled(true);
+                  setEnrollmentId(enrollment.id);
+                  setEnrolledLocale(enrolledLocaleForFetch);
+                  
+                  if (enrollment.status === 'completed') {
+                    setIsCompleted(true);
+                  }
+                  break;
+                }
+              } catch (error) {
+                // Continue to next enrollment if this one fails
+                continue;
+              }
+            }
+            
+            // If not found by UID, try fetching by slug in current locale and check if enrolled
+            if (!enrolledLocaleForFetch) {
+              const testCourse = await getCourseBySlug(slug, selectedLanguage);
+              if (testCourse) {
+                // Check if this course is enrolled
+                const matchingEnrollment = enrollments.find(e => e.course_id === testCourse.uid);
+                if (matchingEnrollment) {
+                  enrolledLocaleForFetch = matchingEnrollment.enrolled_locale || null;
+                  courseUidFromEnrollment = matchingEnrollment.course_id;
+                  setIsEnrolled(true);
+                  setEnrollmentId(matchingEnrollment.id);
+                  setEnrolledLocale(enrolledLocaleForFetch);
+                  
+                  if (matchingEnrollment.status === 'completed') {
+                    setIsCompleted(true);
+                  }
+                }
+              }
+            }
+          }
+        }
+        
+        // If we found course from enrollment, use it
+        // Otherwise, fetch course with current locale or enrolled locale
+        let course: CourseEntry | null = null;
+        
+        if (courseUidFromEnrollment && enrolledLocaleForFetch) {
+          // We already found the course from enrollment, fetch it by UID
+          course = await getCourseByUid(courseUidFromEnrollment, enrolledLocaleForFetch);
+        }
+        
+        // If not found from enrollment, try fetching by slug
+        if (!course) {
+          // Try current locale first
+          course = await getCourseBySlug(slug, selectedLanguage);
+          
+          // If not found and we have enrolled locale, try enrolled locale
+          if (!course && enrolledLocaleForFetch && enrolledLocaleForFetch !== selectedLanguage) {
+            console.log(`[Course Page] Course not found in ${selectedLanguage}, trying enrolled locale ${enrolledLocaleForFetch}`);
+            course = await getCourseBySlug(slug, enrolledLocaleForFetch);
+          }
+          
+          // If still not found, try fallback
+          if (!course) {
+            console.log(`[Course Page] Course not found, trying fallback en-us`);
+            course = await getCourseBySlug(slug, 'en-us');
+          }
+        }
+        
         if (course) {
           setCourseData(course);
           
-          // Track course view to Lytics
-          if (course) {
-            const author = normalizeArray(course.author)[0];
-            trackCourseView({
-              course_slug: course.slug || slug,
-              course_title: course.title || '',
-              course_category: undefined, // Category not available in CourseEntry
-              instructor_name: author?.title || undefined,
-            });
+          // Check if enrolled locale differs from current locale - show popup
+          if (enrolledLocaleForFetch && enrolledLocaleForFetch !== selectedLanguage) {
+            console.log(`[Course Page] Locale mismatch: Enrolled in ${enrolledLocaleForFetch}, viewing in ${selectedLanguage}`);
+            setEnrolledLocale(enrolledLocaleForFetch);
+            setShowLocalePopup(true);
           }
+          
+          // Track course view to Lytics
+          const author = normalizeArray(course.author)[0];
+          trackCourseView({
+            course_slug: course.slug || slug,
+            course_title: course.title || '',
+            course_category: undefined,
+            instructor_name: author?.title || undefined,
+          });
           
           // Expand first module by default
           const modules = normalizeArray(course.modules);
@@ -263,51 +320,37 @@ export default function CoursePage() {
               setReviewStats(stats);
               setTopReviews(reviews);
               setStudentsEnrolled(enrollmentCount);
-              
-              // Debug logging
-              console.log('[Course Page] Review stats:', stats);
-              console.log('[Course Page] Top reviews fetched:', reviews.length);
-              if (reviews.length > 0) {
-                console.log('[Course Page] First review:', reviews[0]);
-              }
             } catch (error) {
               console.error('[Course Page] Error fetching reviews:', error);
             }
           }
+
+          // Fetch instructor stats
+          const authors = normalizeArray(course.author);
+          const instructor = authors[0];
+          if (instructor?.uid) {
+            try {
+              const instructorLocale = enrolledLocaleForFetch || selectedLanguage;
+              const authorCourses = await getCoursesByAuthorUid(instructor.uid, instructorLocale);
+              const courseUids = authorCourses.map(c => c.uid).filter(Boolean) as string[];
+              const stats = await getInstructorStats(instructor.uid, courseUids);
+              setInstructorStats(stats);
+            } catch (error) {
+              console.error('[Course Page] Error fetching instructor stats:', error);
+            }
+          }
           
-          // Check enrollment status from Supabase
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          setCurrentUser(authUser);
-          
-          if (authUser && course.uid) {
-            // Check enrollment
-            const { data: enrollment } = await supabase
-              .from('enrollments')
-              .select('id, status')
+          // Fetch completed lesson IDs if enrolled
+          if (authUser && course.uid && isEnrolled) {
+            const { data: lessonProgress } = await supabase
+              .from('lesson_progress')
+              .select('lesson_id')
               .eq('user_id', authUser.id)
               .eq('course_id', course.uid)
-              .maybeSingle();
+              .eq('is_completed', true);
             
-            if (enrollment) {
-              setIsEnrolled(true);
-              setEnrollmentId(enrollment.id);
-              
-              // Check if course is completed
-              if (enrollment.status === 'completed') {
-                setIsCompleted(true);
-              }
-              
-              // Fetch completed lesson IDs
-              const { data: lessonProgress } = await supabase
-                .from('lesson_progress')
-                .select('lesson_id')
-                .eq('user_id', authUser.id)
-                .eq('course_id', course.uid)
-                .eq('is_completed', true);
-              
-              if (lessonProgress) {
-                setCompletedLessonIds(lessonProgress.map(lp => lp.lesson_id));
-              }
+            if (lessonProgress) {
+              setCompletedLessonIds(lessonProgress.map(lp => lp.lesson_id));
             }
           }
         } else {
@@ -329,23 +372,39 @@ export default function CoursePage() {
 
   useEffect(() => {
     async function fetchUserData() {
+      setIsLoadingUser(true);
       try {
+        // Clear old localStorage 'user' key if it exists (might contain mock data)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user');
+        }
+        
         const supabase = createClient();
         const { data: { user: authUser } } = await supabase.auth.getUser();
         
         if (authUser) {
-          // Fetch profile with avatar_url
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url')
-            .eq('id', authUser.id)
-            .maybeSingle();
+          // Check cache first for instant display
+          const cachedProfile = getCachedUserProfile(authUser.id);
+          if (cachedProfile) {
+            setUser(cachedProfile);
+            setIsLoadingUser(false); // Show cached data immediately
+          }
 
-          // Fetch enrollments for course counts
-          const { data: enrollments } = await supabase
-            .from('enrollments')
-            .select('status')
-            .eq('user_id', authUser.id);
+          // Fetch fresh data from Supabase in the background
+          const [profileResult, enrollmentsResult] = await Promise.all([
+            supabase
+              .from('profiles')
+              .select('full_name, avatar_url')
+              .eq('id', authUser.id)
+              .maybeSingle(),
+            supabase
+              .from('enrollments')
+              .select('status')
+              .eq('user_id', authUser.id)
+          ]);
+
+          const profile = profileResult.data;
+          const enrollments = enrollmentsResult.data;
 
           const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
           const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
@@ -357,30 +416,84 @@ export default function CoursePage() {
             coursesCompleted: completedCount,
             coursesInProgress: inProgressCount,
           };
-          setUser(userData);
-        } else {
-          // Fallback to localStorage or mock
-          const storedUser = localStorage.getItem('user');
-          if (storedUser) {
-            setUser(JSON.parse(storedUser));
-          } else {
-            setUser(mockUser);
+          
+          // Update cache with fresh data
+          cacheUserProfile(authUser.id, userData);
+          
+          // Update UI with fresh data (only if cache wasn't available or data changed)
+          if (!cachedProfile || JSON.stringify(cachedProfile) !== JSON.stringify(userData)) {
+            setUser(userData);
           }
+          
+          setIsLoadingUser(false);
+        } else {
+          // User not authenticated - don't set any user data
+          setUser(null);
+          setIsLoadingUser(false);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
-        // Fallback to localStorage or mock
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        } else {
-          setUser(mockUser);
-        }
+        // Don't set mock user on error
+        setIsLoadingUser(false);
       }
     }
 
     fetchUserData();
   }, []);
+
+  // Fetch recommended courses based on current course's category
+  useEffect(() => {
+    async function fetchRecommendedCourses() {
+      if (!courseData || !courseData.uid) {
+        setRecommendedCourses([]);
+        return;
+      }
+
+      setIsLoadingRecommended(true);
+      try {
+        // Get current course's taxonomy term_uids
+        const currentCourseTerms = courseData.taxonomies?.map(t => t.term_uid) || [];
+        
+        // If no taxonomies, don't fetch recommended courses
+        if (currentCourseTerms.length === 0) {
+          setRecommendedCourses([]);
+          setIsLoadingRecommended(false);
+          return;
+        }
+
+        // Fetch all courses in the selected language
+        const allCourses = await getAllCourses(selectedLanguage);
+        
+        // Filter courses that:
+        // 1. Share at least one taxonomy term with the current course
+        // 2. Are not the current course
+        const matchingCourses = allCourses.filter(course => {
+          if (course.uid === courseData.uid) return false; // Exclude current course
+          
+          const courseTerms = course.taxonomies?.map(t => t.term_uid) || [];
+          // Check if there's at least one matching term
+          return courseTerms.some(term => currentCourseTerms.includes(term));
+        });
+
+        // Limit to 4 courses
+        const limitedCourses = matchingCourses.slice(0, 4);
+
+        // Transform courses to card format
+        const transformed = await Promise.all(
+          limitedCourses.map(course => transformCourseToCard(course))
+        );
+
+        setRecommendedCourses(transformed);
+      } catch (error) {
+        console.error('Error fetching recommended courses:', error);
+        setRecommendedCourses([]);
+      } finally {
+        setIsLoadingRecommended(false);
+      }
+    }
+
+    fetchRecommendedCourses();
+  }, [courseData, selectedLanguage]);
 
   const scrollToSection = (tab: TabType) => {
     setActiveTab(tab);
@@ -477,7 +590,7 @@ export default function CoursePage() {
   if (isLoading) {
     return (
       <>
-        <Header variant="app" user={user} headerData={headerData} />
+        <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
         <main className={styles.main}>
           <div className={styles.loading}>
             <div className={styles.spinner}></div>
@@ -493,7 +606,7 @@ export default function CoursePage() {
   if (!courseData) {
     return (
       <>
-        <Header variant="app" user={user} headerData={headerData} />
+        <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
         <main className={styles.main}>
           <div className={styles.notFound}>
             <h1>Course not found</h1>
@@ -604,13 +717,24 @@ export default function CoursePage() {
                   </>
                 ) : isEnrolled ? (
                   // Enrolled State: Continue Learning
-                  <Link 
-                    href={firstAvailableLesson ? `/module/${firstAvailableLesson.uid}` : `/learn/${courseData.uid}`} 
+                  <button
+                    onClick={() => {
+                      // If locale mismatch, show popup (handled by popup component)
+                      // Otherwise, navigate normally
+                      if (enrolledLocale && enrolledLocale !== selectedLanguage) {
+                        setShowLocalePopup(true);
+                      } else {
+                        // Normal navigation
+                        if (firstAvailableLesson) {
+                          router.push(`/module/${firstAvailableLesson.uid}`);
+                        }
+                      }
+                    }}
                     className={`${styles.startBtn} ${styles.continueLearningBtn}`}
                   >
                     <Play size={20} />
                     Continue Learning
-                  </Link>
+                  </button>
                 ) : (
                   // Logged in but not enrolled: Enroll Now
                   <button 
@@ -663,9 +787,9 @@ export default function CoursePage() {
                       <h3 className={styles.instructorName}>{instructor.title}</h3>
                       {/* DB Data: Instructor Stats */}
                       <div className={styles.instructorStats}>
-                        <span><Star size={14} /> {DUMMY_DB_DATA.instructorStats.rating} Rating</span>
-                        <span><Users size={14} /> {(DUMMY_DB_DATA.instructorStats.studentsCount / 1000).toFixed(0)}k Students</span>
-                        <span><BookOpen size={14} /> {DUMMY_DB_DATA.instructorStats.coursesCount} Courses</span>
+                        <span><Star size={14} /> {instructorStats.averageRating > 0 ? instructorStats.averageRating.toFixed(1) : '0.0'} Rating</span>
+                        <span><Users size={14} /> {instructorStats.studentsCount >= 1000 ? `${(instructorStats.studentsCount / 1000).toFixed(0)}k` : instructorStats.studentsCount} Students</span>
+                        <span><BookOpen size={14} /> {instructorStats.coursesCount} Courses</span>
                       </div>
                     </div>
                     <p className={styles.instructorRole}>{instructor.bio?.split('.')[0] || 'Instructor'}</p>
@@ -879,11 +1003,17 @@ export default function CoursePage() {
         <section className={styles.recommended}>
           <div className="container">
             <h2 className={styles.recommendedTitle}>You May Also Like</h2>
-            <div className={styles.recommendedGrid}>
-              {recommendedCourses.map((course) => (
-                <CourseCard key={course.uid} {...course} />
-              ))}
-            </div>
+            {isLoadingRecommended ? (
+              <div className={styles.loadingMessage}>Loading recommended courses...</div>
+            ) : recommendedCourses.length > 0 ? (
+              <div className={styles.recommendedGrid}>
+                {recommendedCourses.map((course) => (
+                  <CourseCard key={course.uid} {...course} />
+                ))}
+              </div>
+            ) : (
+              <div className={styles.noCoursesMessage}>No recommended courses found.</div>
+            )}
           </div>
         </section>
 
@@ -900,6 +1030,22 @@ export default function CoursePage() {
       </main>
 
       <Footer />
+      
+      {/* Locale Mismatch Popup */}
+      {showLocalePopup && enrolledLocale && (
+        <LocaleMismatchPopup
+          enrolledLocale={enrolledLocale}
+          currentLocale={selectedLanguage}
+          onSwitchLocale={() => {
+            setSelectedLanguage(enrolledLocale);
+            setShowLocalePopup(false);
+            // Navigate to first lesson after switching locale
+            if (firstAvailableLesson) {
+              router.push(`/module/${firstAvailableLesson.uid}`);
+            }
+          }}
+        />
+      )}
     </>
   );
 }

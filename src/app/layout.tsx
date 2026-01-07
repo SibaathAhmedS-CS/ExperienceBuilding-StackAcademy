@@ -1,7 +1,9 @@
 'use client';
 
+import { useEffect } from 'react';
 import { Toaster } from 'react-hot-toast';
 import { Providers } from '@/components/Providers';
+import { initializeLivePreview } from '@/lib/livePreview';
 import './globals.css';
 
 export default function RootLayout({
@@ -9,6 +11,13 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Initialize Live Preview on client-side mount
+  useEffect(() => {
+    initializeLivePreview().catch((error) => {
+      console.error('[Live Preview] Failed to initialize:', error);
+    });
+  }, []);
+
   return (
     <html lang="en">
       <head>

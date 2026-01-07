@@ -13,7 +13,6 @@ import {
   Clock,
   BookOpen,
   Download,
-  MessageSquare,
   FileText,
   Play,
   Lock,
@@ -27,6 +26,8 @@ import { getCourseByLessonUid, getLessonByUid } from '@/lib/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { sendCourseCompletionWebhook } from '@/utils/webhook';
 import { useLanguage } from '@/contexts/LanguageContext';
+import LocaleNotification from '@/components/LocaleNotification';
+import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
 import { 
   CourseEntry, 
   ModuleEntry, 
@@ -81,7 +82,7 @@ export default function ModulePage() {
 
   const [user, setUser] = useState<typeof mockUser | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'discussions'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'resources'>('content');
   const [videoProgress, setVideoProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [courseData, setCourseData] = useState<CourseEntry | null>(null);
@@ -97,7 +98,9 @@ export default function ModulePage() {
   const { headerData } = useHeader('App Header');
   
   // Language context for localized content
-  const { selectedLanguage } = useLanguage();
+  const { selectedLanguage, setSelectedLanguage } = useLanguage();
+  const [showLocaleNotification, setShowLocaleNotification] = useState(false);
+  const [enrolledLocale, setEnrolledLocale] = useState<string | null>(null);
 
   // Fetch course and lesson data from CMS, and lesson progress from DB
   useEffect(() => {
@@ -110,9 +113,37 @@ export default function ModulePage() {
           setCurrentUserId(authUser.id);
         }
         
-        // Fetch the lesson directly with locale
+        // Fetch the lesson directly with locale (includes fallback for video_url)
         const lesson = await getLessonByUid(lessonId, selectedLanguage);
         setCurrentLessonData(lesson);
+        
+        // If lesson exists but video_url is still missing, try fetching from fallback locale
+        if (lesson && selectedLanguage !== 'en-us') {
+          const hasVideoUrl = lesson.video_url?.href || 
+                             (typeof lesson.video_url === 'string' && lesson.video_url) ||
+                             (lesson as any)?.video_link?.href;
+          
+          if (!hasVideoUrl) {
+            try {
+              const fallbackLesson = await getLessonByUid(lessonId, 'en-us');
+              if (fallbackLesson) {
+                const fallbackVideoUrl = fallbackLesson.video_url?.href || 
+                                       (typeof fallbackLesson.video_url === 'string' ? fallbackLesson.video_url : null) ||
+                                       (fallbackLesson as any)?.video_link?.href;
+                
+                if (fallbackVideoUrl) {
+                  // Merge fallback video_url into current lesson
+                  setCurrentLessonData({
+                    ...lesson,
+                    video_url: fallbackLesson.video_url || lesson.video_url,
+                  } as LessonEntry);
+                }
+              }
+            } catch (error) {
+              console.warn(`[Module] Could not fetch fallback video_url for lesson ${lessonId}:`, error);
+            }
+          }
+        }
         
         // Fetch the course that contains this lesson with locale
         const course = await getCourseByLessonUid(lessonId, selectedLanguage);
@@ -122,13 +153,23 @@ export default function ModulePage() {
         if (authUser && course?.uid) {
           const { data: enrollment } = await supabase
             .from('enrollments')
-            .select('id, status')
+            .select('id, status, enrolled_locale')
             .eq('user_id', authUser.id)
             .eq('course_id', course.uid)
             .maybeSingle();
           
           if (enrollment) {
             setIsEnrolled(true);
+            
+            // Check locale mismatch and force switch if needed
+            if (enrollment.enrolled_locale && enrollment.enrolled_locale !== selectedLanguage) {
+              console.log(`[Module Page] Locale mismatch detected. Enrolled: ${enrollment.enrolled_locale}, Current: ${selectedLanguage}. Switching to enrolled locale.`);
+              setEnrolledLocale(enrollment.enrolled_locale);
+              setSelectedLanguage(enrollment.enrolled_locale);
+              // Show notification
+              setShowLocaleNotification(true);
+            }
+            
             // Check if course is completed
             if (enrollment.status === 'completed') {
               setIsCourseCompleted(true);
@@ -180,12 +221,61 @@ export default function ModulePage() {
   }, [currentUserId, courseData?.uid, supabase]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      setUser(mockUser);
+    // Don't use mock user - fetch real user data from Supabase
+    async function fetchUserData() {
+      try {
+        // Clear old localStorage 'user' key if it exists (might contain mock data)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user');
+        }
+        
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          // Check cache first
+          const cachedProfile = getCachedUserProfile(authUser.id);
+          if (cachedProfile) {
+            setUser(cachedProfile);
+          } else {
+            // Fetch from Supabase
+            const [profileResult, enrollmentsResult] = await Promise.all([
+              supabase
+                .from('profiles')
+                .select('full_name, avatar_url')
+                .eq('id', authUser.id)
+                .maybeSingle(),
+              supabase
+                .from('enrollments')
+                .select('status')
+                .eq('user_id', authUser.id)
+            ]);
+
+            const profile = profileResult.data;
+            const enrollments = enrollmentsResult.data;
+
+            const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+            const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
+
+            const userData = {
+              name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
+              email: authUser.email || '',
+              avatar: profile?.avatar_url || undefined,
+              coursesCompleted: completedCount,
+              coursesInProgress: inProgressCount,
+            };
+            
+            cacheUserProfile(authUser.id, userData);
+            setUser(userData);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        setUser(null);
+      }
     }
+    
+    fetchUserData();
   }, []);
 
   // Process course modules into flat lesson list
@@ -821,13 +911,6 @@ export default function ModulePage() {
                   <span className={styles.tabBadge}>{currentLesson.resources.length}</span>
                 )}
               </button>
-              <button
-                className={`${styles.tabBtn} ${activeTab === 'discussions' ? styles.activeTab : ''}`}
-                onClick={() => setActiveTab('discussions')}
-              >
-                <MessageSquare size={18} />
-                Discussions
-              </button>
             </div>
 
             <div className={styles.tabContent}>
@@ -878,18 +961,6 @@ export default function ModulePage() {
                       <p>No resources available for this lesson.</p>
                     </div>
                   )}
-                </div>
-              )}
-
-              {activeTab === 'discussions' && (
-                <div className={styles.discussions}>
-                  <div className={styles.emptyState}>
-                    <MessageSquare size={48} />
-                    <p>No discussions yet. Be the first to start a conversation!</p>
-                    <button className={styles.startDiscussionBtn}>
-                      Start Discussion
-                    </button>
-                  </div>
                 </div>
               )}
             </div>

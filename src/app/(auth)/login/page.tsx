@@ -8,6 +8,7 @@ import { Mail, Lock, Eye, EyeOff, BookOpen, ArrowRight, Chrome } from 'lucide-re
 import { useAuthBranding } from '@/hooks/useAuthBranding';
 import { IconEntry, normalizeArray } from '@/types/contentstack';
 import lyticsService from '@/services/lytics';
+import { cacheUserProfile } from '@/utils/userCache';
 import styles from '../auth.module.css';
 import onboardingStyles from '../onboarding/onboarding.module.css';
 
@@ -97,7 +98,7 @@ export default function LoginPage() {
       const { syncPreferencesToLytics } = await import('@/services/preferenceTracking');
       const { data: profile } = await supabase
         .from('profiles')
-        .select('full_name')
+        .select('full_name, avatar_url')
         .eq('id', data.user.id)
         .single();
       
@@ -107,17 +108,28 @@ export default function LoginPage() {
         .eq('user_id', data.user.id)
         .maybeSingle();
       
-      // Fetch completed courses count from enrollments table
+      // Fetch enrollments for course counts
       const { data: enrollments, error: enrollmentsError } = await supabase
         .from('enrollments')
         .select('status')
-        .eq('user_id', data.user.id)
-        .eq('status', 'completed');
+        .eq('user_id', data.user.id);
 
-      const total_completed_courses = enrollments?.length || 0;
+      const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+      const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
+      const total_completed_courses = completedCount;
+      
       if (enrollmentsError) {
-        console.error('[Login] Error fetching completed courses:', enrollmentsError);
+        console.error('[Login] Error fetching enrollments:', enrollmentsError);
       }
+      
+      // Cache user profile data for faster access
+      cacheUserProfile(data.user.id, {
+        name: profile?.full_name || data.user.email?.split('@')[0] || 'User',
+        email: data.user.email || '',
+        avatar: profile?.avatar_url || undefined,
+        coursesCompleted: completedCount,
+        coursesInProgress: inProgressCount,
+      });
       
       if (userPrefs) {
         await syncPreferencesToLytics(

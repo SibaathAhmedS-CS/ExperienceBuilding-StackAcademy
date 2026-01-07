@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
@@ -26,10 +26,13 @@ import {
   IconEntry,
   isAuthButtonsBlock, 
   isProfileBlock,
-  ProfileDropdownItem 
+  ProfileDropdownItem,
+  CourseEntry
 } from '@/types/contentstack';
 import { useLanguage } from '@/contexts/LanguageContext';
 import lyticsService from '@/services/lytics';
+import { getAllCourses } from '@/lib/contentstack';
+import { clearUserCache } from '@/utils/userCache';
 
 // Icon mapping - maps CMS icon names to Lucide components
 const iconMap: Record<string, LucideIcon> = {
@@ -66,6 +69,7 @@ interface HeaderProps {
     coursesInProgress: number;
   } | null;
   headerData?: HeaderEntry | null; // CMS data
+  isLoading?: boolean; // Loading state to prevent flash of auth buttons
 }
 
 // Fallback navigation links
@@ -98,15 +102,26 @@ const fallbackProfileMenuItems = [
   { icon: 'log-out', label: 'Logout', url: '', isLogout: true },
 ];
 
-export default function Header({ variant = 'landing', user, headerData }: HeaderProps) {
+export default function Header({ variant = 'landing', user, headerData, isLoading = false }: HeaderProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState<CourseEntry[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
+  const [allCourses, setAllCourses] = useState<CourseEntry[]>([]);
+  const [activeSection, setActiveSection] = useState<string>('');
+  const searchRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
+  const router = useRouter();
   
   const isHomePage = pathname === '/home';
+  const isLandingPage = variant === 'landing' || pathname === '/';
+  const isProfilePage = pathname === '/profile';
+  const isMyCoursesPage = pathname === '/my-courses';
+  const isCoursesPage = pathname === '/courses';
   const { selectedLanguage, setSelectedLanguage } = useLanguage();
   
   // Get languages from headerData (accessibility_language contains language and language_tag)
@@ -127,6 +142,30 @@ export default function Header({ variant = 'landing', user, headerData }: Header
   // Show language selector only on home page and when languages are configured in CMS
   const showLanguageSelector = isHomePage && accessibilityLanguages.length > 0;
 
+  // Get search bar visibility from CMS entry data
+  // Show search only if:
+  // 1. headerData.search_bar is explicitly true (from CMS), AND
+  // 2. NOT on profile, my-courses, courses listing, or landing pages
+  // Exception: Always hide on profile, my-courses, courses listing, and landing pages regardless of CMS setting
+  const showSearch = Boolean(headerData?.search_bar === true 
+    && !isProfilePage 
+    && !isMyCoursesPage 
+    && !isCoursesPage 
+    && !isLandingPage);
+  
+  // Debug logging (can be removed later)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Header] Search visibility:', {
+      pathname,
+      search_bar: headerData?.search_bar,
+      isProfilePage,
+      isMyCoursesPage,
+      isCoursesPage,
+      isLandingPage,
+      showSearch,
+    });
+  }
+
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 20);
@@ -135,6 +174,128 @@ export default function Header({ variant = 'landing', user, headerData }: Header
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Intersection Observer to track active section on landing page
+  useEffect(() => {
+    if (!isLandingPage) {
+      setActiveSection('');
+      return;
+    }
+
+    const sections = ['hero', 'features', 'courses', 'testimonials', 'faq'];
+    const observers: IntersectionObserver[] = [];
+    const sectionElements: Map<string, HTMLElement> = new Map();
+
+    // Find all sections
+    sections.forEach(sectionId => {
+      const element = document.getElementById(sectionId);
+      if (element) {
+        sectionElements.set(sectionId, element);
+      }
+    });
+
+    // Create intersection observer for each section
+    sectionElements.forEach((element, sectionId) => {
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              // Calculate how much of the section is visible
+              const rect = entry.boundingClientRect;
+              const visibleHeight = Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0);
+              const visibilityRatio = visibleHeight / rect.height;
+
+              // Only set as active if at least 30% of the section is visible
+              if (visibilityRatio >= 0.3) {
+                setActiveSection(sectionId);
+              }
+            }
+          });
+        },
+        {
+          rootMargin: '-20% 0px -60% 0px', // Trigger when section is in the upper portion of viewport
+          threshold: [0, 0.3, 0.5, 0.7, 1],
+        }
+      );
+
+      observer.observe(element);
+      observers.push(observer);
+    });
+
+    // Set initial active section based on scroll position
+    const handleInitialScroll = () => {
+      const scrollY = window.scrollY;
+      let currentSection = 'hero';
+
+      sectionElements.forEach((element, sectionId) => {
+        const rect = element.getBoundingClientRect();
+        const elementTop = rect.top + scrollY;
+        
+        if (scrollY >= elementTop - 100) {
+          currentSection = sectionId;
+        }
+      });
+
+      setActiveSection(currentSection);
+    };
+
+    // Set initial section
+    handleInitialScroll();
+
+    return () => {
+      observers.forEach(observer => observer.disconnect());
+    };
+  }, [isLandingPage, pathname]);
+
+  // Fetch all courses for search autocomplete
+  useEffect(() => {
+    if (!showSearch) {
+      setAllCourses([]);
+      return;
+    }
+
+    let isMounted = true;
+    setIsLoadingCourses(true);
+
+    async function fetchCourses() {
+      try {
+        const courses = await getAllCourses(selectedLanguage);
+        if (isMounted) {
+          setAllCourses(courses);
+        }
+      } catch (error) {
+        console.error('Error fetching courses for search:', error);
+        if (isMounted) {
+          setAllCourses([]);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingCourses(false);
+        }
+      }
+    }
+
+    fetchCourses();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [showSearch, selectedLanguage]);
+
+  // Filter courses based on search query
+  useEffect(() => {
+    if (searchQuery.trim().length > 0 && allCourses.length > 0) {
+      const query = searchQuery.trim().toLowerCase();
+      const filtered = allCourses.filter(course => 
+        course.title?.toLowerCase().startsWith(query)
+      ).slice(0, 5); // Limit to 5 suggestions
+      setSearchSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setSearchSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery, allCourses]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -152,22 +313,24 @@ export default function Header({ variant = 'landing', user, headerData }: Header
       ) {
         setIsProfileOpen(false);
       }
+      if (
+        showSuggestions &&
+        searchRef.current &&
+        !searchRef.current.contains(target)
+      ) {
+        setShowSuggestions(false);
+      }
     };
 
-    if (isLanguageOpen || isProfileOpen) {
+    if (isLanguageOpen || isProfileOpen || showSuggestions) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [isLanguageOpen, isProfileOpen]);
+  }, [isLanguageOpen, isProfileOpen, showSuggestions]);
 
   // Get logo data from CMS or fallback (icon is a reference)
   const { iconName: logoIconName, iconText: logoText } = getIconData(headerData?.icon);
   const LogoIcon = iconMap[logoIconName] || BookOpen;
-
-  // Get search visibility from CMS or use variant logic
-  const showSearch = headerData 
-    ? headerData.search_visibility 
-    : variant === 'app';
 
   // Build navigation links from CMS or fallback
   const getNavLinks = () => {
@@ -190,6 +353,36 @@ export default function Header({ variant = 'landing', user, headerData }: Header
   
   // Helper to check if a link is an anchor (starts with #)
   const isAnchorLink = (href: string) => href.startsWith('#');
+  
+  // Helper to determine if a link is active
+  const isLinkActive = (href: string) => {
+    // Exact match
+    if (pathname === href) return true;
+    
+    // For anchor links on landing page, use scroll-based active section
+    if (isAnchorLink(href) && isLandingPage) {
+      const sectionId = href.substring(1); // Remove the #
+      return activeSection === sectionId;
+    }
+    
+    // For anchor links on other pages, check if we're on the correct page
+    if (isAnchorLink(href)) {
+      // For home page anchors, check if we're on home
+      if (href.startsWith('#') && pathname === '/home') {
+        return true;
+      }
+      return false;
+    }
+    
+    // For routes, check if pathname starts with href
+    // This handles cases like /course/[slug] matching /courses
+    if (href.startsWith('/') && pathname.startsWith(href)) {
+      // But exclude cases where href is just '/' (landing page)
+      if (href !== '/') return true;
+    }
+    
+    return false;
+  };
 
   // Get auth buttons from CMS
   const getAuthButtons = () => {
@@ -267,8 +460,16 @@ export default function Header({ variant = 'landing', user, headerData }: Header
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `/courses?search=${encodeURIComponent(searchQuery)}`;
+      setShowSuggestions(false);
+      router.push(`/courses?search=${encodeURIComponent(searchQuery)}`);
     }
+  };
+
+  const handleSuggestionClick = (course: CourseEntry) => {
+    setSearchQuery('');
+    setShowSuggestions(false);
+    const slug = course.slug || course.uid;
+    router.push(`/course/${slug}`);
   };
 
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -287,7 +488,6 @@ export default function Header({ variant = 'landing', user, headerData }: Header
     }
   };
 
-  const router = useRouter();
   const supabase = createClient();
 
   const handleLogout = async () => {
@@ -356,6 +556,9 @@ export default function Header({ variant = 'landing', user, headerData }: Header
       lyticsService.clearUser();
       lyticsService.setAnonymousProfile();
       
+      // Clear cached user profile
+      clearUserCache();
+      
       // Sign out from Supabase
       await supabase.auth.signOut();
       
@@ -398,7 +601,7 @@ export default function Header({ variant = 'landing', user, headerData }: Header
             <a
               key={link.label}
               href={link.href}
-              className={`${styles.navLink} ${pathname === link.href ? styles.active : ''}`}
+              className={`${styles.navLink} ${isLinkActive(link.href) ? styles.active : ''}`}
               onClick={(e) => isAnchorLink(link.href) ? scrollToSection(e, link.href) : undefined}
             >
               {link.label}
@@ -460,103 +663,133 @@ export default function Header({ variant = 'landing', user, headerData }: Header
 
           {/* Search Bar */}
           {showSearch && (
-            <form onSubmit={handleSearch} className={styles.searchBar}>
-              <Search size={18} className={styles.searchIcon} />
-              <input
-                type="text"
-                placeholder="Search courses..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={styles.searchInput}
-              />
-            </form>
+            <div ref={searchRef} className={styles.searchWrapper}>
+              <form onSubmit={handleSearch} className={styles.searchBar}>
+                <Search size={18} className={styles.searchIcon} />
+                <input
+                  type="text"
+                  placeholder="Search courses..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => {
+                    if (searchSuggestions.length > 0) {
+                      setShowSuggestions(true);
+                    }
+                  }}
+                  className={styles.searchInput}
+                />
+              </form>
+              
+              {/* Search Suggestions Dropdown */}
+              {showSuggestions && searchSuggestions.length > 0 && (
+                <div className={styles.searchSuggestions}>
+                  {searchSuggestions.map((course) => (
+                    <button
+                      key={course.uid}
+                      className={styles.suggestionItem}
+                      onClick={() => handleSuggestionClick(course)}
+                      type="button"
+                    >
+                      <Search size={16} className={styles.suggestionIcon} />
+                      <span className={styles.suggestionText}>{course.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Auth Buttons (Landing) or User Profile (App) */}
-          {hasAuthButtons() && (
-            <div className={styles.authButtons}>
-              <Link href={authButtons.login.url} className={styles.loginBtn}>
-                {authButtons.login.text}
-              </Link>
-              <Link href={authButtons.signup.url} className={styles.signupBtn}>
-                {authButtons.signup.text}
-              </Link>
+          {isLoading ? (
+            // Loading skeleton to prevent flash
+            <div className={styles.loadingSkeleton}>
+              <div className={styles.skeletonAvatar}></div>
             </div>
-          )}
+          ) : (
+            <>
+              {hasAuthButtons() && !user && (
+                <div className={styles.authButtons}>
+                  <Link href={authButtons.login.url} className={styles.loginBtn}>
+                    {authButtons.login.text}
+                  </Link>
+                  <Link href={authButtons.signup.url} className={styles.signupBtn}>
+                    {authButtons.signup.text}
+                  </Link>
+                </div>
+              )}
 
-          {hasProfile() && (
-            <div className={styles.userSection}>
-              {user ? (
-                <div className={styles.profileWrapper}>
-                  <button
-                    className={styles.profileButton}
-                    onClick={() => {
-                      setIsProfileOpen(!isProfileOpen);
-                      setIsLanguageOpen(false);
-                    }}
-                  >
-                    <div className={styles.avatar}>
-                      {user.avatar ? (
-                        <img src={user.avatar} alt={user.name} />
-                      ) : (
-                        <ProfileTriggerIcon size={20} />
-                      )}
-                    </div>
-                    <span className={styles.userName}>{user.name}</span>
-                    <ChevronDown size={16} className={`${styles.chevron} ${isProfileOpen ? styles.open : ''}`} />
-                  </button>
-
-                  {/* Profile Dropdown */}
-                  {isProfileOpen && (
-                    <div className={styles.profileDropdown}>
-                      <div className={styles.profileHeader}>
-                        <div className={styles.avatarLarge}>
-                          {user.avatar ? (
-                            <img src={user.avatar} alt={user.name} />
-                          ) : (
-                            <User size={28} />
-                          )}
-                        </div>
-                        <div className={styles.profileInfo}>
-                          <h4>{user.name}</h4>
-                          <p>{user.email}</p>
-                        </div>
+              {hasProfile() && user && (
+                <div className={styles.userSection}>
+                  <div className={styles.profileWrapper}>
+                    <button
+                      className={styles.profileButton}
+                      onClick={() => {
+                        setIsProfileOpen(!isProfileOpen);
+                        setIsLanguageOpen(false);
+                      }}
+                    >
+                      <div className={styles.avatar}>
+                        {user.avatar ? (
+                          <img src={user.avatar} alt={user.name} />
+                        ) : (
+                          <ProfileTriggerIcon size={20} />
+                        )}
                       </div>
+                      <span className={styles.userName}>{user.name}</span>
+                      <ChevronDown size={16} className={`${styles.chevron} ${isProfileOpen ? styles.open : ''}`} />
+                    </button>
 
-                      <div className={styles.profileMenu}>
-                        {profileMenuItems.map((item, index) => {
-                          const ItemIcon = iconMap[item.icon] || User;
-                          
-                          if (item.isLogout) {
+                    {/* Profile Dropdown */}
+                    {isProfileOpen && (
+                      <div className={styles.profileDropdown}>
+                        <div className={styles.profileHeader}>
+                          <div className={styles.avatarLarge}>
+                            {user.avatar ? (
+                              <img src={user.avatar} alt={user.name} />
+                            ) : (
+                              <User size={28} />
+                            )}
+                          </div>
+                          <div className={styles.profileInfo}>
+                            <h4>{user.name}</h4>
+                            <p>{user.email}</p>
+                          </div>
+                        </div>
+
+                        <div className={styles.profileMenu}>
+                          {profileMenuItems.map((item, index) => {
+                            const ItemIcon = iconMap[item.icon] || User;
+                            
+                            if (item.isLogout) {
+                              return (
+                                <button 
+                                  key={index} 
+                                  className={styles.logoutBtn}
+                                  onClick={handleLogout}
+                                >
+                                  <ItemIcon size={18} />
+                                  <span>{item.label}</span>
+                                </button>
+                              );
+                            }
+                            
                             return (
-                              <button 
-                                key={index} 
-                                className={styles.logoutBtn}
-                                onClick={handleLogout}
-                              >
+                              <Link key={index} href={item.url} className={styles.menuItem}>
                                 <ItemIcon size={18} />
                                 <span>{item.label}</span>
-                              </button>
+                              </Link>
                             );
-                          }
-                          
-                          return (
-                            <Link key={index} href={item.url} className={styles.menuItem}>
-                              <ItemIcon size={18} />
-                              <span>{item.label}</span>
-                            </Link>
-                          );
-                        })}
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              ) : (
-                <Link href="/login" className={styles.signupBtn}>
-                  Login
-                </Link>
               )}
-            </div>
+            </>
           )}
 
           {/* Mobile Menu Button */}
@@ -573,17 +806,48 @@ export default function Header({ variant = 'landing', user, headerData }: Header
       {isMobileMenuOpen && (
         <div className={styles.mobileMenu}>
           {showSearch && (
-            <form onSubmit={handleSearch} className={styles.mobileSearch}>
-              <Search size={18} />
-              <input
-                type="text"
-                placeholder="Search courses..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </form>
+            <div className={styles.mobileSearchWrapper}>
+              <form onSubmit={handleSearch} className={styles.mobileSearch}>
+                <Search size={18} />
+                <input
+                  type="text"
+                  placeholder="Search courses..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setShowSuggestions(true);
+                  }}
+                  onFocus={() => {
+                    if (searchSuggestions.length > 0) {
+                      setShowSuggestions(true);
+                    }
+                  }}
+                />
+              </form>
+              
+              {/* Mobile Search Suggestions */}
+              {showSuggestions && searchSuggestions.length > 0 && (
+                <div className={styles.mobileSearchSuggestions}>
+                  {searchSuggestions.map((course) => (
+                    <button
+                      key={course.uid}
+                      className={styles.suggestionItem}
+                      onClick={() => {
+                        handleSuggestionClick(course);
+                        setIsMobileMenuOpen(false);
+                      }}
+                      type="button"
+                    >
+                      <Search size={16} className={styles.suggestionIcon} />
+                      <span className={styles.suggestionText}>{course.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
           
+          {/* Mobile Navigation */}
           <nav className={styles.mobileNav}>
             {navLinks.map((link) => (
               <a

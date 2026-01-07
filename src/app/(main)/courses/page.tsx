@@ -10,6 +10,7 @@ import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
 import { useCourses, useTransformedCourses } from '@/hooks/useCourses';
 import { createClient } from '@/utils/supabase/client';
+import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
 import {
   PageEntry,
   CategoryEntry,
@@ -245,6 +246,7 @@ const allCourses = [
 
 export default function CoursesPage() {
   const [user, setUser] = useState<typeof mockUser | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('popular');
@@ -271,23 +273,39 @@ export default function CoursesPage() {
 
   useEffect(() => {
     async function fetchUserData() {
+      setIsLoadingUser(true);
       try {
+        // Clear old localStorage 'user' key if it exists (might contain mock data)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user');
+        }
+        
         const supabase = createClient();
         const { data: { user: authUser } } = await supabase.auth.getUser();
         
         if (authUser) {
-          // Fetch profile with avatar_url
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('full_name, avatar_url')
-            .eq('id', authUser.id)
-            .maybeSingle();
+          // Check cache first for instant display
+          const cachedProfile = getCachedUserProfile(authUser.id);
+          if (cachedProfile) {
+            setUser(cachedProfile);
+            setIsLoadingUser(false); // Show cached data immediately
+          }
 
-          // Fetch enrollments for course counts
-          const { data: enrollments } = await supabase
-            .from('enrollments')
-            .select('status')
-            .eq('user_id', authUser.id);
+          // Fetch fresh data from Supabase in the background
+          const [profileResult, enrollmentsResult] = await Promise.all([
+            supabase
+              .from('profiles')
+              .select('full_name, avatar_url')
+              .eq('id', authUser.id)
+              .maybeSingle(),
+            supabase
+              .from('enrollments')
+              .select('status')
+              .eq('user_id', authUser.id)
+          ]);
+
+          const profile = profileResult.data;
+          const enrollments = enrollmentsResult.data;
 
           const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
           const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
@@ -299,25 +317,26 @@ export default function CoursesPage() {
             coursesCompleted: completedCount,
             coursesInProgress: inProgressCount,
           };
-          setUser(userData);
-        } else {
-          // Fallback to localStorage or mock
-          const storedUser = localStorage.getItem('user');
-          if (storedUser) {
-            setUser(JSON.parse(storedUser));
-          } else {
-            setUser(mockUser);
+          
+          // Update cache with fresh data
+          cacheUserProfile(authUser.id, userData);
+          
+          // Update UI with fresh data (only if cache wasn't available or data changed)
+          if (!cachedProfile || JSON.stringify(cachedProfile) !== JSON.stringify(userData)) {
+            setUser(userData);
           }
+          
+          setIsLoadingUser(false);
+        } else {
+          // User not authenticated - don't set any user data
+          setUser(null);
+          setIsLoadingUser(false);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
-        // Fallback to localStorage or mock
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        } else {
-          setUser(mockUser);
-        }
+        // Don't set mock user on error
+        setUser(null);
+        setIsLoadingUser(false);
       }
     }
 
@@ -378,7 +397,7 @@ export default function CoursesPage() {
 
   return (
     <>
-      <Header variant="app" user={user} headerData={headerData} />
+      <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
 
       <main className={styles.main}>
         {/* Hero Section */}

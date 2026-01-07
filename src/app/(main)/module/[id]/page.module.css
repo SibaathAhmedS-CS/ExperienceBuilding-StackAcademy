@@ -444,7 +444,7 @@
   display: flex;
   gap: 8px;
   margin-bottom: 24px;
-  border-bottom: 2px solid var(--neutral-200);
+  justify-content: center;
 }
 
 .tabBtn {

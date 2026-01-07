@@ -78,7 +78,8 @@ const fallbackNewsletter = {
   heading: 'Stay Updated with Latest Courses',
   description: 'Subscribe to our newsletter and never miss new courses and learning opportunities.',
   placeholderText: 'Enter your email address',
-  buttonText: 'Subscribe',
+  buttonText: 'Subscribed',  // Text when subscribed
+  notSubscribedText: 'Subscribe',  // Text when not subscribed
 };
 
 interface FooterProps {
@@ -157,7 +158,8 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
   const newsletterHeading = newsletterData?.heading || fallbackNewsletter.heading;
   const newsletterDescription = newsletterData?.description || fallbackNewsletter.description;
   const newsletterPlaceholder = newsletterData?.placeholder_text || fallbackNewsletter.placeholderText;
-  const newsletterButtonText = newsletterData?.button_text || fallbackNewsletter.buttonText;
+  const newsletterSubscribedText = newsletterData?.button_text || fallbackNewsletter.buttonText;
+  const newsletterNotSubscribedText = newsletterData?.not_subscribed_text || fallbackNewsletter.notSubscribedText;
 
   // Helper to get social icon from platform name (derived from link title)
   const getSocialIcon = (title: string): LucideIcon => {
@@ -290,11 +292,11 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
                 {isSubscribed ? (
                   <>
                     <Check size={18} />
-                    Subscribed
+                    {newsletterSubscribedText}
                   </>
                 ) : (
                   <>
-                    {isSubmitting ? 'Subscribing...' : newsletterButtonText}
+                    {isSubmitting ? 'Subscribing...' : newsletterNotSubscribedText}
                     <ArrowRight size={18} />
                   </>
                 )}
@@ -323,11 +325,11 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
                   {isSubscribed ? (
                     <>
                       <Check size={18} />
-                      Subscribed
+                      {newsletterSubscribedText}
                     </>
                   ) : (
                     <>
-                      {isSubmitting ? 'Subscribing...' : newsletterButtonText}
+                      {isSubmitting ? 'Subscribing...' : newsletterNotSubscribedText}
                       <ArrowRight size={18} />
                     </>
                   )}

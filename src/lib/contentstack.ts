@@ -1,4 +1,5 @@
 import Contentstack from 'contentstack';
+import { addEditableTags } from '@contentstack/utils';
 import { 
   HeaderEntry, 
   FooterEntry, 
@@ -16,14 +17,100 @@ import {
   AuthBrandingEntry,
   AuthorEntry
 } from '@/types/contentstack';
+import { isLivePreviewActive } from './livePreview';
 
-// Contentstack SDK Configuration
-const Stack = Contentstack.Stack({
+// Contentstack SDK Configuration - Default Stack (uses Delivery Token)
+// Live Preview configuration will be added when preview mode is active
+const defaultStack = Contentstack.Stack({
   api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '',
   delivery_token: process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '',
   environment: process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev',
   branch: process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main',
 });
+
+// Create a function to get Stack with Live Preview config when needed
+function createStackWithLivePreview(): any {
+  const previewToken = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_TOKEN || 
+                       process.env.CONTENTSTACK_PREVIEW_TOKEN;
+  const previewHost = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_HOST || 
+                      process.env.CONTENTSTACK_PREVIEW_HOST || 
+                      'rest-preview.contentstack.com';
+  
+  if (!previewToken) {
+    console.warn('[Contentstack] Preview token not found, using default Stack');
+    return defaultStack;
+  }
+
+  // When Live Preview is active, use preview token as delivery_token
+  // The Contentstack SDK will handle switching to preview API
+  return Contentstack.Stack({
+    api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '',
+    delivery_token: previewToken, // Use preview token as delivery token for preview mode
+    environment: process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev',
+    branch: process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main',
+    live_preview: {
+      enable: true,
+      preview_token: previewToken,
+      host: previewHost,
+    },
+  });
+}
+
+/**
+ * Get the appropriate Stack instance
+ * 
+ * For Live Preview: Returns Stack with Live Preview config so SDK can add data-cslp attributes
+ * For normal mode: Returns default Stack
+ */
+function getStack(): any {
+  // Check if Live Preview is active
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasPreviewParam = urlParams.get('live_preview') === 'true';
+    const hasEnvFlag = process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
+    
+    if (hasPreviewParam || hasEnvFlag) {
+      // Return Stack with Live Preview config so SDK can add data-cslp attributes
+      return createStackWithLivePreview();
+    }
+  }
+  
+  // Normal mode - use default Stack
+  return defaultStack;
+}
+
+// Export default Stack for backward compatibility
+// Note: For Live Preview, use getStack() function instead
+const Stack = defaultStack;
+
+/**
+ * Add editable tags to content entry for Live Preview edit buttons
+ * This adds data-cslp attributes that Live Preview SDK needs to show edit buttons
+ */
+function addLivePreviewTags<T>(entry: T | null): T | null {
+  if (!entry) return null;
+  
+  // Only add tags if Live Preview is active
+  if (typeof window === 'undefined' || !isLivePreviewActive()) {
+    return entry;
+  }
+  
+  try {
+    // addEditableTags adds data-cslp attributes to the entry
+    // Signature: addEditableTags(entry, contentTypeUid, locale, environment)
+    const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev';
+    const locale = (entry as any)?.publish_details?.locale || 'en-us';
+    const contentTypeUid = (entry as any)?.content_type || (entry as any)?._content_type_uid || '';
+    
+    if (contentTypeUid && (entry as any)?.uid) {
+      return addEditableTags(entry as any, contentTypeUid, locale, environment) as T;
+    }
+    return entry;
+  } catch (error) {
+    console.warn('[Contentstack] Could not add Live Preview tags:', error);
+    return entry;
+  }
+}
 
 // Type definitions for Contentstack entries
 export interface ContentstackEntry {
@@ -83,6 +170,51 @@ function getCurrentLocale(): string {
 const FALLBACK_LOCALE = 'en-us';
 
 /**
+ * Helper function to enrich banners with fallback images from default locale
+ * This ensures non-localized banner_image assets are still displayed
+ */
+async function enrichBannersWithFallback(
+  pageEntry: PageEntry | null,
+  targetLocale: string
+): Promise<void> {
+  if (!pageEntry || targetLocale === FALLBACK_LOCALE) return;
+  
+  const sections = Array.isArray(pageEntry.section) ? pageEntry.section : [];
+  for (const section of sections) {
+    if (section.carousel_block?.banner) {
+      const banners = Array.isArray(section.carousel_block.banner) 
+        ? section.carousel_block.banner 
+        : [section.carousel_block.banner];
+      
+      // Check each banner for missing banner_image
+      for (const banner of banners) {
+        const hasImage = banner.banner_image?.url || 
+                        (typeof banner.banner_image === 'string' && banner.banner_image) ||
+                        (banner as any).image?.url ||
+                        (banner as any).image_url;
+        
+        // If banner_image is missing, fetch from fallback locale
+        if (!hasImage && banner.uid) {
+          try {
+            const fallbackBannerQuery = Stack.ContentType(CONTENT_TYPES.BANNER)
+              .Entry(banner.uid);
+            fallbackBannerQuery.language(FALLBACK_LOCALE);
+            const fallbackBanner = await fallbackBannerQuery.toJSON().fetch() as BannerEntry | null;
+            
+            if (fallbackBanner?.banner_image) {
+              // Merge fallback banner_image into current banner
+              (banner as any).banner_image = fallbackBanner.banner_image;
+            }
+          } catch (error) {
+            console.warn(`[CMS] Could not fetch fallback banner_image for banner ${banner.uid}:`, error);
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
  * Fetch single entry by content type and UID
  */
 export async function getEntry<T = ContentstackEntry>(
@@ -92,7 +224,8 @@ export async function getEntry<T = ContentstackEntry>(
   locale?: string
 ): Promise<T | null> {
   try {
-    const query = Stack.ContentType(contentType).Entry(entryUid);
+    const stack = getStack(); // Get appropriate Stack (delivery or preview)
+    const query = stack.ContentType(contentType).Entry(entryUid);
     
     // Set locale if provided
     const targetLocale = locale || getCurrentLocale();
@@ -106,7 +239,8 @@ export async function getEntry<T = ContentstackEntry>(
     applyVariantHeader(query);
 
     const result = await query.toJSON().fetch();
-    return result as T;
+    // Add Live Preview tags for edit buttons
+    return addLivePreviewTags(result as T);
   } catch (error) {
     console.error(`Error fetching entry: ${contentType}/${entryUid}`, error);
     return null;
@@ -129,7 +263,8 @@ export async function getEntries<T = ContentstackEntry>(
   } = {}
 ): Promise<T[]> {
   try {
-    const query = Stack.ContentType(contentType).Query();
+    const stack = getStack(); // Get appropriate Stack (delivery or preview)
+    const query = stack.ContentType(contentType).Query();
     
     // Set locale if provided
     const targetLocale = options.locale || getCurrentLocale();
@@ -162,7 +297,9 @@ export async function getEntries<T = ContentstackEntry>(
     applyVariantHeader(query);
 
     const result = await query.toJSON().find();
-    return (result[0] || []) as T[];
+    const entries = (result[0] || []) as T[];
+    // Add Live Preview tags for edit buttons
+    return entries.map(entry => addLivePreviewTags(entry)).filter(Boolean) as T[];
   } catch (error) {
     console.error(`Error fetching entries: ${contentType}`, error);
     return [];
@@ -178,7 +315,8 @@ export async function getEntryByUrl<T = ContentstackEntry>(
   referenceFields: string[] = []
 ): Promise<T | null> {
   try {
-    const query = Stack.ContentType(contentType).Query().where('url', url);
+    const stack = getStack(); // Get appropriate Stack (delivery or preview)
+    const query = stack.ContentType(contentType).Query().where('url', url);
     
     referenceFields.forEach((field) => {
       query.includeReference(field);
@@ -188,7 +326,9 @@ export async function getEntryByUrl<T = ContentstackEntry>(
     applyVariantHeader(query);
 
     const result = await query.toJSON().find();
-    return result[0]?.[0] as T || null;
+    const entry = result[0]?.[0] as T || null;
+    // Add Live Preview tags for edit buttons
+    return addLivePreviewTags(entry);
   } catch (error) {
     console.error(`Error fetching entry by URL: ${contentType}/${url}`, error);
     return null;
@@ -207,8 +347,9 @@ export async function getEntryByUrl<T = ContentstackEntry>(
 export async function getPage(title: string, locale?: string): Promise<PageEntry | null> {
   try {
     const targetLocale = locale || getCurrentLocale();
+    const stack = getStack(); // Get appropriate Stack (delivery or preview)
     
-    const query = Stack.ContentType(CONTENT_TYPES.PAGE)
+    const query = stack.ContentType(CONTENT_TYPES.PAGE)
       .Query()
       .where('title', title)
       .includeReference([
@@ -234,10 +375,13 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
     const result = await query.toJSON().find();
     let pageEntry = result[0]?.[0] as PageEntry || null;
     
+    // Enrich banners with fallback images if banner_image is missing
+    await enrichBannersWithFallback(pageEntry, targetLocale);
+    
     // Fallback to en-us if no page found in selected locale
     if (!pageEntry && targetLocale !== FALLBACK_LOCALE) {
       console.log(`[CMS] Page "${title}" not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
-      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.PAGE)
+      const fallbackQuery = stack.ContentType(CONTENT_TYPES.PAGE)
         .Query()
         .where('title', title)
         .includeReference([
@@ -278,10 +422,11 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
 export async function getPageByUrl(url: string, locale?: string): Promise<PageEntry | null> {
   try {
     const targetLocale = locale || getCurrentLocale();
+    const stack = getStack(); // Get appropriate Stack (delivery or preview)
     let pageEntry: PageEntry | null = null;
     
     try {
-      const query = Stack.ContentType(CONTENT_TYPES.PAGE)
+      const query = stack.ContentType(CONTENT_TYPES.PAGE)
         .Query()
         .where('url', url)
         .includeReference([
@@ -308,7 +453,7 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
       // Fallback to en-us if not found
       if (targetLocale !== FALLBACK_LOCALE) {
         console.log(`[CMS] Page URL ${url} not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
-        const fallbackQuery = Stack.ContentType(CONTENT_TYPES.PAGE)
+        const fallbackQuery = stack.ContentType(CONTENT_TYPES.PAGE)
           .Query()
           .where('url', url)
           .includeReference([
@@ -327,10 +472,16 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
         
         const fallbackResult = await fallbackQuery.toJSON().find();
         pageEntry = fallbackResult[0]?.[0] as PageEntry || null;
+        
+        // Enrich banners with fallback images if banner_image is missing (for fallback page)
+        await enrichBannersWithFallback(pageEntry, FALLBACK_LOCALE);
       } else {
         throw localeError;
       }
     }
+    
+    // Enrich banners with fallback images if banner_image is missing (for successfully fetched page)
+    await enrichBannersWithFallback(pageEntry, targetLocale);
     
     // If still no page entry, try fallback
     if (!pageEntry && targetLocale !== FALLBACK_LOCALE) {
@@ -354,6 +505,9 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
       
       const fallbackResult = await fallbackQuery.toJSON().find();
       pageEntry = fallbackResult[0]?.[0] as PageEntry || null;
+      
+      // Enrich banners with fallback images if banner_image is missing (for fallback page)
+      await enrichBannersWithFallback(pageEntry, FALLBACK_LOCALE);
     }
 
     return pageEntry;
@@ -628,9 +782,9 @@ export async function getAllCourses(locale?: string): Promise<CourseEntry[]> {
       courses = (fallbackResult[0] || []) as CourseEntry[];
     }
     
-    // Resolve author references for all courses
+    // Resolve author references for all courses with the target locale
     const resolvedCourses = await Promise.all(
-      courses.map(course => resolveAuthorReferences(course))
+      courses.map(course => resolveAuthorReferences(course, targetLocale))
     );
     
     return resolvedCourses;
@@ -641,17 +795,81 @@ export async function getAllCourses(locale?: string): Promise<CourseEntry[]> {
 }
 
 /**
- * Fetch author by UID - always fetches from default locale since authors are not localized
+ * Fetch all courses by a specific author UID
+ * Falls back to English if no content found in selected locale
  */
-async function getAuthorByUid(uid: string): Promise<AuthorEntry | null> {
+export async function getCoursesByAuthorUid(authorUid: string, locale?: string): Promise<CourseEntry[]> {
   try {
-    const query = Stack.ContentType(CONTENT_TYPES.AUTHOR)
-      .Entry(uid);
-    // Always fetch authors in fallback locale since author data (name, bio) is non-localizable
-    query.language(FALLBACK_LOCALE);
+    const targetLocale = locale || getCurrentLocale();
     
-    const result = await query.toJSON().fetch();
-    return result as AuthorEntry;
+    // First try with selected locale
+    const query = Stack.ContentType(CONTENT_TYPES.COURSE)
+      .Query()
+      .includeReference(['author', 'modules']);
+    query.language(targetLocale);
+    
+    const result = await query.toJSON().find();
+    let allCourses = (result[0] || []) as CourseEntry[];
+    
+    // If no courses found and we're not already using fallback, try fallback locale
+    if (allCourses.length === 0 && targetLocale !== FALLBACK_LOCALE) {
+      console.log(`[CMS] No courses found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
+      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
+        .Query()
+        .includeReference(['author', 'modules']);
+      fallbackQuery.language(FALLBACK_LOCALE);
+      
+      const fallbackResult = await fallbackQuery.toJSON().find();
+      allCourses = (fallbackResult[0] || []) as CourseEntry[];
+    }
+    
+    // Filter courses by author UID
+    const authorCourses = allCourses.filter(course => {
+      const authors = Array.isArray(course.author) ? course.author : course.author ? [course.author] : [];
+      return authors.some(author => author.uid === authorUid);
+    });
+    
+    // Resolve author references for filtered courses
+    const resolvedCourses = await Promise.all(
+      authorCourses.map(course => resolveAuthorReferences(course, targetLocale))
+    );
+    
+    return resolvedCourses;
+  } catch (error) {
+    console.error(`Error fetching courses by author UID: ${authorUid}`, error);
+    return [];
+  }
+}
+
+/**
+ * Fetch author by UID - fetches in the specified locale, falls back to default locale if not found
+ */
+async function getAuthorByUid(uid: string, locale?: string): Promise<AuthorEntry | null> {
+  try {
+    const targetLocale = locale || getCurrentLocale();
+    
+    // First try with selected locale
+    try {
+      const query = Stack.ContentType(CONTENT_TYPES.AUTHOR)
+        .Entry(uid);
+      query.language(targetLocale);
+      
+      const result = await query.toJSON().fetch();
+      return result as AuthorEntry;
+    } catch (localeError) {
+      // If locale fetch fails and we're not already using fallback, try fallback
+      if (targetLocale !== FALLBACK_LOCALE) {
+        console.log(`[CMS] Author UID ${uid} not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
+        const fallbackQuery = Stack.ContentType(CONTENT_TYPES.AUTHOR)
+          .Entry(uid);
+        fallbackQuery.language(FALLBACK_LOCALE);
+        
+        const fallbackResult = await fallbackQuery.toJSON().fetch();
+        return fallbackResult as AuthorEntry;
+      } else {
+        throw localeError;
+      }
+    }
   } catch (error) {
     console.error(`Error fetching author by UID: ${uid}`, error);
     return null;
@@ -660,22 +878,19 @@ async function getAuthorByUid(uid: string): Promise<AuthorEntry | null> {
 
 /**
  * Helper to resolve author references that may not be fully populated
- * When fetching localized content, references to non-localized entries may not resolve
- * This function always fetches author data from the fallback locale to ensure consistency
+ * Fetches author data in the specified locale, falls back to default locale if not found
  */
-async function resolveAuthorReferences(course: CourseEntry): Promise<CourseEntry> {
+async function resolveAuthorReferences(course: CourseEntry, locale?: string): Promise<CourseEntry> {
   if (!course.author) return course;
   
   const authors = Array.isArray(course.author) ? course.author : [course.author];
   const resolvedAuthors: AuthorEntry[] = [];
   
   for (const author of authors) {
-    // Always fetch the full author data from fallback locale to ensure we have all fields
-    // This is because author data (name, bio, social links) is marked as non-localizable
-    // but when fetching course in a different locale, the reference may not resolve properly
+    // Fetch author data in the specified locale to get localized bio/description
     if (author.uid) {
-      // Always fetch fresh to ensure we get complete data
-      const fullAuthor = await getAuthorByUid(author.uid);
+      // Fetch fresh author data in the target locale
+      const fullAuthor = await getAuthorByUid(author.uid, locale);
       if (fullAuthor) {
         resolvedAuthors.push(fullAuthor);
       } else if (author.title) {
@@ -739,9 +954,9 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
       }
     }
     
-    // Ensure author references are fully resolved
+    // Ensure author references are fully resolved with the target locale
     if (course) {
-      course = await resolveAuthorReferences(course);
+      course = await resolveAuthorReferences(course, targetLocale);
       console.log(`[CMS] Course "${course.title}" loaded with ${Array.isArray(course.modules) ? course.modules.length : course.modules ? 1 : 0} modules`);
     }
     
@@ -794,9 +1009,9 @@ export async function getCourseByUid(uid: string, locale?: string): Promise<Cour
       }
     }
     
-    // Ensure author references are fully resolved
+    // Ensure author references are fully resolved with the target locale
     if (course) {
-      course = await resolveAuthorReferences(course);
+      course = await resolveAuthorReferences(course, targetLocale);
     }
     
     return course;
@@ -832,7 +1047,7 @@ export async function getModuleByUid(uid: string): Promise<ModuleEntry | null> {
 // ============================================
 
 /**
- * Fetch a single lesson by UID
+ * Fetch a single lesson by UID with fallback for non-localized resources
  */
 export async function getLessonByUid(uid: string, locale?: string): Promise<LessonEntry | null> {
   try {
@@ -841,16 +1056,47 @@ export async function getLessonByUid(uid: string, locale?: string): Promise<Less
     const entry = Stack.ContentType(CONTENT_TYPES.LESSON).Entry(uid);
     entry.language(targetLocale);
     
-    let result = await entry.toJSON().fetch();
+    let result = await entry.toJSON().fetch() as LessonEntry | null;
     
-    // If not found, try fallback locale
+    // Check if video_url or other non-localized resources are missing
+    const hasVideoUrl = result?.video_url?.href || 
+                       (typeof result?.video_url === 'string' && result.video_url) ||
+                       (result as any)?.video_link?.href;
+    
+    // If lesson found but missing video_url, try to get it from fallback locale
+    if (result && !hasVideoUrl && targetLocale !== FALLBACK_LOCALE) {
+      try {
+        const fallbackEntry = Stack.ContentType(CONTENT_TYPES.LESSON).Entry(uid);
+        fallbackEntry.language(FALLBACK_LOCALE);
+        const fallbackResult = await fallbackEntry.toJSON().fetch() as LessonEntry | null;
+        
+        // Merge fallback video_url into current result if it exists
+        if (fallbackResult) {
+          const fallbackVideoUrl = fallbackResult.video_url?.href || 
+                                  (typeof fallbackResult.video_url === 'string' ? fallbackResult.video_url : null) ||
+                                  (fallbackResult as any)?.video_link?.href;
+          
+          if (fallbackVideoUrl) {
+            // Merge video_url from fallback into result
+            result = {
+              ...result,
+              video_url: fallbackResult.video_url || result.video_url,
+            } as LessonEntry;
+          }
+        }
+      } catch (fallbackError) {
+        console.warn(`[CMS] Could not fetch fallback video_url for lesson ${uid}:`, fallbackError);
+      }
+    }
+    
+    // If not found at all, try fallback locale
     if (!result && targetLocale !== FALLBACK_LOCALE) {
       const fallbackEntry = Stack.ContentType(CONTENT_TYPES.LESSON).Entry(uid);
       fallbackEntry.language(FALLBACK_LOCALE);
-      result = await fallbackEntry.toJSON().fetch();
+      result = await fallbackEntry.toJSON().fetch() as LessonEntry | null;
     }
     
-    return result as LessonEntry;
+    return result;
   } catch (error) {
     // Try fallback locale on error
     if ((locale || getCurrentLocale()) !== FALLBACK_LOCALE) {
@@ -962,8 +1208,8 @@ export async function getCourseByLessonUid(lessonUid: string, locale?: string): 
     for (const course of courses) {
       const courseModules = Array.isArray(course.modules) ? course.modules : course.modules ? [course.modules] : [];
       if (courseModules.some(m => m.uid === targetModuleUid)) {
-        // Resolve author references for the matching course
-        const resolvedCourse = await resolveAuthorReferences(course);
+        // Resolve author references for the matching course with the target locale
+        const resolvedCourse = await resolveAuthorReferences(course, targetLocale);
         return resolvedCourse;
       }
     }

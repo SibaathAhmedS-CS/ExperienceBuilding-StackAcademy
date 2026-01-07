@@ -13,6 +13,7 @@ import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
 import { useCourses, useTransformedCourses, TransformedCourse } from '@/hooks/useCourses';
 import { syncPreferencesToLytics } from '@/services/preferenceTracking';
+import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { 
@@ -346,6 +347,7 @@ function filterCoursesByQuery(
 
 export default function HomePage() {
   const [user, setUser] = useState<typeof mockUser | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
   // Fetch header data from Contentstack
@@ -411,27 +413,41 @@ export default function HomePage() {
   useEffect(() => {
     // Check for Supabase user session and sync preferences to Lytics
     const checkUserAndSyncPreferences = async () => {
+      setIsLoadingUser(true);
       try {
         const { data: { user: authUser }, error } = await supabase.auth.getUser();
         
         if (error || !authUser) {
-          // No authenticated user - redirect to login
+          // No authenticated user - clear cache and redirect to login
+          const { clearUserCache } = await import('@/utils/userCache');
+          clearUserCache();
+          setIsLoadingUser(false);
           router.push('/login');
           return;
         }
 
-        // Get user profile from Supabase (including avatar_url)
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', authUser.id)
-          .maybeSingle();
+        // Check cache first for instant display
+        const cachedProfile = getCachedUserProfile(authUser.id);
+        if (cachedProfile) {
+          setUser(cachedProfile);
+          setIsLoadingUser(false); // Show cached data immediately
+        }
 
-        // Fetch enrollments for course counts
-        const { data: enrollments } = await supabase
-          .from('enrollments')
-          .select('status')
-          .eq('user_id', authUser.id);
+        // Fetch fresh data from Supabase in the background
+        const [profileResult, enrollmentsResult] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', authUser.id)
+            .maybeSingle(),
+          supabase
+            .from('enrollments')
+            .select('status')
+            .eq('user_id', authUser.id)
+        ]);
+
+        const profile = profileResult.data;
+        const enrollments = enrollmentsResult.data;
 
         const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
         const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
@@ -444,7 +460,16 @@ export default function HomePage() {
           coursesCompleted: completedCount,
           coursesInProgress: inProgressCount,
         };
-        setUser(userData);
+        
+        // Update cache with fresh data
+        cacheUserProfile(authUser.id, userData);
+        
+        // Update UI with fresh data (only if cache wasn't available or data changed)
+        if (!cachedProfile || JSON.stringify(cachedProfile) !== JSON.stringify(userData)) {
+          setUser(userData);
+        }
+        
+        setIsLoadingUser(false);
 
         // Fetch user preferences from Supabase first
         const { data: preferences } = await supabase
@@ -532,6 +557,7 @@ export default function HomePage() {
         });
       } catch (error) {
         console.error('Error checking user:', error);
+        setIsLoadingUser(false);
         router.push('/login');
       }
     };
@@ -573,7 +599,7 @@ export default function HomePage() {
 
   return (
     <>
-      <Header variant="app" user={user} headerData={headerData} />
+      <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
       
       <main className={styles.main} id="top">
         {/* Promotional Carousel */}

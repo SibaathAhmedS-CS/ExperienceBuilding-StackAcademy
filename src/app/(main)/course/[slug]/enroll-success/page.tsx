@@ -7,6 +7,7 @@ import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, normalizeArray, LessonEntry } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { sendCourseEnrollmentWebhook } from '@/utils/webhook';
+import { useLanguage } from '@/contexts/LanguageContext';
 import styles from './page.module.css';
 
 export default function EnrollmentSuccessPage() {
@@ -19,6 +20,7 @@ export default function EnrollmentSuccessPage() {
   const [confettiActive, setConfettiActive] = useState(false);
 
   const supabase = createClient();
+  const { selectedLanguage } = useLanguage();
 
   useEffect(() => {
     async function fetchCourseAndEnroll() {
@@ -48,21 +50,24 @@ export default function EnrollmentSuccessPage() {
               user_id: user.id,
               course_id: course.uid,
               status: 'enrolled',
-              course_domain: domain
+              course_domain: domain,
+              enrolled_locale: selectedLanguage
             });
             
-            // Prepare enrollment data with domain
+            // Prepare enrollment data with domain and locale
             const enrollmentData: {
               user_id: string;
               course_id: string;
               status: string;
               enrolled_at: string;
+              enrolled_locale: string;
               course_domain?: string | null;
             } = {
               user_id: user.id,
               course_id: course.uid,
               status: 'enrolled',
-              enrolled_at: new Date().toISOString()
+              enrolled_at: new Date().toISOString(),
+              enrolled_locale: selectedLanguage // Store current locale
             };
             
             // Add domain if it exists

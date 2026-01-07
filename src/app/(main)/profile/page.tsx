@@ -25,6 +25,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useHeader } from '@/hooks/useHeader';
 import { createClient } from '@/utils/supabase/client';
+import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
 import styles from './page.module.css';
 
 interface UserActivity {
@@ -49,6 +50,7 @@ export default function ProfilePage() {
   const { headerData } = useHeader('App Header');
   
   const [authUser, setAuthUser] = useState<any>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [user, setUser] = useState<{
     name: string;
     email: string;
@@ -95,22 +97,43 @@ export default function ProfilePage() {
   // Fetch user data and activity
   useEffect(() => {
     async function fetchUserData() {
+      setIsLoadingUser(true);
       try {
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         
         if (!currentUser) {
+          // Clear cache when user is not authenticated
+          const { clearUserCache } = await import('@/utils/userCache');
+          clearUserCache();
+          setIsLoadingUser(false);
           router.push('/login');
           return;
         }
 
         setAuthUser(currentUser);
 
-        // Fetch profile
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .maybeSingle();
+        // Check cache first for instant display
+        const cachedProfile = getCachedUserProfile(currentUser.id);
+        if (cachedProfile) {
+          setUser(cachedProfile);
+          setIsLoadingUser(false); // Show cached data immediately
+        }
+
+        // Fetch fresh data from Supabase in the background
+        const [profileResult, enrollmentsResult] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', currentUser.id)
+            .maybeSingle(),
+          supabase
+            .from('enrollments')
+            .select('status')
+            .eq('user_id', currentUser.id)
+        ]);
+
+        const profileData = profileResult.data;
+        const enrollments = enrollmentsResult.data;
 
         if (profileData) {
           setProfile(profileData);
@@ -120,12 +143,6 @@ export default function ProfilePage() {
           });
           setAvatarPreview(profileData.avatar_url || null);
         }
-
-        // Fetch enrollments for course counts
-        const { data: enrollments } = await supabase
-          .from('enrollments')
-          .select('status')
-          .eq('user_id', currentUser.id);
 
         const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
         const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
@@ -138,7 +155,16 @@ export default function ProfilePage() {
           coursesCompleted: completedCount,
           coursesInProgress: inProgressCount,
         };
-        setUser(userForHeader);
+        
+        // Update cache with fresh data
+        cacheUserProfile(currentUser.id, userForHeader);
+        
+        // Update UI with fresh data (only if cache wasn't available or data changed)
+        if (!cachedProfile || JSON.stringify(cachedProfile) !== JSON.stringify(userForHeader)) {
+          setUser(userForHeader);
+        }
+        
+        setIsLoadingUser(false);
 
         // Fetch preferences
         const { data: prefsData } = await supabase
@@ -383,7 +409,17 @@ export default function ProfilePage() {
       if (!publicUrl) {
         throw new Error('Failed to get public URL for uploaded image');
       }
+      
+      // Update cache with new avatar URL
+      if (authUser) {
+        updateCachedUserProfile(authUser.id, { avatar: publicUrl });
+      }
 
+      // Update cache with new avatar URL immediately
+      if (authUser) {
+        updateCachedUserProfile(authUser.id, { avatar: publicUrl });
+      }
+      
       console.log('Avatar uploaded successfully:', publicUrl);
       return publicUrl;
     } catch (error: any) {
@@ -457,11 +493,23 @@ export default function ProfilePage() {
       
       // Update user object for Header component with new avatar
       if (user) {
-        setUser({
+        const updatedUser = {
           ...user,
           name: profileForm.full_name.trim(),
           avatar: avatarUrl || undefined,
-        });
+        };
+        setUser(updatedUser);
+        
+        // Update cache with new profile data
+        if (authUser) {
+          cacheUserProfile(authUser.id, {
+            name: updatedUser.name,
+            email: updatedUser.email,
+            avatar: updatedUser.avatar,
+            coursesCompleted: updatedUser.coursesCompleted,
+            coursesInProgress: updatedUser.coursesInProgress,
+          });
+        }
       }
       
       console.log('Profile saved successfully');
@@ -546,7 +594,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <>
-        <Header variant="app" user={user} headerData={headerData} />
+        <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
         <main className={styles.main}>
           <div className={styles.loadingContainer}>
             <div className={styles.spinner} />
@@ -560,7 +608,7 @@ export default function ProfilePage() {
 
   return (
     <>
-      <Header variant="app" user={user} headerData={headerData} />
+      <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
       <main className={styles.main}>
         {/* Hero Section */}
         <section className={styles.hero}>

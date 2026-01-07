@@ -124,6 +124,23 @@ export async function transformCourseToCard(course: CourseEntry): Promise<Transf
     // Fallback to 0 if there's an error
   }
 
+  // Determine featured/popular status from CMS fields first, then fallback to dynamic calculation
+  // Priority: CMS fields > dynamic calculation based on real data
+  let isFeatured = course.is_featured ?? false;
+  let isPopular = course.is_popular ?? false;
+
+  // If not set in CMS, determine dynamically based on real data
+  // Featured: High rating (>= 4.8) and good enrollment (>= 20000)
+  // Popular: High enrollment (>= 30000) or high reviews (>= 10000)
+  if (!course.is_featured && !course.is_popular) {
+    if (rating >= 4.8 && studentsEnrolled >= 20000) {
+      isFeatured = true;
+    }
+    if (studentsEnrolled >= 30000 || reviewsCount >= 10000) {
+      isPopular = true;
+    }
+  }
+
   return {
     uid: course.uid,
     title: course.title,
@@ -137,8 +154,8 @@ export async function transformCourseToCard(course: CourseEntry): Promise<Transf
     reviewsCount,
     studentsEnrolled,
     category: course.taxonomies?.[0]?.term_uid || 'development',
-    isFeatured: course.taxonomies?.some(t => t.term_uid === 'ai_ml' || t.term_uid === 'data_science'),
-    isPopular: course.taxonomies?.some(t => t.term_uid === 'development'),
+    isFeatured,
+    isPopular,
   };
 }
 

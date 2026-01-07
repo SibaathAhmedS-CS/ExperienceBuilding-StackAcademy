@@ -295,7 +295,7 @@ export interface HeaderEntry {
     language: string;
     language_tag: string;
   }[];  // Supported languages with tags
-  search_visibility: boolean;
+  search_bar: boolean;  // Search bar visibility from CMS
   components: HeaderComponent[];
 }
 
@@ -357,7 +357,8 @@ export interface NewsletterEntry {
   heading: string;
   description: string;
   placeholder_text: string;
-  button_text: string;
+  button_text: string;  // Text when subscribed
+  not_subscribed_text: string;  // Text when not subscribed
 }
 
 // ============================================
@@ -493,6 +494,8 @@ export interface CourseEntry {
   requirements?: string;
   modules?: ModuleEntry | ModuleEntry[];
   updated_at?: string;
+  is_featured?: boolean;  // Featured flag from Contentstack CMS
+  is_popular?: boolean;  // Popular flag from Contentstack CMS
 }
 
 // Helper type guards for lesson resources

@@ -43,7 +43,7 @@ interface CarouselProps {
 // Default colors for carousel slides
 const defaultColors = ['#3b82f6', '#7c3aed', '#059669', '#dc2626', '#ea580c'];
 
-// Helper to extract image URL from various possible formats
+// Helper to extract image URL from various possible formats with fallback
 function extractImageUrl(banner: BannerEntry): string {
   // Try banner_image (asset reference)
   if (banner.banner_image?.url) {
@@ -51,7 +51,7 @@ function extractImageUrl(banner: BannerEntry): string {
   }
   
   // Try if banner_image is a string URL directly (variant case)
-  if (typeof banner.banner_image === 'string') {
+  if (typeof banner.banner_image === 'string' && banner.banner_image) {
     return banner.banner_image;
   }
   
@@ -64,6 +64,8 @@ function extractImageUrl(banner: BannerEntry): string {
     return bannerAny.image_url;
   }
   
+  // If still no image, try to fetch from fallback locale (this should be done server-side)
+  // For now, return empty string - the fallback should be handled in getPage
   return '';
 }
 

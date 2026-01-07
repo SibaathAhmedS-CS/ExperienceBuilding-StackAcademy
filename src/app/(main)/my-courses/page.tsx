@@ -8,6 +8,7 @@ import Footer from '@/components/Footer';
 import CourseCard from '@/components/CourseCard';
 import { useHeader } from '@/hooks/useHeader';
 import { createClient } from '@/utils/supabase/client';
+import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
 import { getCourseByUid } from '@/lib/contentstack';
 import { CourseEntry, normalizeArray, AuthorEntry } from '@/types/contentstack';
 import styles from './page.module.css';
@@ -26,35 +27,50 @@ export default function MyCoursesPage() {
   const { headerData } = useHeader('App Header');
   
   const [user, setUser] = useState<any>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'in-progress' | 'completed'>('all');
 
   useEffect(() => {
     async function fetchUserAndCourses() {
+      setIsLoadingUser(true);
       try {
         // Get current user
         const { data: { user: currentUser } } = await supabase.auth.getUser();
         
         if (!currentUser) {
+          // Clear cache when user is not authenticated
+          const { clearUserCache } = await import('@/utils/userCache');
+          clearUserCache();
+          setIsLoadingUser(false);
           router.push('/login');
           return;
         }
 
-        // Fetch profile with avatar_url
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, avatar_url')
-          .eq('id', currentUser.id)
-          .maybeSingle();
+        // Check cache first for instant display
+        const cachedProfile = getCachedUserProfile(currentUser.id);
+        if (cachedProfile) {
+          setUser(cachedProfile);
+          setIsLoadingUser(false); // Show cached data immediately
+        }
 
-        // Fetch enrolled courses from Supabase enrollments table (including completed)
-        // This single query provides data for both course counts and course list
-        const { data: enrollments, error: enrollmentsError } = await supabase
-          .from('enrollments')
-          .select('course_id, enrolled_at, status')
-          .eq('user_id', currentUser.id)
-          .in('status', ['enrolled', 'completed']);
+        // Fetch fresh data from Supabase in the background
+        const [profileResult, enrollmentsResult] = await Promise.all([
+          supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', currentUser.id)
+            .maybeSingle(),
+          supabase
+            .from('enrollments')
+            .select('course_id, enrolled_at, status')
+            .eq('user_id', currentUser.id)
+            .in('status', ['enrolled', 'completed'])
+        ]);
+
+        const profile = profileResult.data;
+        const { data: enrollments, error: enrollmentsError } = enrollmentsResult;
 
         if (enrollmentsError) {
           console.error('Error fetching enrollments:', enrollmentsError);
@@ -74,7 +90,16 @@ export default function MyCoursesPage() {
           coursesCompleted: completedCount,
           coursesInProgress: inProgressCount,
         };
-        setUser(userForHeader);
+        
+        // Update cache with fresh data
+        cacheUserProfile(currentUser.id, userForHeader);
+        
+        // Update UI with fresh data (only if cache wasn't available or data changed)
+        if (!cachedProfile || JSON.stringify(cachedProfile) !== JSON.stringify(userForHeader)) {
+          setUser(userForHeader);
+        }
+        
+        setIsLoadingUser(false);
 
         // Fetch course details from Contentstack and calculate progress
         const coursesWithDetails = await Promise.all(
@@ -120,6 +145,7 @@ export default function MyCoursesPage() {
         setEnrolledCourses(coursesWithDetails.filter(ec => ec !== null && ec.course) as EnrolledCourse[]);
       } catch (error) {
         console.error('Error fetching user courses:', error);
+        setIsLoadingUser(false);
       } finally {
         setLoading(false);
       }
@@ -170,7 +196,7 @@ export default function MyCoursesPage() {
   if (loading) {
     return (
       <>
-        <Header variant="app" user={user} headerData={headerData} />
+        <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
         <main className={styles.main}>
           <div className={styles.loadingContainer}>
             <div className={styles.spinner} />
