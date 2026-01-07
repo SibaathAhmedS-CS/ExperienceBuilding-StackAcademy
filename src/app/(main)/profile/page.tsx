@@ -902,7 +902,7 @@ export default function ProfilePage() {
                         <option value="explore-for-fun">Explore for Fun</option>
                       </select>
                     ) : (
-                      <p>{preferences?.goal ? preferences.goal.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set'}</p>
+                      <p>{preferences?.goal ? preferences.goal.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Not set'}</p>
                     )}
                   </div>
                 </div>
@@ -927,7 +927,7 @@ export default function ProfilePage() {
                         <option value="product-manager">Product Manager</option>
                       </select>
                     ) : (
-                      <p>{preferences?.role ? preferences.role.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set'}</p>
+                      <p>{preferences?.role ? preferences.role.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Not set'}</p>
                     )}
                   </div>
                 </div>
@@ -951,7 +951,7 @@ export default function ProfilePage() {
                         <option value="phd">PhD</option>
                       </select>
                     ) : (
-                      <p>{preferences?.education ? preferences.education.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'Not set'}</p>
+                      <p>{preferences?.education ? preferences.education.replace(/-/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) : 'Not set'}</p>
                     )}
                   </div>
                 </div>
