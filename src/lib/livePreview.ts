@@ -154,8 +154,10 @@ export async function initializeLivePreview(): Promise<void> {
       ssr: true, // Enable SSR mode for Next.js App Router (as per documentation)
       stackSdk: stackForPreview as any, // Pass stack instance directly
       // Recommended: Enables Edit Tags (as per documentation)
+      // This enables the edit buttons that appear on content elements
       editButton: {
-        enable: true,
+        enable: true, // Enable edit buttons
+        exclude: [], // Don't exclude any elements (show edit buttons everywhere)
       },
       stackDetails: {
         apiKey: apiKey, // Setting the API key from environment variables

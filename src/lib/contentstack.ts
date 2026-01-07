@@ -145,46 +145,72 @@ const Stack = defaultStack;
  * Add editable tags to content entry for Live Preview edit buttons
  * This adds data-cslp attributes that Live Preview SDK needs to show edit buttons
  * Uses Contentstack.Utils.addEditableTags() pattern from reference implementation
+ * 
+ * Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/set-up-live-edit-tags-for-entries-with-rest
  */
 function addLivePreviewTags<T>(entry: T | null, contentTypeUid?: string): T | null {
   if (!entry) return null;
   
-  // Only add tags if Live Preview is enabled
+  // Check if Live Preview is enabled via environment variable
   const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
                           process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
   
-  if (!isPreviewEnabled) {
+  // Also check if Live Preview is active (client-side check)
+  let isLivePreviewActive = isPreviewEnabled;
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    isLivePreviewActive = isPreviewEnabled || urlParams.get('live_preview') === 'true' || !!urlParams.get('hash');
+  }
+  
+  if (!isLivePreviewActive) {
     return entry;
   }
   
   try {
-    // Use Contentstack.Utils.addEditableTags() if available
-    // This matches the reference implementation pattern
+    // Use @contentstack/utils addEditableTags (recommended approach)
+    // This is the official way to add editable tags for Live Preview
+    const { addEditableTags } = require('@contentstack/utils');
+    const contentType = contentTypeUid || (entry as any)?.content_type || (entry as any)?._content_type_uid || '';
+    const locale = (entry as any)?.publish_details?.locale || 
+                   (entry as any)?.locale || 
+                   'en-us';
+    const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || 
+                        process.env.CONTENTSTACK_ENVIRONMENT || 
+                        'dev';
+    
+    if (contentType && (entry as any)?.uid) {
+      // addEditableTags(entry, contentTypeUid, locale, environment)
+      // This adds data-cslp attributes to the entry object
+      const taggedEntry = addEditableTags(entry as any, contentType, locale, environment);
+      
+      // Log for debugging
+      if (typeof window !== 'undefined' && isLivePreviewActive) {
+        console.log('[Contentstack] ✅ Added Live Preview tags to entry:', {
+          contentType,
+          uid: (entry as any)?.uid,
+          hasDataCslp: !!(taggedEntry as any)?.data_cslp || !!(taggedEntry as any)?.['data-cslp'],
+          entryKeys: Object.keys(taggedEntry || {}).slice(0, 10),
+        });
+      }
+      
+      return taggedEntry as T;
+    }
+    
+    // Fallback: Try Contentstack.Utils if @contentstack/utils doesn't work
     if (typeof Contentstack !== 'undefined' && (Contentstack as any).Utils && (Contentstack as any).Utils.addEditableTags) {
       const contentType = contentTypeUid || (entry as any)?.content_type || (entry as any)?._content_type_uid || '';
       if (contentType && (entry as any)?.uid) {
-        // Reference pattern: addEditableTags(entry, contentTypeUid, true)
         return (Contentstack as any).Utils.addEditableTags(entry, contentType, true) as T;
       }
-    }
-    
-    // Fallback to @contentstack/utils if Contentstack.Utils is not available
-    try {
-      const { addEditableTags } = require('@contentstack/utils');
-      const contentType = contentTypeUid || (entry as any)?.content_type || (entry as any)?._content_type_uid || '';
-      const locale = (entry as any)?.publish_details?.locale || 'en-us';
-      const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev';
-      
-      if (contentType && (entry as any)?.uid) {
-        return addEditableTags(entry as any, contentType, locale, environment) as T;
-      }
-    } catch (e) {
-      // Utils not available, skip tags
     }
     
     return entry;
   } catch (error) {
     console.warn('[Contentstack] Could not add Live Preview tags:', error);
+    // Don't fail silently - log the error for debugging
+    if (isLivePreviewActive) {
+      console.error('[Contentstack] Live Preview tags failed. Make sure @contentstack/utils is installed and entry has uid and contentType.');
+    }
     return entry;
   }
 }
