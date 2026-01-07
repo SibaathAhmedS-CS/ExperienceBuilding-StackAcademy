@@ -11,7 +11,7 @@
  * 4. Provides utilities to check preview status
  */
 
-import ContentstackLivePreview from '@contentstack/live-preview-utils';
+import ContentstackLivePreview, { IStackSdk } from '@contentstack/live-preview-utils';
 import Contentstack from 'contentstack';
 
 let livePreviewInitialized = false;
@@ -38,12 +38,13 @@ export function isLivePreviewActive(): boolean {
 
 /**
  * Get Live Preview query parameters from URL
- * Returns preview-related params if present
+ * Returns preview-related params if present, including the tracker hash
  */
 export function getLivePreviewParams(): {
   live_preview?: string;
   content_type_uid?: string;
   entry_uid?: string;
+  hash?: string;
 } {
   if (typeof window === 'undefined') return {};
   
@@ -52,6 +53,7 @@ export function getLivePreviewParams(): {
     live_preview: params.get('live_preview') || undefined,
     content_type_uid: params.get('content_type_uid') || undefined,
     entry_uid: params.get('entry_uid') || undefined,
+    hash: params.get('hash') || params.get('live_preview_hash') || undefined,
   };
 }
 
@@ -78,6 +80,21 @@ export async function initializeLivePreview(): Promise<void> {
   if (!isLivePreviewActive()) {
     console.log('[Live Preview] Preview mode not active. To enable, add ?live_preview=true to URL or set NEXT_PUBLIC_ENABLE_LIVE_PREVIEW=true');
     return;
+  }
+
+  // Get tracker hash from URL early to check if it's present
+  const previewParams = getLivePreviewParams();
+  const trackerHash = previewParams.hash;
+  
+  // Warn if no hash is present - Live Preview requires a valid hash from Contentstack
+  if (!trackerHash) {
+    console.warn('[Live Preview] ⚠️ No tracker hash found in URL');
+    console.warn('[Live Preview] ⚠️ Live Preview requires a valid hash from Contentstack\'s preview URL');
+    console.warn('[Live Preview] 💡 To use Live Preview:');
+    console.warn('[Live Preview]    1. Open Contentstack CMS');
+    console.warn('[Live Preview]    2. Click "Preview" on any entry');
+    console.warn('[Live Preview]    3. Use the generated preview URL (it includes ?hash=...)');
+    console.warn('[Live Preview] ⚠️ Continuing without hash may cause errors...');
   }
 
   // Get preview configuration from environment
@@ -114,58 +131,47 @@ export async function initializeLivePreview(): Promise<void> {
       hasPreviewToken: !!previewToken,
     });
 
-    // Create Stack instance with Live Preview configuration
-    // According to Contentstack docs: Use delivery_token, but configure live_preview with preview_token
-    // The SDK will handle switching to preview API internally
-    const deliveryToken = process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || 
-                          process.env.CONTENTSTACK_DELIVERY_TOKEN || '';
-    
-    if (!deliveryToken) {
-      console.warn('[Live Preview] ⚠️ Delivery token not found. Live Preview disabled.');
-      return;
-    }
-
-    // For Live Preview, use preview token as delivery_token
-    // The SDK will handle the preview API calls
-    const stackForPreview = Contentstack.Stack({
-      api_key: apiKey,
-      delivery_token: previewToken, // Use preview token as delivery token for preview mode
-      environment: environment,
-      branch: branch,
-      live_preview: {
-        enable: true,
-        preview_token: previewToken,
-        host: previewHost,
-      },
-    });
+    // Import the stack from contentstack.ts which already has live_preview config
+    // This matches the reference implementation pattern - use the shared stack
+    const { defaultStack } = await import('./contentstack');
+    const stackForPreview = defaultStack;
 
     // Initialize Live Preview SDK
     // The SDK will intercept Contentstack API calls and modify them for preview mode
     console.log('[Live Preview] 📦 Initializing SDK with config...');
+    if (trackerHash) {
+      console.log('[Live Preview] 🔑 Tracker hash found in URL:', trackerHash.substring(0, 20) + '...');
+    }
     
-    const initResult = await ContentstackLivePreview.init({
-      stackSdk: stackForPreview,
+    // Match reference implementation pattern
+    const initConfig: any = {
+      ssr: false, // Disabling server-side rendering for live preview
+      enable: process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
+              process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true', // Enabling live preview if specified
+      mode: 'builder', // Setting the mode to "builder" for visual builder (matches reference)
+      stackSdk: stackForPreview.config as IStackSdk, // Passing the stack configuration (matches reference)
       stackDetails: {
-        apiKey: apiKey,
-        environment: environment,
-        branch: branch,
+        apiKey: apiKey, // Setting the API key from environment variables
+        environment: environment, // Setting the environment from environment variables
       },
       clientUrlParams: {
+        // Setting the client URL parameters for live preview
         host: previewHost,
       },
-      ssr: false, // Set to false for client-side only (Next.js App Router)
-      enable: true, // Explicitly enable Live Preview
-      // Enable edit buttons to appear on content elements
       editButton: {
-        enable: true, // Enable edit buttons
-        position: 'top-right', // Position of edit buttons
-        includeByQueryParameter: true, // Show buttons when ?live_preview=true is in URL
+        enable: true, // Enabling the edit button for live preview
+        exclude: ['outsideLivePreviewPortal'], // Excluding the edit button from the live preview portal (matches reference)
       },
-      editInVisualBuilderButton: {
-        enable: true, // Enable visual builder edit button
-        position: 'top-right',
-      },
-    });
+    };
+    
+    // Add tracker hash if present in URL
+    // This is required for Live Preview to work correctly
+    if (trackerHash) {
+      initConfig.clientUrlParams.hash = trackerHash;
+      console.log('[Live Preview] ✅ Tracker hash added to SDK config');
+    }
+    
+    const initResult = await ContentstackLivePreview.init(initConfig);
 
     livePreviewInitialized = true;
     console.log('[Live Preview] ✅ SDK initialized successfully');
@@ -173,9 +179,10 @@ export async function initializeLivePreview(): Promise<void> {
     
     // Verify SDK is actually initialized
     try {
-      const isInitialized = ContentstackLivePreview.isInitialized?.() ?? false;
-      const config = ContentstackLivePreview.config;
-      const hash = ContentstackLivePreview.hash;
+      // Check if SDK has config property (indicates initialization)
+      const config = (ContentstackLivePreview as any).config;
+      const hash = (ContentstackLivePreview as any).hash;
+      const isInitialized = !!config || livePreviewInitialized;
       
       console.log('[Live Preview] 🔍 SDK Status:', {
         isInitialized,
@@ -184,7 +191,7 @@ export async function initializeLivePreview(): Promise<void> {
       });
       
       if (!isInitialized) {
-        console.warn('[Live Preview] ⚠️ SDK reports not initialized, but init() completed');
+        console.warn('[Live Preview] ⚠️ SDK may not be fully initialized');
       }
     } catch (checkError) {
       console.warn('[Live Preview] ⚠️ Could not verify SDK status:', checkError);
@@ -192,10 +199,21 @@ export async function initializeLivePreview(): Promise<void> {
     
     console.log('[Live Preview] 📡 Listening for real-time content updates...');
     
-    // Log preview params if present
-    const previewParams = getLivePreviewParams();
-    if (previewParams.entry_uid || previewParams.content_type_uid) {
+    // Log preview params if present (reuse previewParams from above)
+    if (previewParams.entry_uid || previewParams.content_type_uid || previewParams.hash) {
       console.log('[Live Preview] Preview params:', previewParams);
+    }
+    
+    // Log the tracker hash from SDK
+    try {
+      const hash = (ContentstackLivePreview as any).hash;
+      if (hash) {
+        console.log('[Live Preview] ✅ Tracker hash from SDK:', hash);
+      } else {
+        console.warn('[Live Preview] ⚠️ Tracker hash not available from SDK');
+      }
+    } catch (e) {
+      console.warn('[Live Preview] ⚠️ Could not get tracker hash:', e);
     }
     
     // Set up entry change listener for debugging
@@ -262,17 +280,13 @@ export function isLivePreviewSDKReady(): boolean {
   if (typeof window === 'undefined') return false;
   
   try {
-    // Check if SDK is initialized
-    if (typeof ContentstackLivePreview.isInitialized === 'function') {
-      return ContentstackLivePreview.isInitialized();
-    }
-    
-    // Check if we have the config
-    const config = ContentstackLivePreview.config;
+    // Check if SDK is initialized by checking for config property
+    const config = (ContentstackLivePreview as any).config;
     if (config && (config as any).enable) {
       return true;
     }
     
+    // Fallback to our internal flag
     return livePreviewInitialized;
   } catch (error) {
     console.warn('[Live Preview] Error checking SDK status:', error);

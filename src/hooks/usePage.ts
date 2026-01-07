@@ -24,6 +24,18 @@ export function usePage(title: string) {
       try {
         setIsLoading(true);
         
+        // Wait for Live Preview SDK to initialize if preview mode is active
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const isPreviewMode = urlParams.get('live_preview') === 'true' || 
+                               process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
+          
+          if (isPreviewMode) {
+            // Wait a bit for SDK to initialize and get tracker hash
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+        
         const currentVariant = getPersonalizeVariant();
         console.log(`[usePage] Fetching page "${title}" with variant:`, currentVariant);
         
