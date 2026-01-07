@@ -46,19 +46,19 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 const colorMap: Record<string, { bg: string; color: string; gradient: string }> = {
-  code: { bg: '#eef2ff', color: '#4f46e5', gradient: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
-  briefcase: { bg: '#f0fdf4', color: '#16a34a', gradient: 'linear-gradient(135deg, #16a34a, #22c55e)' },
-  palette: { bg: '#fdf4ff', color: '#c026d3', gradient: 'linear-gradient(135deg, #c026d3, #e879f9)' },
-  chart: { bg: '#fff7ed', color: '#ea580c', gradient: 'linear-gradient(135deg, #ea580c, #fb923c)' },
-  users: { bg: '#fef2f2', color: '#dc2626', gradient: 'linear-gradient(135deg, #dc2626, #f87171)' },
-  cloud: { bg: '#f0f9ff', color: '#0284c7', gradient: 'linear-gradient(135deg, #0284c7, #38bdf8)' },
-  shield: { bg: '#f5f3ff', color: '#7c3aed', gradient: 'linear-gradient(135deg, #7c3aed, #a78bfa)' },
-  smartphone: { bg: '#ecfeff', color: '#0891b2', gradient: 'linear-gradient(135deg, #0891b2, #22d3ee)' },
-  brain: { bg: '#fef3c7', color: '#d97706', gradient: 'linear-gradient(135deg, #d97706, #fbbf24)' },
-  camera: { bg: '#fce7f3', color: '#db2777', gradient: 'linear-gradient(135deg, #db2777, #f472b6)' },
-  megaphone: { bg: '#e0f2fe', color: '#0369a1', gradient: 'linear-gradient(135deg, #0369a1, #0ea5e9)' },
-  heart: { bg: '#ffe4e6', color: '#e11d48', gradient: 'linear-gradient(135deg, #e11d48, #fb7185)' },
-  default: { bg: '#f3f4f6', color: '#374151', gradient: 'linear-gradient(135deg, #374151, #6b7280)' },
+  code: { bg: '#dbeafe', color: '#2563eb', gradient: 'linear-gradient(135deg, #2563eb, #7c3aed)' },
+  briefcase: { bg: '#dcfce7', color: '#16a34a', gradient: 'linear-gradient(135deg, #16a34a, #22c55e)' },
+  palette: { bg: '#f3e8ff', color: '#9333ea', gradient: 'linear-gradient(135deg, #9333ea, #a855f7)' },
+  chart: { bg: '#fef3c7', color: '#d97706', gradient: 'linear-gradient(135deg, #d97706, #f59e0b)' },
+  users: { bg: '#fee2e2', color: '#dc2626', gradient: 'linear-gradient(135deg, #dc2626, #ef4444)' },
+  cloud: { bg: '#dbeafe', color: '#0284c7', gradient: 'linear-gradient(135deg, #0284c7, #0ea5e9)' },
+  shield: { bg: '#ede9fe', color: '#7c3aed', gradient: 'linear-gradient(135deg, #7c3aed, #9333ea)' },
+  smartphone: { bg: '#cffafe', color: '#0891b2', gradient: 'linear-gradient(135deg, #0891b2, #06b6d4)' },
+  brain: { bg: '#fef9c3', color: '#d97706', gradient: 'linear-gradient(135deg, #d97706, #f59e0b)' },
+  camera: { bg: '#fce7f3', color: '#db2777', gradient: 'linear-gradient(135deg, #db2777, #ec4899)' },
+  megaphone: { bg: '#dbeafe', color: '#0284c7', gradient: 'linear-gradient(135deg, #0284c7, #0ea5e9)' },
+  heart: { bg: '#ffe4e6', color: '#e11d48', gradient: 'linear-gradient(135deg, #e11d48, #f43f5e)' },
+  default: { bg: '#e0e7ff', color: '#4f46e5', gradient: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
 };
 
 export default function CategoryCard({

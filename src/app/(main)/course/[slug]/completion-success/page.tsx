@@ -6,6 +6,8 @@ import { Award, Sparkles, Trophy, Star, FileText } from 'lucide-react';
 import { getCourseBySlug } from '@/lib/contentstack';
 import { CourseEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
+import ReviewPopup from '@/components/ReviewPopup';
+import { getUserReview } from '@/services/reviews';
 import styles from './page.module.css';
 
 export default function CompletionSuccessPage() {
@@ -17,6 +19,9 @@ export default function CompletionSuccessPage() {
   const [animationStage, setAnimationStage] = useState<'loading' | 'success' | 'redirecting'>('loading');
   const [confettiActive, setConfettiActive] = useState(false);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+  const [showReviewPopup, setShowReviewPopup] = useState(false);
+  const [hasReviewed, setHasReviewed] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   const supabase = createClient();
 
@@ -27,9 +32,12 @@ export default function CompletionSuccessPage() {
         if (course) {
           setCourseData(course);
           
-          // Fetch enrollment ID for certificate link
+          // Fetch enrollment ID for certificate link and check for existing review
           const { data: { user } } = await supabase.auth.getUser();
-          if (user && course.uid) {
+          if (user) {
+            setCurrentUserId(user.id);
+            
+            if (course.uid) {
             const { data: enrollment } = await supabase
               .from('enrollments')
               .select('id')
@@ -39,6 +47,11 @@ export default function CompletionSuccessPage() {
             
             if (enrollment) {
               setEnrollmentId(enrollment.id);
+              }
+
+              // Check if user has already reviewed this course
+              const existingReview = await getUserReview(course.uid, user.id);
+              setHasReviewed(!!existingReview);
             }
           }
         }
@@ -63,17 +76,50 @@ export default function CompletionSuccessPage() {
   }, []);
 
   useEffect(() => {
-    if (animationStage === 'success') {
-      // Stage 2: Show success for 3 seconds, then redirect to certificate
+    if (animationStage === 'success' && courseData && currentUserId) {
+      // Show review popup after 2 seconds if user hasn't reviewed yet
+      if (!hasReviewed) {
+        const reviewTimer = setTimeout(() => {
+          setShowReviewPopup(true);
+        }, 2000);
+
+        return () => clearTimeout(reviewTimer);
+      }
+    }
+  }, [animationStage, courseData, currentUserId, hasReviewed]);
+
+  const handleReviewSubmitted = () => {
+    setHasReviewed(true);
+    setShowReviewPopup(false);
+  };
+
+  const handleReviewClose = () => {
+    setShowReviewPopup(false);
+    // After closing review popup, proceed with redirect
+    setTimeout(() => {
+      setAnimationStage('redirecting');
+      setTimeout(() => {
+        if (enrollmentId) {
+          router.push(`/certificate/${enrollmentId}`);
+        } else if (courseData?.uid) {
+          router.push(`/course/${slug}`);
+        } else {
+          router.push('/courses');
+        }
+      }, 1000);
+    }, 500);
+  };
+
+  useEffect(() => {
+    if (animationStage === 'success' && hasReviewed) {
+      // If user has already reviewed, proceed with redirect after 3 seconds
       const successTimer = setTimeout(() => {
         setAnimationStage('redirecting');
         
-        // Redirect to certificate page after 1 second
         setTimeout(() => {
           if (enrollmentId) {
             router.push(`/certificate/${enrollmentId}`);
           } else if (courseData?.uid) {
-            // Fallback: try to redirect to course page if enrollment not found
             router.push(`/course/${slug}`);
           } else {
             router.push('/courses');
@@ -83,7 +129,7 @@ export default function CompletionSuccessPage() {
 
       return () => clearTimeout(successTimer);
     }
-  }, [animationStage, enrollmentId, courseData, router, slug]);
+  }, [animationStage, enrollmentId, courseData, router, slug, hasReviewed]);
 
   // Generate confetti particles
   const confettiParticles = Array.from({ length: 60 }, (_, i) => ({
@@ -190,6 +236,16 @@ export default function CompletionSuccessPage() {
         <div className={styles.gradientOrb2} />
         <div className={styles.gradientOrb3} />
       </div>
+
+      {/* Review Popup */}
+      {showReviewPopup && courseData && (
+        <ReviewPopup
+          courseId={courseData.uid}
+          courseTitle={courseData.title}
+          onClose={handleReviewClose}
+          onReviewSubmitted={handleReviewSubmitted}
+        />
+      )}
     </div>
   );
 }

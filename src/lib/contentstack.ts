@@ -102,6 +102,9 @@ export async function getEntry<T = ContentstackEntry>(
       query.includeReference(field);
     });
 
+    // Apply variant header for personalization
+    applyVariantHeader(query);
+
     const result = await query.toJSON().fetch();
     return result as T;
   } catch (error) {
@@ -155,6 +158,9 @@ export async function getEntries<T = ContentstackEntry>(
       });
     }
 
+    // Apply variant header for personalization
+    applyVariantHeader(query);
+
     const result = await query.toJSON().find();
     return (result[0] || []) as T[];
   } catch (error) {
@@ -177,6 +183,9 @@ export async function getEntryByUrl<T = ContentstackEntry>(
     referenceFields.forEach((field) => {
       query.includeReference(field);
     });
+
+    // Apply variant header for personalization
+    applyVariantHeader(query);
 
     const result = await query.toJSON().find();
     return result[0]?.[0] as T || null;
@@ -218,6 +227,9 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
 
     // Set locale for content fetching
     query.language(targetLocale);
+
+    // Apply variant header for personalization
+    applyVariantHeader(query);
 
     const result = await query.toJSON().find();
     let pageEntry = result[0]?.[0] as PageEntry || null;
@@ -286,6 +298,9 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
         ]);
       
       query.language(targetLocale);
+
+      // Apply variant header for personalization
+      applyVariantHeader(query);
 
       const result = await query.toJSON().find();
       pageEntry = result[0]?.[0] as PageEntry || null;
@@ -1111,6 +1126,123 @@ export async function getAuthBranding(pageType: 'login' | 'signup'): Promise<Aut
   } catch (error) {
     console.error(`Error fetching auth branding for ${pageType}:`, error);
     return null;
+  }
+}
+
+// ============================================
+// Personalize Variant Management
+// ============================================
+
+let currentVariantUid: string | null = null;
+
+/**
+ * Set the current Personalize variant UID for use in API calls
+ */
+export function setPersonalizeVariant(variantUid: string | null): void {
+  currentVariantUid = variantUid;
+  console.log('[Contentstack] 🎭 Variant UID set:', variantUid);
+  
+  // Try to set header globally on Stack instance if possible
+  if (variantUid && Stack) {
+    try {
+      // Try different methods to set header globally
+      if (typeof (Stack as any).setHeader === 'function') {
+        (Stack as any).setHeader('x-cs-variant-uid', variantUid);
+        console.log('[Contentstack] 🎭 Set variant header globally on Stack via setHeader');
+      } else if (typeof (Stack as any).addHeader === 'function') {
+        (Stack as any).addHeader('x-cs-variant-uid', variantUid);
+        console.log('[Contentstack] 🎭 Set variant header globally on Stack via addHeader');
+      } else if ((Stack as any).headers) {
+        (Stack as any).headers['x-cs-variant-uid'] = variantUid;
+        console.log('[Contentstack] 🎭 Set variant header globally on Stack via headers object');
+      } else {
+        console.log('[Contentstack] ℹ️ Stack instance does not support global headers, will apply per query');
+      }
+    } catch (error) {
+      console.warn('[Contentstack] ⚠️ Could not set variant header globally:', error);
+      console.log('[Contentstack] ℹ️ Will apply variant header per query instead');
+    }
+  } else if (!variantUid && Stack) {
+    // Clear header if variant is null
+    try {
+      if ((Stack as any).headers && (Stack as any).headers['x-cs-variant-uid']) {
+        delete (Stack as any).headers['x-cs-variant-uid'];
+        console.log('[Contentstack] 🎭 Cleared variant header from Stack');
+      }
+    } catch (error) {
+      // Ignore errors when clearing
+    }
+  }
+}
+
+/**
+ * Get the current Personalize variant UID
+ */
+export function getPersonalizeVariant(): string | null {
+  return currentVariantUid;
+}
+
+/**
+ * Get variant headers for API calls
+ * Returns headers object with x-cs-variant-uid if variant is set
+ */
+export function getVariantHeaders(): Record<string, string> {
+  if (currentVariantUid) {
+    return {
+      'x-cs-variant-uid': currentVariantUid
+    };
+  }
+  return {};
+}
+
+/**
+ * Apply variant header to Contentstack query if variant is set
+ * This ensures personalized content is fetched based on the variant
+ */
+function applyVariantHeader(query: any): void {
+  if (currentVariantUid) {
+    try {
+      // Contentstack SDK supports addHeader method on queries
+      if (typeof query.addHeader === 'function') {
+        query.addHeader('x-cs-variant-uid', currentVariantUid);
+        console.log('[Contentstack] 🎭 Applied variant header to query:', currentVariantUid);
+      } else if (typeof query.setHeader === 'function') {
+        query.setHeader('x-cs-variant-uid', currentVariantUid);
+        console.log('[Contentstack] 🎭 Applied variant header to query:', currentVariantUid);
+      } else if (query && typeof query.addParam === 'function') {
+        // Some SDK versions use addParam for headers
+        query.addParam('x-cs-variant-uid', currentVariantUid);
+        console.log('[Contentstack] 🎭 Applied variant header via addParam:', currentVariantUid);
+      } else {
+        // Try to set headers on the Stack instance globally
+        if (Stack && typeof (Stack as any).setHeader === 'function') {
+          (Stack as any).setHeader('x-cs-variant-uid', currentVariantUid);
+          console.log('[Contentstack] 🎭 Applied variant header to Stack globally:', currentVariantUid);
+        } else if (Stack && typeof (Stack as any).addHeader === 'function') {
+          (Stack as any).addHeader('x-cs-variant-uid', currentVariantUid);
+          console.log('[Contentstack] 🎭 Applied variant header to Stack globally:', currentVariantUid);
+        } else {
+          // Last resort: try to modify the query's internal headers
+          try {
+            if (query && query.headers) {
+              query.headers['x-cs-variant-uid'] = currentVariantUid;
+              console.log('[Contentstack] 🎭 Applied variant header via headers object:', currentVariantUid);
+            } else {
+              console.warn('[Contentstack] ⚠️ Could not apply variant header - method not available');
+              console.warn('[Contentstack] ⚠️ Query type:', typeof query);
+              console.warn('[Contentstack] ⚠️ Query methods:', Object.getOwnPropertyNames(query || {}));
+              console.warn('[Contentstack] ⚠️ Variant UID:', currentVariantUid);
+            }
+          } catch (e) {
+            console.warn('[Contentstack] ⚠️ Could not apply variant header:', e);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[Contentstack] ❌ Error applying variant header:', error);
+    }
+  } else {
+    console.log('[Contentstack] ℹ️ No variant set, skipping variant header');
   }
 }
 

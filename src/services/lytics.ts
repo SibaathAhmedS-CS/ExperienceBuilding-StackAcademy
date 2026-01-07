@@ -72,6 +72,7 @@ export const identifyUser = (
       [key: string]: unknown;
     };
     attributes?: Record<string, unknown>;
+    total_completed_courses?: number;
   } = {}
 ): void => {
   if (!userData) return;
@@ -80,7 +81,8 @@ export const identifyUser = (
     waitForAudienceProcessing = false, 
     onSegmentsReady,
     preferences,
-    attributes 
+    attributes,
+    total_completed_courses
   } = options;
 
   const identifyData: Record<string, unknown> = {
@@ -92,6 +94,11 @@ export const identifyUser = (
     last_name: userData.name?.split(' ').slice(1).join(' '),
     created_at: userData.createdAt,
   };
+
+  // Add total_completed_courses if provided
+  if (total_completed_courses !== undefined && total_completed_courses !== null) {
+    identifyData.total_completed_courses = total_completed_courses;
+  }
 
   // Add preferences if provided
   if (preferences) {
@@ -673,7 +680,6 @@ export const getUserSegments = (options: {
       return;
     }
 
-    // If we don't need to wait for processing, try API methods and return
     if (!waitForProcessing) {
       waitForLytics(() => {
         try {

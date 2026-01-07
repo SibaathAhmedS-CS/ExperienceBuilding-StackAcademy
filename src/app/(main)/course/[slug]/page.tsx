@@ -31,6 +31,8 @@ import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } fr
 import { createClient } from '@/utils/supabase/client';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { trackCourseView } from '@/services/preferenceTracking';
+import { getCourseReviewStats, getTopReviews, getCourseEnrollmentCount } from '@/services/reviews';
+import type { CourseReview } from '@/services/reviews';
 import styles from './page.module.css';
 
 // Mock user data
@@ -192,6 +194,9 @@ export default function CoursePage() {
   const [isCompleted, setIsCompleted] = useState(false);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
   const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+  const [reviewStats, setReviewStats] = useState({ averageRating: 0, totalReviews: 0, ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } });
+  const [topReviews, setTopReviews] = useState<CourseReview[]>([]);
+  const [studentsEnrolled, setStudentsEnrolled] = useState(0);
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
@@ -247,6 +252,29 @@ export default function CoursePage() {
             setExpandedModules([modules[0].uid]);
           }
           
+          // Fetch review stats and enrollment count
+          if (course.uid) {
+            try {
+              const [stats, reviews, enrollmentCount] = await Promise.all([
+                getCourseReviewStats(course.uid),
+                getTopReviews(course.uid, 5),
+                getCourseEnrollmentCount(course.uid),
+              ]);
+              setReviewStats(stats);
+              setTopReviews(reviews);
+              setStudentsEnrolled(enrollmentCount);
+              
+              // Debug logging
+              console.log('[Course Page] Review stats:', stats);
+              console.log('[Course Page] Top reviews fetched:', reviews.length);
+              if (reviews.length > 0) {
+                console.log('[Course Page] First review:', reviews[0]);
+              }
+            } catch (error) {
+              console.error('[Course Page] Error fetching reviews:', error);
+            }
+          }
+          
           // Check enrollment status from Supabase
           const { data: { user: authUser } } = await supabase.auth.getUser();
           setCurrentUser(authUser);
@@ -300,12 +328,58 @@ export default function CoursePage() {
   }, [slug, supabase, selectedLanguage]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      setUser(mockUser);
+    async function fetchUserData() {
+      try {
+        const supabase = createClient();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (authUser) {
+          // Fetch profile with avatar_url
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', authUser.id)
+            .maybeSingle();
+
+          // Fetch enrollments for course counts
+          const { data: enrollments } = await supabase
+            .from('enrollments')
+            .select('status')
+            .eq('user_id', authUser.id);
+
+          const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+          const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
+
+          const userData = {
+            name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
+            email: authUser.email || '',
+            avatar: profile?.avatar_url || undefined,
+            coursesCompleted: completedCount,
+            coursesInProgress: inProgressCount,
+          };
+          setUser(userData);
+        } else {
+          // Fallback to localStorage or mock
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            setUser(JSON.parse(storedUser));
+          } else {
+            setUser(mockUser);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        // Fallback to localStorage or mock
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          setUser(mockUser);
+        }
+      }
     }
+
+    fetchUserData();
   }, []);
 
   const scrollToSection = (tab: TabType) => {
@@ -486,13 +560,17 @@ export default function CoursePage() {
                 {/* DB Data: Rating and Reviews */}
                 <div className={styles.rating}>
                   <Star size={18} fill="var(--warning-500)" stroke="var(--warning-500)" />
-                  <span className={styles.ratingValue}>{DUMMY_DB_DATA.rating}</span>
-                  <span className={styles.reviewsCount}>({DUMMY_DB_DATA.reviewsCount.toLocaleString()} reviews)</span>
+                  <span className={styles.ratingValue}>
+                    {reviewStats.averageRating > 0 ? reviewStats.averageRating.toFixed(1) : '0.0'}
+                  </span>
+                  <span className={styles.reviewsCount}>
+                    ({reviewStats.totalReviews.toLocaleString()} {reviewStats.totalReviews === 1 ? 'review' : 'reviews'})
+                  </span>
                 </div>
                 {/* DB Data: Students Enrolled */}
                 <div className={styles.metaItem}>
                   <Users size={18} />
-                  <span>{DUMMY_DB_DATA.studentsEnrolled.toLocaleString()} students</span>
+                  <span>{studentsEnrolled.toLocaleString()} {studentsEnrolled === 1 ? 'student' : 'students'}</span>
                 </div>
                 {/* CMS Data: Duration */}
                 <div className={styles.metaItem}>
@@ -700,52 +778,98 @@ export default function CoursePage() {
                 </div>
               </section>
 
-              {/* Reviews Section - DB Data (Dummy for now) */}
+              {/* Reviews Section - Real DB Data */}
               <section ref={reviewsRef} className={styles.section}>
                 <h2>Student Reviews</h2>
                 
-                <div className={styles.reviewsSummary}>
-                  <div className={styles.ratingLarge}>
-                    <span className={styles.ratingNumber}>{DUMMY_DB_DATA.rating}</span>
-                    <div className={styles.ratingStars}>
-                      {[...Array(5)].map((_, i) => (
-                        <Star 
-                          key={i} 
-                          size={20} 
-                          fill={i < Math.round(DUMMY_DB_DATA.rating) ? 'var(--warning-500)' : 'var(--neutral-300)'} 
-                          stroke={i < Math.round(DUMMY_DB_DATA.rating) ? 'var(--warning-500)' : 'var(--neutral-300)'}
-                        />
-                      ))}
-                    </div>
-                    <span className={styles.totalReviews}>
-                      {DUMMY_DB_DATA.reviewsCount.toLocaleString()} reviews
-                    </span>
-                  </div>
-                </div>
-
-                <div className={styles.reviewsList}>
-                  {DUMMY_DB_DATA.reviews.map((review) => (
-                    <div key={review.uid} className={styles.reviewItem}>
-                      <div className={styles.reviewHeader}>
-                        <div className={styles.reviewerAvatar}>
-                          <Image src={review.userAvatar} alt={review.userName} fill sizes="48px" />
+                {reviewStats.totalReviews > 0 ? (
+                  <>
+                    <div className={styles.reviewsSummary}>
+                      <div className={styles.ratingLarge}>
+                        <span className={styles.ratingNumber}>
+                          {reviewStats.averageRating.toFixed(1)}
+                        </span>
+                        <div className={styles.ratingStars}>
+                          {[...Array(5)].map((_, i) => (
+                            <Star 
+                              key={i} 
+                              size={20} 
+                              fill={i < Math.round(reviewStats.averageRating) ? 'var(--warning-500)' : 'var(--neutral-300)'} 
+                              stroke={i < Math.round(reviewStats.averageRating) ? 'var(--warning-500)' : 'var(--neutral-300)'}
+                            />
+                          ))}
                         </div>
-                        <div className={styles.reviewerInfo}>
-                          <h4>{review.userName}</h4>
-                          <div className={styles.reviewMeta}>
-                            <div className={styles.reviewStars}>
-                              {[...Array(review.rating)].map((_, i) => (
-                                <Star key={i} size={14} fill="var(--warning-500)" stroke="var(--warning-500)" />
-                              ))}
-                            </div>
-                            <span>{review.date}</span>
-                          </div>
-                        </div>
+                        <span className={styles.totalReviews}>
+                          {reviewStats.totalReviews.toLocaleString()} {reviewStats.totalReviews === 1 ? 'review' : 'reviews'}
+                        </span>
                       </div>
-                      <p className={styles.reviewComment}>{review.comment}</p>
                     </div>
-                  ))}
-                </div>
+
+                    <div className={styles.reviewsList}>
+                      {topReviews.length > 0 ? (
+                        topReviews.map((review) => {
+                          const reviewDate = new Date(review.created_at);
+                          const formattedDate = reviewDate.toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          });
+                          
+                          const userName = review.user_name || 'Anonymous';
+                          const userInitial = userName.charAt(0).toUpperCase();
+                          
+                          return (
+                            <div key={review.id} className={styles.reviewItem}>
+                              <div className={styles.reviewHeader}>
+                                <div className={styles.reviewerAvatar}>
+                                  {review.user_avatar_url ? (
+                                    <Image 
+                                      src={review.user_avatar_url} 
+                                      alt={userName} 
+                                      fill 
+                                      sizes="48px"
+                                      style={{ objectFit: 'cover' }}
+                                    />
+                                  ) : (
+                                    <span>{userInitial}</span>
+                                  )}
+                                </div>
+                                <div className={styles.reviewerInfo}>
+                                  <h4>{userName}</h4>
+                                  <div className={styles.reviewMeta}>
+                                    <div className={styles.reviewStars}>
+                                      {[...Array(review.rating)].map((_, i) => (
+                                        <Star key={i} size={14} fill="var(--warning-500)" stroke="var(--warning-500)" />
+                                      ))}
+                                    </div>
+                                    <span>{formattedDate}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              {review.comment && (
+                                <p className={styles.reviewComment}>{review.comment}</p>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : reviewStats.totalReviews > 0 ? (
+                        <p style={{ color: 'var(--neutral-500)', textAlign: 'center', padding: '40px 0' }}>
+                          Loading reviews...
+                        </p>
+                      ) : (
+                        <p style={{ color: 'var(--neutral-500)', textAlign: 'center', padding: '40px 0' }}>
+                          No reviews yet. Be the first to review this course!
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <p style={{ color: 'var(--neutral-500)' }}>
+                      No reviews yet. Be the first to review this course!
+                    </p>
+                  </div>
+                )}
               </section>
             </div>
           </div>

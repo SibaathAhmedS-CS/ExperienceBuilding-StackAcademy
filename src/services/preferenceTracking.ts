@@ -7,6 +7,7 @@
  */
 
 import lyticsService from './lytics';
+import { createClient } from '@/utils/supabase/client';
 
 export interface UserPreferences {
   goal: string | null;
@@ -27,7 +28,8 @@ export async function syncPreferencesToLytics(
     user_id: string;
     full_name?: string;
   },
-  preferences: UserPreferences
+  preferences: UserPreferences,
+  total_completed_courses?: number
 ): Promise<void> {
   if (typeof window === 'undefined') return;
 
@@ -83,9 +85,25 @@ export async function syncPreferencesToLytics(
           schedule: preferences.schedule,
           daily_goal_minutes: preferences.daily_goal_minutes,
         },
+        total_completed_courses,
         onSegmentsReady: async (segments) => {
           console.log('[PreferenceTracking] ✅ Audience processing complete after identify:');
           console.log('[PreferenceTracking] 📋 User segments:', JSON.stringify(segments, null, 2));
+          
+          // Check cs-lytics-audiences cookie and fetch variant if audience matches
+          // Fallback to database if cookie is not present or doesn't match
+          try {
+            const { fetchVariantFromAudiences } = await import('./personalize');
+            const supabase = createClient();
+            console.log('[PreferenceTracking] 🔄 Fetching variant (with database fallback)');
+            console.log('[PreferenceTracking] 🔄 User ID:', userData.user_id);
+            console.log('[PreferenceTracking] 🔄 Supabase client:', !!supabase);
+            const result = await fetchVariantFromAudiences(userData.user_id, supabase);
+            console.log('[PreferenceTracking] 🔄 Variant fetch result:', result);
+          } catch (error) {
+            console.error('[PreferenceTracking] ❌ Failed to fetch variant from audiences:', error);
+            console.error('[PreferenceTracking] ❌ Error details:', error instanceof Error ? error.stack : String(error));
+          }
           
           // Initialize Personalize SDK after segments are ready
           try {

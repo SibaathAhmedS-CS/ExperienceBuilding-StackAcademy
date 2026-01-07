@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getAllCourses } from '@/lib/contentstack';
 import { CourseEntry } from '@/types/contentstack';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { getCourseReviewStats, getCourseEnrollmentCount } from '@/services/reviews';
 
 export function useCourses() {
   const [courses, setCourses] = useState<CourseEntry[]>([]);
@@ -31,6 +32,39 @@ export function useCourses() {
   return { courses, isLoading, error };
 }
 
+// Hook to transform courses with real review and enrollment data
+export function useTransformedCourses(courses: CourseEntry[]) {
+  const [transformedCourses, setTransformedCourses] = useState<TransformedCourse[]>([]);
+  const [isTransforming, setIsTransforming] = useState(false);
+
+  useEffect(() => {
+    async function transformAllCourses() {
+      if (courses.length === 0) {
+        setTransformedCourses([]);
+        return;
+      }
+
+      setIsTransforming(true);
+      try {
+        const transformed = await Promise.all(
+          courses.map(course => transformCourseToCard(course))
+        );
+        setTransformedCourses(transformed);
+      } catch (error) {
+        console.error('Error transforming courses:', error);
+        // Fallback to empty array on error
+        setTransformedCourses([]);
+      } finally {
+        setIsTransforming(false);
+      }
+    }
+
+    transformAllCourses();
+  }, [courses]);
+
+  return { transformedCourses, isTransforming };
+}
+
 // Transformed course card type
 export interface TransformedCourse {
   uid: string;
@@ -38,6 +72,7 @@ export interface TransformedCourse {
   slug: string;
   thumbnail: string;
   instructorName: string;
+  instructorAvatar?: string;
   level: 'beginner' | 'intermediate' | 'advanced';
   duration: string;
   rating: number;
@@ -49,10 +84,18 @@ export interface TransformedCourse {
 }
 
 // Helper function to transform CMS course to card format
-export function transformCourseToCard(course: CourseEntry): TransformedCourse {
+export async function transformCourseToCard(course: CourseEntry): Promise<TransformedCourse> {
   // Get author name from reference (AuthorEntry uses 'title' for the name)
   const author = Array.isArray(course.author) ? course.author[0] : course.author;
   const authorName = author?.title || 'Unknown Instructor';
+
+  // Get author avatar/picture - check multiple possible field names
+  const instructorAvatar = 
+    (author as any)?.picture?.url || 
+    (author as any)?.profile_image?.url || 
+    (author as any)?.profile_image_link?.href || 
+    (author as any)?.picture?.href ||
+    undefined;
 
   // Get thumbnail from course_image_link
   const thumbnail = course.course_image_link?.href || 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=600';
@@ -64,18 +107,35 @@ export function transformCourseToCard(course: CourseEntry): TransformedCourse {
     'Advanced': 'advanced',
   };
 
+  // Fetch real review stats and enrollment count from database
+  let rating = 0;
+  let reviewsCount = 0;
+  let studentsEnrolled = 0;
+
+  try {
+    const reviewStats = await getCourseReviewStats(course.uid);
+    rating = reviewStats.averageRating;
+    reviewsCount = reviewStats.totalReviews;
+
+    const enrollmentCount = await getCourseEnrollmentCount(course.uid);
+    studentsEnrolled = enrollmentCount;
+  } catch (error) {
+    console.error(`Error fetching stats for course ${course.uid}:`, error);
+    // Fallback to 0 if there's an error
+  }
+
   return {
     uid: course.uid,
     title: course.title,
     slug: course.slug || course.uid, // Fallback to uid if slug is missing
     thumbnail,
     instructorName: authorName,
+    instructorAvatar,
     level: levelMap[course.difficulty_level] || 'beginner',
     duration: `${course.total_duration || course.duration || 0} hours`,
-    // These will come from DB later
-    rating: 4.5 + Math.random() * 0.4, // Mock rating between 4.5-4.9
-    reviewsCount: Math.floor(Math.random() * 10000) + 1000, // Mock reviews
-    studentsEnrolled: Math.floor(Math.random() * 50000) + 5000, // Mock students
+    rating,
+    reviewsCount,
+    studentsEnrolled,
     category: course.taxonomies?.[0]?.term_uid || 'development',
     isFeatured: course.taxonomies?.some(t => t.term_uid === 'ai_ml' || t.term_uid === 'data_science'),
     isPopular: course.taxonomies?.some(t => t.term_uid === 'development'),

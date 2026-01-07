@@ -41,9 +41,15 @@ export default function MyCoursesPage() {
           return;
         }
 
-        setUser(currentUser);
+        // Fetch profile with avatar_url
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, avatar_url')
+          .eq('id', currentUser.id)
+          .maybeSingle();
 
         // Fetch enrolled courses from Supabase enrollments table (including completed)
+        // This single query provides data for both course counts and course list
         const { data: enrollments, error: enrollmentsError } = await supabase
           .from('enrollments')
           .select('course_id, enrolled_at, status')
@@ -55,6 +61,20 @@ export default function MyCoursesPage() {
           setLoading(false);
           return;
         }
+
+        // Calculate course counts from enrollments data
+        const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+        const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
+
+        // Format user object for Header component
+        const userForHeader = {
+          name: profile?.full_name || currentUser.email?.split('@')[0] || 'User',
+          email: currentUser.email || '',
+          avatar: profile?.avatar_url || undefined,
+          coursesCompleted: completedCount,
+          coursesInProgress: inProgressCount,
+        };
+        setUser(userForHeader);
 
         // Fetch course details from Contentstack and calculate progress
         const coursesWithDetails = await Promise.all(
@@ -123,6 +143,17 @@ export default function MyCoursesPage() {
     if (!author) return 'Instructor';
     const authors = normalizeArray(author);
     return authors[0]?.title || 'Instructor';
+  };
+
+  // Get author avatar helper
+  const getAuthorAvatar = (author: AuthorEntry | AuthorEntry[] | undefined): string | undefined => {
+    if (!author) return undefined;
+    const authors = normalizeArray(author);
+    const authorObj = authors[0];
+    return authorObj?.profile_image_link?.href || 
+           authorObj?.profile_image?.url || 
+           authorObj?.picture?.url || 
+           undefined;
   };
 
   // Format duration helper
@@ -264,11 +295,12 @@ export default function MyCoursesPage() {
                       slug={course.slug}
                       thumbnail={thumbnail}
                       instructorName={getAuthorName(course.author)}
+                      instructorAvatar={getAuthorAvatar(course.author)}
                       level={course.difficulty_level?.toLowerCase() as 'beginner' | 'intermediate' | 'advanced' || 'beginner'}
                       duration={formatDuration(course.total_duration)}
-                      rating={4.8}
-                      reviewsCount={8900}
-                      studentsEnrolled={28000}
+                      rating={0}
+                      reviewsCount={0}
+                      studentsEnrolled={0}
                       progress={enrollment.progress}
                     />
                   );

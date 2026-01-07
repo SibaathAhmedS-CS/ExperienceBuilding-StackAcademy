@@ -1,6 +1,8 @@
 'use client';
 
+import { useState, FormEvent, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { 
   BookOpen, 
   Facebook, 
@@ -13,14 +15,17 @@ import {
   MapPin,
   ArrowRight,
   X,
+  Check,
   LucideIcon,
   GraduationCap,
   Library,
   School
 } from 'lucide-react';
+import { createClient } from '@/utils/supabase/client';
 import styles from './Footer.module.css';
 import { useFooter, useNewsletter } from '@/hooks/useFooter';
 import { FooterEntry, NewsletterEntry, IconEntry } from '@/types/contentstack';
+import Toast from '@/components/Toast';
 
 // Icon mapping for logo
 const logoIconMap: Record<string, LucideIcon> = {
@@ -82,6 +87,41 @@ interface FooterProps {
 }
 
 export default function Footer({ footerData: propFooterData, newsletterData: propNewsletterData }: FooterProps = {}) {
+  const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const pathname = usePathname();
+  const supabase = createClient();
+  
+  // Check if we're on home page (not landing page)
+  const isHomePage = pathname === '/home';
+  
+  // Check if user is already subscribed (on all pages)
+  useEffect(() => {
+    const checkSubscriptionStatus = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('newsletter_subscribed')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          if (profile?.newsletter_subscribed) {
+            setIsSubscribed(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error checking subscription status:', error);
+      }
+    };
+    
+    // Check subscription status on all pages
+    checkSubscriptionStatus();
+  }, [supabase]);
+
   // Fetch data from Contentstack if not provided via props
   const { footerData: fetchedFooterData } = useFooter();
   const { newsletterData: fetchedNewsletterData } = useNewsletter();
@@ -125,8 +165,113 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
     return socialIconMap[platformName] || Mail;
   };
 
+  // Handle newsletter subscription
+  const handleNewsletterSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    
+    // For landing page, validate email
+    if (!isHomePage && (!email || !email.includes('@'))) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Get current authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        // User not logged in - could show a message or redirect to login
+        console.error('User not authenticated');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Update user profile to set newsletter_subscribed = true
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ newsletter_subscribed: true })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Error updating newsletter subscription:', updateError);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Update subscription state
+      setIsSubscribed(true);
+      
+      // Show success toast
+      setShowToast(true);
+      
+      // Clear email input only on landing page
+      if (!isHomePage) {
+        setEmail('');
+      }
+      
+      // Auto-hide toast after 3 seconds
+      setTimeout(() => {
+        setShowToast(false);
+      }, 3000);
+
+    } catch (error) {
+      console.error('Error subscribing to newsletter:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+  // Handle subscribe button click (for home page - no form submission)
+  const handleSubscribeClick = async () => {
+    if (isSubscribed) return; // Already subscribed
+    
+    setIsSubmitting(true);
+
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !user) {
+        console.error('User not authenticated');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ newsletter_subscribed: true })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Error updating newsletter subscription:', updateError);
+        setIsSubmitting(false);
+        return;
+      }
+
+      setIsSubscribed(true);
+      setShowToast(true);
+      
+      setTimeout(() => {
+        setShowToast(false);
+      }, 3000);
+
+    } catch (error) {
+      console.error('Error subscribing to newsletter:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <footer className={styles.footer}>
+    <>
+      <Toast
+        message="Successfully subscribed to newsletter!"
+        type="success"
+        isVisible={showToast}
+        onClose={() => setShowToast(false)}
+        duration={3000}
+      />
+      <footer className={styles.footer}>
       {/* Newsletter Section */}
       <div className={styles.newsletter}>
         <div className={styles.container}>
@@ -135,16 +280,60 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
               <h3>{newsletterHeading}</h3>
               <p>{newsletterDescription}</p>
             </div>
-            <form className={styles.newsletterForm}>
-              <div className={styles.inputWrapper}>
-                <NewsletterIcon size={20} />
-                <input type="email" placeholder={newsletterPlaceholder} />
-              </div>
-              <button type="submit" className={styles.subscribeBtn}>
-                {newsletterButtonText}
-                <ArrowRight size={18} />
+            {isHomePage ? (
+              // Home page: Only subscribe button
+              <button 
+                className={`${styles.subscribeBtn} ${isSubscribed ? styles.subscribed : ''}`}
+                onClick={handleSubscribeClick}
+                disabled={isSubmitting || isSubscribed}
+              >
+                {isSubscribed ? (
+                  <>
+                    <Check size={18} />
+                    Subscribed
+                  </>
+                ) : (
+                  <>
+                    {isSubmitting ? 'Subscribing...' : newsletterButtonText}
+                    <ArrowRight size={18} />
+                  </>
+                )}
               </button>
-            </form>
+            ) : (
+              // Landing page: Email input + subscribe button
+              <form className={styles.newsletterForm} onSubmit={handleNewsletterSubmit}>
+                {!isSubscribed && (
+                  <div className={styles.inputWrapper}>
+                    <NewsletterIcon size={20} />
+                    <input 
+                      type="email" 
+                      placeholder={newsletterPlaceholder}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                )}
+                <button 
+                  type={isSubscribed ? 'button' : 'submit'}
+                  className={`${styles.subscribeBtn} ${isSubscribed ? styles.subscribed : ''}`}
+                  disabled={isSubmitting || isSubscribed}
+                >
+                  {isSubscribed ? (
+                    <>
+                      <Check size={18} />
+                      Subscribed
+                    </>
+                  ) : (
+                    <>
+                      {isSubmitting ? 'Subscribing...' : newsletterButtonText}
+                      <ArrowRight size={18} />
+                    </>
+                  )}
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </div>
@@ -209,5 +398,6 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
         </div>
       </div>
     </footer>
+    </>
   );
 }

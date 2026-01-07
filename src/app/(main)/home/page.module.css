@@ -4,9 +4,24 @@
   background: var(--neutral-50);
 }
 
-/* Carousel Section */
+/* Carousel Section - Full Width */
 .carouselSection {
-  padding: 32px 0;
+  padding: 0;
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  background: var(--neutral-50);
+}
+
+.carouselContainer {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  width: 100%;
 }
 
 /* Section Common Styles */
@@ -33,21 +48,24 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--primary-600);
+  color: #2563eb;
   font-weight: 600;
   font-size: 0.95rem;
   padding: 10px 20px;
   border-radius: var(--radius-md);
-  background: var(--primary-50);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
   transition: all 0.2s ease;
   text-decoration: none;
   white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
 }
 
 .viewAllBtn:hover {
-  background: var(--primary-100);
-  color: var(--primary-700);
+  background: linear-gradient(135deg, #2563eb, #1e40af);
+  color: white;
   transform: translateX(4px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.6);
 }
 
 /* Categories Section */

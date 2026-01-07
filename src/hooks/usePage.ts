@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PageEntry } from '@/types/contentstack';
-import { getPage, getPageByUrl } from '@/lib/contentstack';
+import { getPage, getPageByUrl, getPersonalizeVariant } from '@/lib/contentstack';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 /**
  * Custom hook to fetch page data from Contentstack by title
  * Falls back gracefully if CMS data is not available
+ * Refetches when variant changes for personalization
  * @param title - Page title to fetch
  */
 export function usePage(title: string) {
@@ -15,20 +16,27 @@ export function usePage(title: string) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const { selectedLanguage } = useLanguage();
+  const lastVariantRef = useRef<string | null>(null);
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     async function fetchPage() {
       try {
         setIsLoading(true);
         
+        const currentVariant = getPersonalizeVariant();
+        console.log(`[usePage] Fetching page "${title}" with variant:`, currentVariant);
+        
         const data = await getPage(title, selectedLanguage);
         
         setPageData(data);
+        lastVariantRef.current = currentVariant;
         
         if (data) {
-          console.log(`Page "${title}" fetched:`, {
+          console.log(`[usePage] Page "${title}" fetched:`, {
             sectionsCount: data.section?.length || 0,
             hasHeader: !!data.header,
+            variant: currentVariant,
           });
         }
       } catch (err) {
@@ -39,8 +47,47 @@ export function usePage(title: string) {
       }
     }
 
+    // Check for variant changes and refetch if needed
+    const checkVariantAndRefetch = () => {
+      const currentVariant = getPersonalizeVariant();
+      if (currentVariant && currentVariant !== lastVariantRef.current) {
+        console.log(`[usePage] Variant changed from ${lastVariantRef.current} to ${currentVariant}, refetching page...`);
+        fetchPage();
+      }
+    };
+
     if (title) {
       fetchPage();
+      
+      // Check for variant changes periodically (every 2 seconds for first 10 seconds)
+      // This handles the case where variant is set after initial fetch
+      let checkCount = 0;
+      const maxChecks = 5;
+      const checkInterval = setInterval(() => {
+        checkCount++;
+        checkVariantAndRefetch();
+        if (checkCount >= maxChecks) {
+          clearInterval(checkInterval);
+        }
+      }, 2000);
+      
+      // Also listen for storage events (variant might be set in another tab/context)
+      const handleStorageChange = () => {
+        checkVariantAndRefetch();
+      };
+      if (typeof window !== 'undefined') {
+        window.addEventListener('storage', handleStorageChange);
+      }
+      
+      return () => {
+        clearInterval(checkInterval);
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('storage', handleStorageChange);
+        }
+        if (fetchTimeoutRef.current) {
+          clearTimeout(fetchTimeoutRef.current);
+        }
+      };
     }
   }, [title, selectedLanguage]);
 

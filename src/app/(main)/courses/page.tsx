@@ -8,7 +8,8 @@ import CourseCard from '@/components/CourseCard';
 import CategoryCard from '@/components/CategoryCard';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
-import { useCourses, transformCourseToCard } from '@/hooks/useCourses';
+import { useCourses, useTransformedCourses } from '@/hooks/useCourses';
+import { createClient } from '@/utils/supabase/client';
 import {
   PageEntry,
   CategoryEntry,
@@ -260,8 +261,8 @@ export default function CoursesPage() {
   // Fetch courses from CMS
   const { courses: cmsCourses, isLoading: coursesLoading } = useCourses();
   
-  // Transform CMS courses to card format
-  const cmsCoursesForCards = cmsCourses.map(transformCourseToCard);
+  // Transform CMS courses to card format with real review/enrollment data
+  const { transformedCourses: cmsCoursesForCards, isTransforming } = useTransformedCourses(cmsCourses);
 
   // Extract page section data
   const coursesPageData = extractCoursesPageData(pageData);
@@ -269,12 +270,58 @@ export default function CoursesPage() {
   const hasCMSCategories = coursesPageData && coursesPageData.categories.length > 0;
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      setUser(mockUser);
+    async function fetchUserData() {
+      try {
+        const supabase = createClient();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (authUser) {
+          // Fetch profile with avatar_url
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', authUser.id)
+            .maybeSingle();
+
+          // Fetch enrollments for course counts
+          const { data: enrollments } = await supabase
+            .from('enrollments')
+            .select('status')
+            .eq('user_id', authUser.id);
+
+          const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+          const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
+
+          const userData = {
+            name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
+            email: authUser.email || '',
+            avatar: profile?.avatar_url || undefined,
+            coursesCompleted: completedCount,
+            coursesInProgress: inProgressCount,
+          };
+          setUser(userData);
+        } else {
+          // Fallback to localStorage or mock
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            setUser(JSON.parse(storedUser));
+          } else {
+            setUser(mockUser);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        // Fallback to localStorage or mock
+        const storedUser = localStorage.getItem('user');
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          setUser(mockUser);
+        }
+      }
     }
+
+    fetchUserData();
   }, []);
 
   // Close dropdown when clicking outside

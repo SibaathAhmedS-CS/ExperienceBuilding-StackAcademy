@@ -166,7 +166,7 @@ export default function Carousel({
                 <h2 className={styles.slideTitle} style={{ color: slide.textColor }}>{slide.label}</h2>
                 <p className={styles.slideDescription} style={{ color: slide.textColor }}>{slide.description}</p>
                 <Link href={slide.ctaUrl} className={styles.ctaButton}>
-                  {slide.ctaLabel}
+                  {slide.ctaLabel.includes('→') ? slide.ctaLabel.replace('→', '') : slide.ctaLabel}
                   <ArrowRight size={18} />
                 </Link>
               </div>

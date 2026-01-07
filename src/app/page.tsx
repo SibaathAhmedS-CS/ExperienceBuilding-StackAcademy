@@ -24,7 +24,7 @@ import CourseCard from '@/components/CourseCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
-import { useCourses, transformCourseToCard } from '@/hooks/useCourses';
+import { useCourses, useTransformedCourses } from '@/hooks/useCourses';
 import {
   PageEntry,
   IconEntry,
@@ -191,8 +191,9 @@ export default function LandingPage() {
   // Fetch courses from CMS
   const { courses: cmsCourses } = useCourses();
   
-  // Transform CMS courses to card format
-  const cmsCoursesForCards = cmsCourses.slice(0, 4).map(transformCourseToCard);
+  // Transform CMS courses to card format with real review/enrollment data
+  const { transformedCourses } = useTransformedCourses(cmsCourses);
+  const cmsCoursesForCards = transformedCourses.slice(0, 4);
 
   // Extract section data from CMS
   const sectionData = extractSectionData(pageData);

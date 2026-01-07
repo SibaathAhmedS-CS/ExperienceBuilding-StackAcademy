@@ -22,6 +22,10 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'commondatastorage.googleapis.com',
       },
+      {
+        protocol: 'https',
+        hostname: '**.supabase.co',
+      },
     ],
   },
   env: {

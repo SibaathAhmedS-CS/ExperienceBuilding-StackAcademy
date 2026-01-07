@@ -106,9 +106,11 @@ export default function Header({ variant = 'landing', user, headerData }: Header
   const [searchQuery, setSearchQuery] = useState('');
   const pathname = usePathname();
   
+  const isHomePage = pathname === '/home';
+  const { selectedLanguage, setSelectedLanguage } = useLanguage();
+  
   // Get languages from headerData (accessibility_language contains language and language_tag)
   const accessibilityLanguages = headerData?.accessibility_language || [];
-  const { selectedLanguage, setSelectedLanguage } = useLanguage();
   
   // Build display languages directly from CMS data (language = name, language_tag = code)
   const cmsLanguages = accessibilityLanguages.map(lang => ({
@@ -122,10 +124,8 @@ export default function Header({ variant = 'landing', user, headerData }: Header
     ? cmsLanguages 
     : [{ code: 'en-us', name: 'English' }, ...cmsLanguages];
   
-  // Show language selector when there are languages configured in CMS
-  const showLanguageSelector = accessibilityLanguages.length > 0;
-
-  const isHomePage = pathname === '/home';
+  // Show language selector only on home page and when languages are configured in CMS
+  const showLanguageSelector = isHomePage && accessibilityLanguages.length > 0;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -404,11 +404,8 @@ export default function Header({ variant = 'landing', user, headerData }: Header
               {link.label}
             </a>
           ))}
-        </nav>
-
-        {/* Right Section */}
-        <div className={styles.rightSection}>
-          {/* Language Selector - Show when CMS has languages configured */}
+          
+          {/* Language Selector - Only on Home Page */}
           {showLanguageSelector && (
             <div className={styles.languageWrapper}>
               <button
@@ -456,6 +453,10 @@ export default function Header({ variant = 'landing', user, headerData }: Header
               )}
             </div>
           )}
+        </nav>
+
+        {/* Right Section */}
+        <div className={styles.rightSection}>
 
           {/* Search Bar */}
           {showSearch && (
@@ -501,6 +502,7 @@ export default function Header({ variant = 'landing', user, headerData }: Header
                         <ProfileTriggerIcon size={20} />
                       )}
                     </div>
+                    <span className={styles.userName}>{user.name}</span>
                     <ChevronDown size={16} className={`${styles.chevron} ${isProfileOpen ? styles.open : ''}`} />
                   </button>
 

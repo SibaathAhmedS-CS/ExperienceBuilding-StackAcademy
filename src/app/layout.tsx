@@ -130,13 +130,13 @@ function setupLyticsListeners() {
           }
         }
         
-        if (segmentArray.length > 0) {
+      if (segmentArray.length > 0) {
           console.log('[Lytics] 🍪 Segments from cs-lytics-audiences cookie after profile update:', JSON.stringify(segmentArray, null, 2));
-          if (typeof window !== 'undefined' && window.dispatchEvent) {
-            window.dispatchEvent(new CustomEvent('lytics:segmentsUpdated', {
-              detail: { segments: segmentArray }
-            }));
-          }
+        if (typeof window !== 'undefined' && window.dispatchEvent) {
+          window.dispatchEvent(new CustomEvent('lytics:segmentsUpdated', {
+            detail: { segments: segmentArray }
+          }));
+        }
         }
       } catch (error) {
         console.warn('[Lytics] ⚠️ Error parsing cs-lytics-audiences cookie:', error);

@@ -1,10 +1,4 @@
 {
-  "app/(auth)/login/page.tsx -> @/services/preferenceTracking": {
-    "id": "app/(auth)/login/page.tsx -> @/services/preferenceTracking",
-    "files": [
-      "static/chunks/_app-pages-browser_src_services_preferenceTracking_ts.js"
-    ]
-  },
   "app/(main)/home/page.tsx -> @/services/lytics": {
     "id": "app/(main)/home/page.tsx -> @/services/lytics",
     "files": []
@@ -15,8 +9,8 @@
       "static/chunks/_app-pages-browser_src_services_personalize_ts.js"
     ]
   },
-  "app/page.tsx -> @/services/lytics": {
-    "id": "app/page.tsx -> @/services/lytics",
+  "services/personalize.ts -> @/lib/contentstack": {
+    "id": "services/personalize.ts -> @/lib/contentstack",
     "files": []
   },
   "services/preferenceTracking.ts -> ./personalize": {

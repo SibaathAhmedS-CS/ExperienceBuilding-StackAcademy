@@ -107,6 +107,18 @@ export default function LoginPage() {
         .eq('user_id', data.user.id)
         .maybeSingle();
       
+      // Fetch completed courses count from enrollments table
+      const { data: enrollments, error: enrollmentsError } = await supabase
+        .from('enrollments')
+        .select('status')
+        .eq('user_id', data.user.id)
+        .eq('status', 'completed');
+
+      const total_completed_courses = enrollments?.length || 0;
+      if (enrollmentsError) {
+        console.error('[Login] Error fetching completed courses:', enrollmentsError);
+      }
+      
       if (userPrefs) {
         await syncPreferencesToLytics(
           {
@@ -114,7 +126,8 @@ export default function LoginPage() {
             user_id: data.user.id,
             full_name: profile?.full_name || undefined,
           },
-          userPrefs
+          userPrefs,
+          total_completed_courses
         );
         
         // Wait a bit for audience processing, then refresh to show new audience

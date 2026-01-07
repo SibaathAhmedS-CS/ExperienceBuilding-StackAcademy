@@ -11,7 +11,7 @@ import CategoryCard from '@/components/CategoryCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
-import { useCourses, transformCourseToCard, TransformedCourse } from '@/hooks/useCourses';
+import { useCourses, useTransformedCourses, TransformedCourse } from '@/hooks/useCourses';
 import { syncPreferencesToLytics } from '@/services/preferenceTracking';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
@@ -357,6 +357,9 @@ export default function HomePage() {
   // Fetch courses from CMS
   const { courses: cmsCourses, isLoading: coursesLoading } = useCourses();
   
+  // Transform CMS courses to card format with real review/enrollment data
+  const { transformedCourses, isTransforming } = useTransformedCourses(cmsCourses);
+  
   // Extract section data from CMS
   const homeData = extractHomePageData(pageData);
   
@@ -364,12 +367,6 @@ export default function HomePage() {
   const cardBlocks = homeData?.cardBlocks || [];
   const topCoursesBlock = cardBlocks[0]; // First card block
   const recommendedBlock = cardBlocks[1]; // Second card block
-
-  // Transform CMS courses to card format (memoized)
-  const transformedCourses = useMemo(() => 
-    cmsCourses.map(transformCourseToCard),
-    [cmsCourses]
-  );
 
   // Filter courses for Section 1 (Top Rated) using query from variant
   const topCoursesFiltered = useMemo(() => {
@@ -423,19 +420,29 @@ export default function HomePage() {
           return;
         }
 
-        // Get user profile from Supabase
+        // Get user profile from Supabase (including avatar_url)
         const { data: profile } = await supabase
           .from('profiles')
-          .select('full_name')
+          .select('full_name, avatar_url')
           .eq('id', authUser.id)
           .maybeSingle();
+
+        // Fetch enrollments for course counts
+        const { data: enrollments } = await supabase
+          .from('enrollments')
+          .select('status')
+          .eq('user_id', authUser.id);
+
+        const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+        const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
 
         // Set user data for header
         const userData = {
           name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
           email: authUser.email || '',
-          coursesCompleted: 0, // TODO: Get from database
-          coursesInProgress: 0, // TODO: Get from database
+          avatar: profile?.avatar_url || undefined,
+          coursesCompleted: completedCount,
+          coursesInProgress: inProgressCount,
         };
         setUser(userData);
 
@@ -446,8 +453,33 @@ export default function HomePage() {
           .eq('user_id', authUser.id)
           .maybeSingle();
 
-        // Identify user in Lytics with preferences
+        // Use enrollments already fetched above for total_completed_courses
+        const total_completed_courses = completedCount;
+
+        // Identify user in Lytics with preferences and completed courses count
         const lyticsService = await import('@/services/lytics');
+        
+        // Also try to fetch variant immediately (will use database fallback if cookie doesn't match)
+        const fetchVariantImmediately = async () => {
+          try {
+            const { fetchVariantFromAudiences } = await import('@/services/personalize');
+            console.log('[Home] 🔄 Attempting to fetch variant immediately (with database fallback)');
+            console.log('[Home] 🔄 User ID:', authUser.id);
+            console.log('[Home] 🔄 Supabase client:', !!supabase);
+            const result = await fetchVariantFromAudiences(authUser.id, supabase);
+            console.log('[Home] 🔄 Variant fetch result:', result);
+          } catch (error) {
+            console.error('[Home] ❌ Failed to fetch variant immediately:', error);
+            console.error('[Home] ❌ Error details:', error instanceof Error ? error.stack : String(error));
+          }
+        };
+        
+        // Try immediately (will use database if cookie doesn't match)
+        // Use setTimeout to ensure it runs after the current execution context
+        setTimeout(() => {
+          fetchVariantImmediately();
+        }, 100);
+        
         lyticsService.default.identifyUser({
           email: authUser.email || '',
           id: authUser.id,
@@ -462,9 +494,24 @@ export default function HomePage() {
             schedule: preferences.schedule,
             daily_goal_minutes: preferences.daily_goal_minutes,
           } : undefined,
+          total_completed_courses,
           waitForAudienceProcessing: true,
           onSegmentsReady: async (segments) => {
             console.log('[Home] ✅ Lytics segments ready:', segments);
+            
+            // Check cs-lytics-audiences cookie and fetch variant if audience matches
+            // Fallback to database if cookie is not present or doesn't match
+            try {
+              const { fetchVariantFromAudiences } = await import('@/services/personalize');
+              console.log('[Home] 🔄 Fetching variant after segments ready (with database fallback)');
+              console.log('[Home] 🔄 User ID:', authUser.id);
+              console.log('[Home] 🔄 Supabase client:', !!supabase);
+              const result = await fetchVariantFromAudiences(authUser.id, supabase);
+              console.log('[Home] 🔄 Variant fetch result after segments:', result);
+            } catch (error) {
+              console.error('[Home] ❌ Failed to fetch variant from audiences:', error);
+              console.error('[Home] ❌ Error details:', error instanceof Error ? error.stack : String(error));
+            }
             
             // Initialize Personalize SDK after segments are ready
             try {
@@ -531,7 +578,7 @@ export default function HomePage() {
       <main className={styles.main} id="top">
         {/* Promotional Carousel */}
         <section className={styles.carouselSection}>
-          <div className="container">
+          <div className={styles.carouselContainer}>
             {hasCMSBanners ? (
               <Carousel 
                 banners={homeData.banners} 
