@@ -103,6 +103,9 @@ export async function initializeLivePreview(): Promise<void> {
   const previewHost = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_HOST || 
                       process.env.CONTENTSTACK_PREVIEW_HOST || 
                       'rest-preview.contentstack.com';
+  // Contentstack application host (for clientUrlParams) - different from preview API host
+  const applicationHost = process.env.NEXT_PUBLIC_CONTENTSTACK_CONTENT_APPLICATION || 
+                          'app.contentstack.com';
   const apiKey = process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || 
                  process.env.CONTENTSTACK_API_KEY || '';
   const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || 
@@ -143,25 +146,26 @@ export async function initializeLivePreview(): Promise<void> {
       console.log('[Live Preview] 🔑 Tracker hash found in URL:', trackerHash.substring(0, 20) + '...');
     }
     
-    // Match reference implementation pattern
-    // Note: For contentstack package (not @contentstack/delivery-sdk), we pass the stack instance directly
+    // Match Contentstack documentation pattern for SSR
+    // Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/set-up-live-preview-with-rest-for-server-side-rendering
     const initConfig: any = {
-      ssr: false, // Disabling server-side rendering for live preview
       enable: process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
               process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true', // Enabling live preview if specified
-      mode: 'builder', // Setting the mode to "builder" for visual builder (matches reference)
-      stackSdk: stackForPreview as any, // Pass stack instance directly (contentstack package structure differs from delivery-sdk)
+      ssr: true, // Enable SSR mode for Next.js App Router (as per documentation)
+      stackSdk: stackForPreview as any, // Pass stack instance directly
+      // Recommended: Enables Edit Tags (as per documentation)
+      editButton: {
+        enable: true,
+      },
       stackDetails: {
         apiKey: apiKey, // Setting the API key from environment variables
         environment: environment, // Setting the environment from environment variables
+        branch: branch, // Setting the branch from environment variables
       },
       clientUrlParams: {
-        // Setting the client URL parameters for live preview
-        host: previewHost,
-      },
-      editButton: {
-        enable: true, // Enabling the edit button for live preview
-        exclude: ['outsideLivePreviewPortal'], // Excluding the edit button from the live preview portal (matches reference)
+        protocol: 'https', // As per documentation
+        host: applicationHost, // Contentstack application host (app.contentstack.com), not preview API host
+        port: 443, // As per documentation
       },
     };
     

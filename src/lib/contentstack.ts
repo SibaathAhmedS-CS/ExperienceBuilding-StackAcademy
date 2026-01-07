@@ -88,11 +88,52 @@ function createStackWithLivePreview(): any {
 /**
  * Get the appropriate Stack instance
  * 
- * The defaultStack already includes live_preview configuration
- * Live Preview SDK will handle enabling/disabling based on environment variables
+ * According to Contentstack documentation:
+ * - For SSR, create a new Stack instance for each request when Live Preview is active
+ * - Use Stack.livePreviewQuery(queryParams) to pass the hash from query parameters
+ * 
+ * Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/set-up-live-preview-with-rest-for-server-side-rendering
  */
-function getStack(): any {
-  // Always return defaultStack - it already has live_preview config
+function getStack(queryParams?: Record<string, string | string[] | undefined>): any {
+  // If Live Preview is active and we have query params (server-side), create a new instance
+  if (typeof window === 'undefined' && queryParams) {
+    const hasLivePreview = queryParams.live_preview === 'true' || 
+                          queryParams.hash || 
+                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
+    
+    if (hasLivePreview && previewToken) {
+      // Create a new Stack instance and apply livePreviewQuery
+      // This ensures each request is isolated (as per documentation)
+      const stack = Contentstack.Stack({
+        api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '',
+        delivery_token: process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '',
+        environment: process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev',
+        branch: process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main',
+        live_preview: {
+          enable: true,
+          preview_token: previewToken,
+          host: previewHost,
+        },
+      });
+      
+      // Apply livePreviewQuery to pass hash from query parameters
+      // This is required for Live Preview to work in SSR mode
+      // Convert queryParams to the format expected by livePreviewQuery
+      if (typeof (stack as any).livePreviewQuery === 'function') {
+        const livePreviewParams: any = {
+          live_preview: queryParams.live_preview || 'true',
+          hash: queryParams.hash || queryParams.live_preview_hash,
+          content_type_uid: queryParams.content_type_uid,
+          entry_uid: queryParams.entry_uid,
+        };
+        (stack as any).livePreviewQuery(livePreviewParams);
+      }
+      
+      return stack;
+    }
+  }
+  
+  // Client-side or no Live Preview - return defaultStack
   return defaultStack;
 }
 
