@@ -11,7 +11,7 @@
  * 4. Provides utilities to check preview status
  */
 
-import ContentstackLivePreview, { IStackSdk } from '@contentstack/live-preview-utils';
+import ContentstackLivePreview from '@contentstack/live-preview-utils';
 import Contentstack from 'contentstack';
 
 let livePreviewInitialized = false;
@@ -144,12 +144,13 @@ export async function initializeLivePreview(): Promise<void> {
     }
     
     // Match reference implementation pattern
+    // Note: For contentstack package (not @contentstack/delivery-sdk), we pass the stack instance directly
     const initConfig: any = {
       ssr: false, // Disabling server-side rendering for live preview
       enable: process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
               process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true', // Enabling live preview if specified
       mode: 'builder', // Setting the mode to "builder" for visual builder (matches reference)
-      stackSdk: stackForPreview.config as IStackSdk, // Passing the stack configuration (matches reference)
+      stackSdk: stackForPreview as any, // Pass stack instance directly (contentstack package structure differs from delivery-sdk)
       stackDetails: {
         apiKey: apiKey, // Setting the API key from environment variables
         environment: environment, // Setting the environment from environment variables
