@@ -22,7 +22,7 @@ import {
 import Header from '@/components/Header';
 import VideoPlayer from '@/components/VideoPlayer';
 import { useHeader } from '@/hooks/useHeader';
-import { getCourseByLessonUid, getLessonByUid } from '@/lib/contentstack';
+import { getCourseByLessonUid, getLessonByUid, getLivePreviewAttrs } from '@/lib/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { sendCourseCompletionWebhook } from '@/utils/webhook';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -914,9 +914,10 @@ export default function ModulePage() {
             </div>
 
             <div className={styles.tabContent}>
-              {activeTab === 'content' && (
+              {activeTab === 'content' && currentLesson && currentLessonData && (
                 <div 
                   className={styles.lessonContent}
+                  {...getLivePreviewAttrs(currentLessonData, 'lesson_content')}
                   dangerouslySetInnerHTML={{ __html: currentLesson.content }}
                 />
               )}

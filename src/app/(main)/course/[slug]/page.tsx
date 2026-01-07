@@ -26,7 +26,7 @@ import Footer from '@/components/Footer';
 import CourseCard from '@/components/CourseCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
-import { getCourseBySlug, getAllCourses, getCoursesByAuthorUid, getCourseByUid } from '@/lib/contentstack';
+import { getCourseBySlug, getAllCourses, getCoursesByAuthorUid, getCourseByUid, getLivePreviewAttrs } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
@@ -771,9 +771,10 @@ export default function CoursePage() {
             <div className={styles.mainContent}>
               {/* About Section - CMS Data */}
               <section ref={aboutRef} className={styles.section}>
-                <h2>About This Course</h2>
+                <h2 {...getLivePreviewAttrs(courseData, 'title')}>About This Course</h2>
                 <div 
                   className={styles.description}
+                  {...getLivePreviewAttrs(courseData, 'about_the_course')}
                   dangerouslySetInnerHTML={{ __html: courseData.about_the_course || '' }}
                 />
 

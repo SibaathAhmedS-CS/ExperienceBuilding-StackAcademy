@@ -180,7 +180,8 @@ function addLivePreviewTags<T>(entry: T | null, contentTypeUid?: string): T | nu
     
     if (contentType && (entry as any)?.uid) {
       // addEditableTags(entry, contentTypeUid, locale, environment)
-      // This adds data-cslp attributes to the entry object
+      // This adds data-cslp attributes to the entry object's fields
+      // Each field will have a $ property containing the data-cslp attributes
       const taggedEntry = addEditableTags(entry as any, contentType, locale, environment);
       
       // Log for debugging
@@ -188,7 +189,6 @@ function addLivePreviewTags<T>(entry: T | null, contentTypeUid?: string): T | nu
         console.log('[Contentstack] ✅ Added Live Preview tags to entry:', {
           contentType,
           uid: (entry as any)?.uid,
-          hasDataCslp: !!(taggedEntry as any)?.data_cslp || !!(taggedEntry as any)?.['data-cslp'],
           entryKeys: Object.keys(taggedEntry || {}).slice(0, 10),
         });
       }
@@ -213,6 +213,48 @@ function addLivePreviewTags<T>(entry: T | null, contentTypeUid?: string): T | nu
     }
     return entry;
   }
+}
+
+/**
+ * Extract data-cslp attributes from a Contentstack entry field
+ * When addEditableTags is called, fields get a $ property with data-cslp attributes
+ * This helper extracts those attributes for use in React components
+ * 
+ * Usage:
+ *   const aboutCourse = courseData.about_the_course; // HTML string
+ *   const aboutAttrs = getLivePreviewAttrs(courseData, 'about_the_course');
+ *   <div {...aboutAttrs} dangerouslySetInnerHTML={{ __html: aboutCourse }} />
+ */
+export function getLivePreviewAttrs(entry: any, fieldName: string): Record<string, string> {
+  if (!entry || !fieldName) return {};
+  
+  // Check if Live Preview is active
+  const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
+                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
+  
+  let isLivePreviewActive = isPreviewEnabled;
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    isLivePreviewActive = isPreviewEnabled || urlParams.get('live_preview') === 'true' || !!urlParams.get('hash');
+  }
+  
+  if (!isLivePreviewActive) return {};
+  
+  // Get the field - it might be nested (e.g., entry.about_the_course)
+  const field = entry[fieldName];
+  if (!field) return {};
+  
+  // The $ property contains the data-cslp attributes
+  // Structure: field.$ = { 'data-cslp': '...' }
+  const attrs = (field as any)?.$ || {};
+  
+  // Extract data-cslp attribute if present
+  const dataCslp = attrs['data-cslp'] || attrs.data_cslp;
+  if (!dataCslp) return {};
+  
+  return {
+    'data-cslp': dataCslp,
+  };
 }
 
 // Type definitions for Contentstack entries
@@ -953,13 +995,13 @@ async function getAuthorByUid(uid: string, locale?: string): Promise<AuthorEntry
     const targetLocale = locale || getCurrentLocale();
     
     // First try with selected locale
-    try {
-      const query = Stack.ContentType(CONTENT_TYPES.AUTHOR)
-        .Entry(uid);
+  try {
+    const query = Stack.ContentType(CONTENT_TYPES.AUTHOR)
+      .Entry(uid);
       query.language(targetLocale);
-      
-      const result = await query.toJSON().fetch();
-      return result as AuthorEntry;
+    
+    const result = await query.toJSON().fetch();
+    return result as AuthorEntry;
     } catch (localeError) {
       // If locale fetch fails and we're not already using fallback, try fallback
       if (targetLocale !== FALLBACK_LOCALE) {
