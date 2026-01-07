@@ -20,13 +20,32 @@ import {
 import { isLivePreviewActive } from './livePreview';
 
 // Contentstack SDK Configuration - Default Stack (uses Delivery Token)
-// Live Preview configuration will be added when preview mode is active
-const defaultStack = Contentstack.Stack({
+// Live Preview configuration is included directly in the Stack config
+// Build live_preview config conditionally
+const previewToken = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_TOKEN || process.env.CONTENTSTACK_PREVIEW_TOKEN;
+const previewHost = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_HOST || process.env.CONTENTSTACK_PREVIEW_HOST || 'rest-preview.contentstack.com';
+const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
+
+const stackConfig: any = {
   api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '',
   delivery_token: process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '',
   environment: process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev',
   branch: process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main',
-});
+};
+
+// Add live_preview config if preview token is available
+if (previewToken) {
+  stackConfig.live_preview = {
+    // Enable live preview if specified in environment variables
+    enable: isPreviewEnabled,
+    // Setting the preview token from environment variables
+    preview_token: previewToken,
+    // Setting the host for live preview
+    host: previewHost,
+  };
+}
+
+export const defaultStack = Contentstack.Stack(stackConfig);
 
 // Create a function to get Stack with Live Preview config when needed
 function createStackWithLivePreview(): any {
