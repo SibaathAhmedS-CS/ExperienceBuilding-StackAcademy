@@ -25,7 +25,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { useHeader } from '@/hooks/useHeader';
 import { createClient } from '@/utils/supabase/client';
-import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
+import { getCachedUserProfile, cacheUserProfile, updateCachedUserProfile } from '@/utils/userCache';
 import styles from './page.module.css';
 
 interface UserActivity {
@@ -411,11 +411,6 @@ export default function ProfilePage() {
       }
       
       // Update cache with new avatar URL
-      if (authUser) {
-        updateCachedUserProfile(authUser.id, { avatar: publicUrl });
-      }
-
-      // Update cache with new avatar URL immediately
       if (authUser) {
         updateCachedUserProfile(authUser.id, { avatar: publicUrl });
       }
