@@ -15,7 +15,8 @@ import {
   LessonEntry,
   OnboardingBlockEntry,
   AuthBrandingEntry,
-  AuthorEntry
+  AuthorEntry,
+  isCarouselBlock
 } from '@/types/contentstack';
 import { isLivePreviewActive } from './livePreview';
 
@@ -181,7 +182,8 @@ async function enrichBannersWithFallback(
   
   const sections = Array.isArray(pageEntry.section) ? pageEntry.section : [];
   for (const section of sections) {
-    if (section.carousel_block?.banner) {
+    // Use type guard to narrow the type before accessing carousel_block
+    if (isCarouselBlock(section) && section.carousel_block?.banner) {
       const banners = Array.isArray(section.carousel_block.banner) 
         ? section.carousel_block.banner 
         : [section.carousel_block.banner];
