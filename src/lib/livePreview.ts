@@ -204,28 +204,6 @@ export async function initializeLivePreview(): Promise<void> {
     if (previewParams.entry_uid || previewParams.content_type_uid || previewParams.hash) {
       console.log('[Live Preview] Preview params:', previewParams);
     }
-    
-    // Log the tracker hash from SDK
-    try {
-      const hash = (ContentstackLivePreview as any).hash;
-      if (hash) {
-        console.log('[Live Preview] ✅ Tracker hash from SDK:', hash);
-      } else {
-        console.warn('[Live Preview] ⚠️ Tracker hash not available from SDK');
-      }
-    } catch (e) {
-      console.warn('[Live Preview] ⚠️ Could not get tracker hash:', e);
-    }
-    
-    // Set up entry change listener for debugging
-    try {
-      ContentstackLivePreview.onEntryChange?.((data) => {
-        console.log('[Live Preview] 🔄 Entry changed:', data);
-      });
-      console.log('[Live Preview] ✅ Entry change listener registered');
-    } catch (listenerError) {
-      console.warn('[Live Preview] ⚠️ Could not register entry change listener:', listenerError);
-    }
   } catch (error) {
     console.error('[Live Preview] ❌ Initialization failed:', error);
     livePreviewInitialized = false;
