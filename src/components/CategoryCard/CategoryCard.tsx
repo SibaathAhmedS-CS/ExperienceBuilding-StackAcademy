@@ -17,6 +17,7 @@ import {
   LucideIcon
 } from 'lucide-react';
 import styles from './CategoryCard.module.css';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
 
 interface CategoryCardProps {
   uid: string;
@@ -28,6 +29,7 @@ interface CategoryCardProps {
   isActive?: boolean;
   onClick?: () => void;
   variant?: 'default' | 'compact' | 'button';
+  _originalCategory?: any; // Original category entry with $ properties for Live Preview
 }
 
 const iconMap: Record<string, LucideIcon> = {
@@ -71,10 +73,15 @@ export default function CategoryCard({
   isActive = false,
   onClick,
   variant = 'default',
+  _originalCategory,
 }: CategoryCardProps) {
   const IconComponent = iconMap[icon] || Code;
   const colors = colorMap[icon] || colorMap.default;
 
+  // Get live preview attributes from original category entry
+  const livePreviewAttrs = _originalCategory ? getLivePreviewAttributes(_originalCategory.$) : undefined;
+  const titleAttrs = _originalCategory ? getLivePreviewAttributes(_originalCategory.$?.title) : undefined;
+  
   if (variant === 'button') {
     return (
       <button
@@ -85,11 +92,12 @@ export default function CategoryCard({
           '--category-color': colors.color,
           '--category-gradient': colors.gradient,
         } as React.CSSProperties}
+        {...livePreviewAttrs}
       >
-        <div className={styles.buttonIcon}>
+        <div className={styles.buttonIcon} {...getLivePreviewAttributes(_originalCategory?.$?.category_icon)}>
           <IconComponent size={20} />
         </div>
-        <span className={styles.buttonLabel}>{title}</span>
+        <span className={styles.buttonLabel} {...titleAttrs}>{title}</span>
       </button>
     );
   }
@@ -104,12 +112,13 @@ export default function CategoryCard({
           '--category-color': colors.color,
           '--category-gradient': colors.gradient,
         } as React.CSSProperties}
+        {...livePreviewAttrs}
       >
-        <div className={styles.compactIcon}>
+        <div className={styles.compactIcon} {...getLivePreviewAttributes(_originalCategory?.$?.category_icon)}>
           <IconComponent size={22} />
         </div>
         <div className={styles.compactContent}>
-          <h4 className={styles.compactTitle}>{title}</h4>
+          <h4 className={styles.compactTitle} {...titleAttrs}>{title}</h4>
           {courseCount !== undefined && (
             <span className={styles.compactCount}>{courseCount} Courses</span>
           )}
@@ -127,13 +136,16 @@ export default function CategoryCard({
         '--category-color': colors.color,
         '--category-gradient': colors.gradient,
       } as React.CSSProperties}
+      {...livePreviewAttrs}
     >
-      <div className={styles.iconWrapper}>
+      <div className={styles.iconWrapper} {...getLivePreviewAttributes(_originalCategory?.$?.category_icon)}>
         <IconComponent size={28} />
       </div>
-      <h3 className={styles.title}>{title}</h3>
+      <h3 className={styles.title} {...titleAttrs}>{title}</h3>
       {description && (
-        <p className={styles.description}>{description}</p>
+        <p className={styles.description} {...getLivePreviewAttributes(_originalCategory?.$?.description)}>
+          {description}
+        </p>
       )}
       {courseCount !== undefined && (
         <span className={styles.courseCount}>{courseCount} Courses</span>

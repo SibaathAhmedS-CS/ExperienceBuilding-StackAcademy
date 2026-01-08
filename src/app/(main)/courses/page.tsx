@@ -504,26 +504,6 @@ export default function CoursesPage() {
                 ? coursesPageData.searchTitle.description 
                 : 'Discover 1000+ courses to advance your skills and career'}
             </p>
-            
-            {/* Search Bar */}
-            <div className={styles.searchWrapper}>
-              <form onSubmit={(e) => { e.preventDefault(); }}>
-                <Search size={20} />
-                <input
-                  type="text"
-                  placeholder={hasCMSSearch 
-                    ? coursesPageData.searchPlaceholder 
-                    : 'Search courses, instructors...'}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </form>
-              {isAlgoliaSearching && searchQuery.trim().length >= 2 && (
-                <div style={{ position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.875rem', color: 'var(--neutral-500)' }}>
-                  Searching...
-                </div>
-              )}
-            </div>
           </div>
         </section>
 
@@ -539,7 +519,7 @@ export default function CoursesPage() {
                     {...category}
                     variant="button"
                     isActive={selectedCategory === category.slug}
-                    onClick={() => setSelectedCategory(category.slug)}
+                    onClick={() => setSelectedCategory(category.slug)} 
                   />
                 ))}
               </div>

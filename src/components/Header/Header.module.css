@@ -25,6 +25,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 32px;
+  position: relative;
+}
+
+/* Left Section - Logo and Navigation */
+.leftSection {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  flex: 0 0 auto;
+  min-width: 0; /* Prevent flex shrinking */
 }
 
 /* Logo */
@@ -33,6 +43,8 @@
   align-items: center;
   gap: 10px;
   text-decoration: none;
+  flex: 0 0 auto; /* Prevent logo from shrinking */
+  min-width: 0;
 }
 
 .logoIcon {
@@ -62,6 +74,8 @@
   align-items: center;
   gap: 8px;
   position: relative;
+  flex: 0 0 auto; /* Prevent nav from shrinking */
+  min-width: 0;
 }
 
 .navLink {
@@ -142,6 +156,8 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  flex: 0 0 auto; /* Prevent right section from shrinking */
+  margin-left: auto; /* Push to the right */
 }
 
 /* Language Selector */
@@ -513,6 +529,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: 0 0 auto; /* Prevent auth buttons from shrinking */
 }
 
 .loginBtn {
@@ -548,6 +565,7 @@
 /* User Section */
 .userSection {
   position: relative;
+  flex: 0 0 auto; /* Prevent user section from shrinking */
 }
 
 .profileWrapper {
@@ -586,19 +604,26 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gradient-primary);
+  background: var(--neutral-100);
   border-radius: 50%;
-  color: white;
+  color: var(--neutral-500);
   overflow: hidden;
   flex-shrink: 0;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  position: relative;
 }
 
 .avatar img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+.avatar svg {
+  width: 20px;
+  height: 20px;
+  color: var(--neutral-500);
 }
 
 .avatar svg {
@@ -905,7 +930,12 @@
 .loadingSkeleton {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  min-width: 180px; /* Match approximate profile button width */
+  height: 50px; /* Match profile button height */
+  flex: 0 0 auto; /* Prevent skeleton from shrinking */
 }
 
 .skeletonAvatar {
@@ -915,6 +945,28 @@
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+  flex-shrink: 0;
+}
+
+.skeletonUserName {
+  width: 100px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  flex-shrink: 0;
+}
+
+.skeletonChevron {
+  width: 16px;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 @keyframes shimmer {

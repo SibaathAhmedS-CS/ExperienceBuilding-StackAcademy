@@ -26,6 +26,7 @@ import styles from './Footer.module.css';
 import { useFooter, useNewsletter } from '@/hooks/useFooter';
 import { FooterEntry, NewsletterEntry, IconEntry } from '@/types/contentstack';
 import Toast from '@/components/Toast';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
 
 // Icon mapping for logo
 const logoIconMap: Record<string, LucideIcon> = {
@@ -273,14 +274,14 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
         onClose={() => setShowToast(false)}
         duration={3000}
       />
-      <footer className={styles.footer}>
+      <footer className={styles.footer} {...getLivePreviewAttributes(footerData?.$)}>
       {/* Newsletter Section */}
-      <div className={styles.newsletter}>
+      <div className={styles.newsletter} {...getLivePreviewAttributes((newsletterData as any)?.$)}>
         <div className={styles.container}>
           <div className={styles.newsletterContent}>
             <div className={styles.newsletterText}>
-              <h3>{newsletterHeading}</h3>
-              <p>{newsletterDescription}</p>
+              <h3 {...getLivePreviewAttributes((newsletterData as any)?.$?.heading)}>{newsletterHeading}</h3>
+              <p {...getLivePreviewAttributes((newsletterData as any)?.$?.description)}>{newsletterDescription}</p>
             </div>
             {isHomePage ? (
               // Home page: Only subscribe button
@@ -346,30 +347,31 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
           <div className={styles.simplifiedGrid}>
             {/* Left: Brand Column */}
             <div className={styles.brandColumn}>
-              <Link href="/" className={styles.logo}>
-                <div className={styles.logoIcon}>
+              <Link href="/" className={styles.logo} {...getLivePreviewAttributes(footerData?.$?.icon)}>
+                <div className={styles.logoIcon} {...getLivePreviewAttributes(footerData?.$?.icon)}>
                   <LogoIcon size={24} />
                 </div>
-                <span className={styles.logoText}>{logoText}</span>
+                <span className={styles.logoText} {...getLivePreviewAttributes(footerData?.$?.icon)}>{logoText}</span>
               </Link>
               <p 
                 className={styles.brandDescription}
+                {...getLivePreviewAttributes(footerData?.$?.brand_desciption)}
               >
                 {brandDescription}
               </p>
             </div>
 
             {/* Right: Contact Info */}
-            <div className={styles.contactInfo}>
-              <div className={styles.contactItem}>
+            <div className={styles.contactInfo} {...getLivePreviewAttributes(footerData?.$?.contact_info)}>
+              <div className={styles.contactItem} {...getLivePreviewAttributes((footerData as any)?.$?.['contact_info.email'])}>
                 <Mail size={16} />
                 <span>{contactEmail}</span>
               </div>
-              <div className={styles.contactItem}>
+              <div className={styles.contactItem} {...getLivePreviewAttributes((footerData as any)?.$?.['contact_info.phone_no'])}>
                 <Phone size={16} />
                 <span>{contactPhone}</span>
               </div>
-              <div className={styles.contactItem}>
+              <div className={styles.contactItem} {...getLivePreviewAttributes((footerData as any)?.$?.['contact_info.address'])}>
                 <MapPin size={16} />
                 <span>{contactAddress}</span>
               </div>
@@ -384,10 +386,11 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
           <div className={styles.bottomContent}>
             <p 
               className={styles.copyright}
+              {...getLivePreviewAttributes(footerData?.$?.copyright_text)}
             >
               {formattedCopyright}
             </p>
-            <div className={styles.socialLinks}>
+            <div className={styles.socialLinks} {...getLivePreviewAttributes(footerData?.$?.social_links)}>
               {socialLinks.map((social, index) => {
                 const SocialIcon = getSocialIcon(social.title);
                 return (
@@ -398,6 +401,7 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
                     rel="noopener noreferrer"
                     className={styles.socialLink}
                     aria-label={social.title}
+                    {...getLivePreviewAttributes((footerData as any)?.$?.[`social_links.${index}`])}
                   >
                     <SocialIcon size={20} />
                   </a>

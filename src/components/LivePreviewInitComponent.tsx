@@ -30,16 +30,12 @@ export default function LivePreviewInitComponent() {
       return; // Don't initialize if Live Preview is not active
     }
 
-    const previewToken = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_TOKEN || 
-                         process.env.CONTENTSTACK_PREVIEW_TOKEN;
-    const apiKey = process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || 
-                   process.env.CONTENTSTACK_API_KEY || '';
-    const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || 
-                        process.env.CONTENTSTACK_ENVIRONMENT || 'dev';
-    const branch = process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || 
-                   process.env.CONTENTSTACK_BRANCH || 'main';
-    const applicationHost = process.env.NEXT_PUBLIC_CONTENTSTACK_CONTENT_APPLICATION || 
-                            'app.contentstack.com';
+    const previewToken = process.env.CONTENTSTACK_PREVIEW_TOKEN;
+    const previewHost = process.env.CONTENTSTACK_PREVIEW_HOST;
+    const applicationHost = process.env.CONTENTSTACK_APP_HOST;
+    const apiKey = process.env.CONTENTSTACK_API_KEY;
+    const environment = process.env.CONTENTSTACK_ENVIRONMENT;
+    const branch = process.env.CONTENTSTACK_BRANCH;
 
     if (!previewToken || !apiKey) {
       console.warn('[Live Preview] ⚠️ Preview token or API key not found. Live Preview disabled.');
@@ -52,14 +48,13 @@ export default function LivePreviewInitComponent() {
       console.log('[Live Preview] 🚀 Initializing Live Preview SDK...');
       
       const initConfig: any = {
-        enable: true, // Always enable when this component runs
+        enable: true,
         ssr: true, // Enable SSR mode for Next.js App Router (as per documentation)
-        stackSdk: defaultStack as any, // Pass stack instance directly
+        stackSdk: defaultStack, // Pass stack instance directly
         // CRITICAL: Edit Tags must be enabled for edit buttons to appear
         // Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/live-preview-implementation-for-nextjs-ssr-app-router
         editButton: {
-          enable: true, // Enable edit buttons (REQUIRED for edit buttons to appear)
-          exclude: [], // Don't exclude any elements (show edit buttons everywhere)
+          enable: true,
         },
         stackDetails: {
           apiKey: apiKey,

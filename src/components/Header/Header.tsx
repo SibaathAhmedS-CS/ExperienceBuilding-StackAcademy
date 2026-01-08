@@ -34,6 +34,7 @@ import lyticsService from '@/services/lytics';
 import { clearUserCache } from '@/utils/userCache';
 import { useAlgoliaSearch } from '@/hooks/useAlgoliaSearch';
 import type { AlgoliaCourseRecord } from '@/lib/algolia';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
 
 // Icon mapping - maps CMS icon names to Lucide components
 const iconMap: Record<string, LucideIcon> = {
@@ -112,6 +113,7 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
   const [showSuggestions, setShowSuggestions] = useState(false);
   const { results: searchSuggestions, isLoading: isSearching } = useAlgoliaSearch(searchQuery);
   const [activeSection, setActiveSection] = useState<string>('');
+  const [avatarError, setAvatarError] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
   const router = useRouter();
@@ -149,7 +151,6 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
   const showSearch = Boolean(headerData?.search_bar === true 
     && !isProfilePage 
     && !isMyCoursesPage 
-    && !isCoursesPage 
     && !isLandingPage);
   
   // Debug logging (can be removed later)
@@ -173,6 +174,11 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // Reset avatar error when user changes
+  useEffect(() => {
+    setAvatarError(false);
+  }, [user?.avatar]);
 
   // Intersection Observer to track active section on landing page
   useEffect(() => {
@@ -531,42 +537,92 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
         document.head.removeChild(style);
       }
       
-      // Small delay to ensure cookies are cleared, then reload page
+      // Small delay to ensure cookies are cleared, then redirect
+      // Use window.location.replace to avoid adding to history and prevent double navigation
       setTimeout(() => {
-        window.location.href = '/';
+        window.location.replace('/');
       }, 200);
     } catch (error) {
       console.error('Error signing out:', error);
       // Still redirect even if there's an error
-      router.push('/');
+      window.location.replace('/');
     }
   };
 
   return (
-    <header className={`${styles.header} ${isScrolled ? styles.scrolled : ''}`}>
+    <header className={`${styles.header} ${isScrolled ? styles.scrolled : ''}`} {...getLivePreviewAttributes(headerData?.$)}>
       <div className={styles.container}>
-        <Link href={variant === 'landing' ? '/' : '/home'} className={styles.logo}>
-          <div className={styles.logoIcon}>
-            <LogoIcon size={24} />
-          </div>
-          <span className={styles.logoText}>
-            {logoText}
-          </span>
-        </Link>
+        {/* Left Section - Logo and Navigation */}
+        <div className={styles.leftSection}>
+          {/* Logo */}
+          <Link href={variant === 'landing' ? '/' : '/home'} className={styles.logo} {...getLivePreviewAttributes(headerData?.$?.icon)}>
+            <div className={styles.logoIcon} {...getLivePreviewAttributes(headerData?.$?.icon)}>
+              <LogoIcon size={24} />
+            </div>
+            <span className={styles.logoText} {...getLivePreviewAttributes(headerData?.$?.title)}>
+              {logoText}
+            </span>
+          </Link>
 
-        {/* Desktop Navigation */}
-        <nav className={styles.nav}>
+          {/* Desktop Navigation */}
+          <nav className={styles.nav} {...getLivePreviewAttributes(headerData?.$?.navigation)}>
           {navLinks.map((link, index) => {
             // Get original link from CMS if available
             const cmsLink = headerData?.navigation?.link?.[index];
+            
+            // Debug: Log the $ structure for first link to understand the format
+            if (index === 0 && process.env.NODE_ENV === 'development') {
+              console.log('Header $ object:', (headerData as any)?.$);
+              console.log('Navigation $:', (headerData as any)?.$?.navigation);
+            }
+            
+            // For array items, Contentstack typically uses bracket notation or nested structure
+            // Try multiple path formats to find the correct one
+            const $ = (headerData as any)?.$;
+            
+            // Format 1: Nested object structure (most common)
+            const nestedLink = $?.navigation?.link?.[index];
+            const nestedLinkTitle = $?.navigation?.link?.[index]?.title;
+            
+            // Format 2: Flattened with brackets: navigation.link[0]
+            const navFieldPathBracket = `navigation.link[${index}]`;
+            const flatPathBracket = $?.[navFieldPathBracket];
+            const flatPathTitleBracket = $?.[`${navFieldPathBracket}.title`];
+            
+            // Format 3: Flattened with dots: navigation.link.0
+            const navFieldPathDot = `navigation.link.${index}`;
+            const flatPathDot = $?.[navFieldPathDot];
+            const flatPathTitleDot = $?.[`${navFieldPathDot}.title`];
+            
+            // Format 4: Underscore format (like user's example): navigation_link__0
+            const navFieldPathUnderscore = `navigation_link__${index}`;
+            const flatPathUnderscore = $?.[navFieldPathUnderscore];
+            const flatPathTitleUnderscore = $?.[`${navFieldPathUnderscore}.title`];
+            
+            // Use the first available format
+            const linkAttributes = 
+              getLivePreviewAttributes(nestedLink) ||
+              getLivePreviewAttributes(flatPathBracket) ||
+              getLivePreviewAttributes(flatPathDot) ||
+              getLivePreviewAttributes(flatPathUnderscore);
+            
+            const titleAttributes = 
+              getLivePreviewAttributes(nestedLinkTitle) ||
+              getLivePreviewAttributes(flatPathTitleBracket) ||
+              getLivePreviewAttributes(flatPathTitleDot) ||
+              getLivePreviewAttributes(flatPathTitleUnderscore);
+            
             return (
               <a
                 key={link.label}
                 href={link.href}
                 className={`${styles.navLink} ${isLinkActive(link.href) ? styles.active : ''}`}
                 onClick={(e) => isAnchorLink(link.href) ? scrollToSection(e, link.href) : undefined}
+                {...linkAttributes}
               >
-                {link.label}
+                <span {...titleAttributes}>
+                  {link.label}
+                </span>
               </a>
             );
           })}
@@ -619,7 +675,8 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
               )}
             </div>
           )}
-        </nav>
+          </nav>
+        </div>
 
         {/* Right Section */}
         <div className={styles.rightSection}>
@@ -683,9 +740,11 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
 
           {/* Auth Buttons (Landing) or User Profile (App) */}
           {isLoading ? (
-            // Loading skeleton to prevent flash
+            // Loading skeleton to prevent flash - matches profile button dimensions
             <div className={styles.loadingSkeleton}>
               <div className={styles.skeletonAvatar}></div>
+              <div className={styles.skeletonUserName}></div>
+              <div className={styles.skeletonChevron}></div>
             </div>
           ) : (
             <>
@@ -720,8 +779,13 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
                       }}
                     >
                       <div className={styles.avatar}>
-                        {user.avatar ? (
-                          <img src={user.avatar} alt={user.name} />
+                        {user.avatar && !avatarError ? (
+                          <img 
+                            src={user.avatar} 
+                            alt={user.name}
+                            loading="lazy"
+                            onError={() => setAvatarError(true)}
+                          />
                         ) : (
                           <ProfileTriggerIcon size={20} />
                         )}
@@ -739,8 +803,13 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
                       <div className={styles.profileDropdown}>
                         <div className={styles.profileHeader}>
                           <div className={styles.avatarLarge}>
-                            {user.avatar ? (
-                              <img src={user.avatar} alt={user.name} />
+                            {user.avatar && !avatarError ? (
+                              <img 
+                                src={user.avatar} 
+                                alt={user.name}
+                                loading="lazy"
+                                onError={() => setAvatarError(true)}
+                              />
                             ) : (
                               <User size={28} />
                             )}

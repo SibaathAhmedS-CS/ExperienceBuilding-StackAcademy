@@ -1,4 +1,5 @@
 import Contentstack from 'contentstack';
+import { addEditableTags } from "@contentstack/utils";
 import { 
   HeaderEntry, 
   FooterEntry, 
@@ -23,11 +24,16 @@ import {
 
 // Contentstack SDK Configuration - Default Stack (uses Delivery Token)
 const stackConfig: any = {
-  api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '',
-  delivery_token: process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '',
-  environment: process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev',
-  branch: process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main',
-  region: process.env.CONTENTSTACK_REGION ? process.env.CONTENTSTACK_REGION : 'us',
+  api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY,
+  delivery_token:  process.env.CONTENTSTACK_DELIVERY_TOKEN,
+  environment: process.env.CONTENTSTACK_ENVIRONMENT,
+  branch: process.env.CONTENTSTACK_BRANCH,
+  region: process.env.CONTENTSTACK_REGION,
+  live_preview: {
+    enable: true,
+    host: process.env.CONTENTSTACK_PREVIEW_HOST,
+    preview_token: process.env.CONTENTSTACK_PREVIEW_TOKEN
+  }
 };
 
 export const defaultStack = Contentstack.Stack(stackConfig);
@@ -184,7 +190,15 @@ export async function getEntry<T = ContentstackEntry>(
     applyVariantHeader(query);
 
     const result = await query.toJSON().fetch();
-    return result as T;
+    const entry = result as T;
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && entry && typeof entry === 'object' && 'uid' in entry) {
+      addEditableTags(entry as any, contentType, true, locale);
+    }
+    
+    return entry;
   } catch (error) {
     console.error(`Error fetching entry: ${contentType}/${entryUid}`, error);
     return null;
@@ -242,6 +256,17 @@ export async function getEntries<T = ContentstackEntry>(
 
     const result = await query.toJSON().find();
     const entries = (result[0] || []) as T[];
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && entries.length > 0) {
+      entries.forEach((entry) => {
+        if (entry && typeof entry === 'object' && 'uid' in entry) {
+          addEditableTags(entry as any, contentType, true, options.locale);
+        }
+      });
+    }
+    
     return entries;
   } catch (error) {
     console.error(`Error fetching entries: ${contentType}`, error);
@@ -270,6 +295,13 @@ export async function getEntryByUrl<T = ContentstackEntry>(
 
     const result = await query.toJSON().find();
     const entry = result[0]?.[0] as T || null;
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && entry && typeof entry === 'object' && 'uid' in entry) {
+      addEditableTags(entry as any, contentType, true);
+    }
+    
     return entry;
   } catch (error) {
     console.error(`Error fetching entry by URL: ${contentType}/${url}`, error);
@@ -343,6 +375,12 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
       
       const fallbackResult = await fallbackQuery.toJSON().find();
       pageEntry = fallbackResult[0]?.[0] as PageEntry || null;
+    }
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && pageEntry) {
+      addEditableTags(pageEntry, CONTENT_TYPES.PAGE, true, targetLocale);
     }
     
     // Debug logging
@@ -450,6 +488,18 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
       
       // Enrich banners with fallback images if banner_image is missing (for fallback page)
       await enrichBannersWithFallback(pageEntry, FALLBACK_LOCALE);
+      
+      // Add Live Preview editable tags if enabled (for fallback page)
+      const liveEditFallback = isLiveEditEnabled();
+      if (liveEditFallback && pageEntry) {
+        addEditableTags(pageEntry, CONTENT_TYPES.PAGE, true, FALLBACK_LOCALE);
+      }
+    }
+    
+    // Add Live Preview editable tags if enabled (for successfully fetched page)
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && pageEntry) {
+      addEditableTags(pageEntry, CONTENT_TYPES.PAGE, true, targetLocale);
     }
 
     return pageEntry;
@@ -472,7 +522,17 @@ export async function getAllCategories(): Promise<CategoryEntry[]> {
       .Query()
       .toJSON()
       .find();
-    return (result[0] || []) as CategoryEntry[];
+    const categories = (result[0] || []) as CategoryEntry[];
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && categories.length > 0) {
+      categories.forEach((category) => {
+        addEditableTags(category, CONTENT_TYPES.CATEGORY, true);
+      });
+    }
+    
+    return categories;
   } catch (error) {
     console.error('Error fetching categories', error);
     return [];
@@ -484,11 +544,23 @@ export async function getAllCategories(): Promise<CategoryEntry[]> {
 // ============================================
 
 /**
+ * Check if live preview/edit tags should be enabled
+ * For server-side rendering, we check environment variables
+ * The client-side LivePreviewInitComponent will handle URL params
+ */
+function isLiveEditEnabled(): boolean {
+  // Check environment variables (works on both server and client)
+  return process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true' ||
+         process.env.CONTENTSTACK_LIVE_EDIT_TAGS === 'true' ||
+         process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true';
+}
+
+/**
  * Fetch Header entry by title
  * Header is always fetched in English since it contains non-translatable UI config
  * @param title - "Landing Header" or "App Header"
  */
-export async function getHeader(title: string): Promise<HeaderEntry | null> {
+export async function getHeader(title: string, locale: string = 'en-us'): Promise<HeaderEntry | null> {
   try {
     const query = Stack.ContentType(CONTENT_TYPES.HEADER)
       .Query()
@@ -496,10 +568,16 @@ export async function getHeader(title: string): Promise<HeaderEntry | null> {
       .includeReference('icon');
 
     // Always fetch header in English (contains UI configuration, not translated content)
-    query.language('en-us');
+    query.language(locale);
+
 
     const result = await query.toJSON().find();
-    const header = result[0]?.[0] as HeaderEntry || null;
+    const header = result[0]?.[0] as HeaderEntry | null;
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && header) {
+      addEditableTags(header, 'header', true, locale);
+    }
+    console.log('Header $ structure:', JSON.stringify((header as any)?.$, null, 2));
     
     if (header) {
       console.log(`[CMS] Header "${title}" loaded with ${header.accessibility_language?.length || 0} languages`);
@@ -522,7 +600,17 @@ export async function getAllHeaders(): Promise<HeaderEntry[]> {
       .includeReference('icon')
       .toJSON()
       .find();
-    return (result[0] || []) as HeaderEntry[];
+    const headers = (result[0] || []) as HeaderEntry[];
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && headers.length > 0) {
+      headers.forEach((header) => {
+        addEditableTags(header, CONTENT_TYPES.HEADER, true);
+      });
+    }
+    
+    return headers;
   } catch (error) {
     console.error('Error fetching all headers', error);
     return [];
@@ -561,6 +649,12 @@ export async function getFooter(locale?: string): Promise<FooterEntry | null> {
       footer = fallbackResult[0]?.[0] as FooterEntry || null;
     }
     
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && footer) {
+      addEditableTags(footer, 'footer', true, targetLocale);
+    }
+    
     return footer;
   } catch (error) {
     console.error('Error fetching footer', error);
@@ -594,6 +688,12 @@ export async function getNewsletter(locale?: string): Promise<NewsletterEntry | 
       
       const fallbackResult = await fallbackQuery.toJSON().find();
       newsletter = fallbackResult[0]?.[0] as NewsletterEntry || null;
+    }
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && newsletter) {
+      addEditableTags(newsletter, CONTENT_TYPES.NEWSLETTER, true, targetLocale);
     }
     
     return newsletter;
@@ -663,7 +763,17 @@ export async function getAllBanners(): Promise<BannerEntry[]> {
       .Query()
       .toJSON()
       .find();
-    return (result[0] || []) as BannerEntry[];
+    const banners = (result[0] || []) as BannerEntry[];
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && banners.length > 0) {
+      banners.forEach((banner) => {
+        addEditableTags(banner, CONTENT_TYPES.BANNER, true);
+      });
+    }
+    
+    return banners;
   } catch (error) {
     console.error('Error fetching banners', error);
     return [];
@@ -684,7 +794,17 @@ export async function getAllTestimonials(): Promise<TestimonialEntry[]> {
       .includeReference('author')
       .toJSON()
       .find();
-    return (result[0] || []) as TestimonialEntry[];
+    const testimonials = (result[0] || []) as TestimonialEntry[];
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && testimonials.length > 0) {
+      testimonials.forEach((testimonial) => {
+        addEditableTags(testimonial, CONTENT_TYPES.TESTIMONIAL, true);
+      });
+    }
+    
+    return testimonials;
   } catch (error) {
     console.error('Error fetching testimonials', error);
     return [];
@@ -736,6 +856,14 @@ export async function getAllCourses(locale?: string, customStack?: any, skipAuth
       courses.map(course => resolveAuthorReferences(course, targetLocale))
     );
     
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && resolvedCourses.length > 0) {
+      resolvedCourses.forEach((course) => {
+        addEditableTags(course, CONTENT_TYPES.COURSE, true, targetLocale);
+      });
+    }
+    
     return resolvedCourses;
   } catch (error) {
     console.error('Error fetching courses', error);
@@ -782,6 +910,14 @@ export async function getCoursesByAuthorUid(authorUid: string, locale?: string):
     const resolvedCourses = await Promise.all(
       authorCourses.map(course => resolveAuthorReferences(course, targetLocale))
     );
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && resolvedCourses.length > 0) {
+      resolvedCourses.forEach((course) => {
+        addEditableTags(course, CONTENT_TYPES.COURSE, true, targetLocale);
+      });
+    }
     
     return resolvedCourses;
   } catch (error) {
@@ -906,6 +1042,13 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
     // Ensure author references are fully resolved with the target locale
     if (course) {
       course = await resolveAuthorReferences(course, targetLocale);
+      
+      // Add Live Preview editable tags if enabled
+      const liveEdit = isLiveEditEnabled();
+      if (liveEdit) {
+        addEditableTags(course, CONTENT_TYPES.COURSE, true, targetLocale);
+      }
+      
       console.log(`[CMS] Course "${course.title}" loaded with ${Array.isArray(course.modules) ? course.modules.length : course.modules ? 1 : 0} modules`);
     }
     
@@ -961,6 +1104,12 @@ export async function getCourseByUid(uid: string, locale?: string): Promise<Cour
     // Ensure author references are fully resolved with the target locale
     if (course) {
       course = await resolveAuthorReferences(course, targetLocale);
+      
+      // Add Live Preview editable tags if enabled
+      const liveEdit = isLiveEditEnabled();
+      if (liveEdit) {
+        addEditableTags(course, CONTENT_TYPES.COURSE, true, targetLocale);
+      }
     }
     
     return course;
@@ -984,7 +1133,15 @@ export async function getModuleByUid(uid: string): Promise<ModuleEntry | null> {
       .includeReference(['lessons'])
       .toJSON()
       .fetch();
-    return result as ModuleEntry;
+    const module = result as ModuleEntry;
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && module) {
+      addEditableTags(module, CONTENT_TYPES.MODULE, true);
+    }
+    
+    return module;
   } catch (error) {
     console.error(`Error fetching module by UID: ${uid}`, error);
     return null;
@@ -1043,6 +1200,12 @@ export async function getLessonByUid(uid: string, locale?: string): Promise<Less
       const fallbackEntry = Stack.ContentType(CONTENT_TYPES.LESSON).Entry(uid);
       fallbackEntry.language(FALLBACK_LOCALE);
       result = await fallbackEntry.toJSON().fetch() as LessonEntry | null;
+    }
+    
+    // Add Live Preview editable tags if enabled
+    const liveEdit = isLiveEditEnabled();
+    if (liveEdit && result) {
+      addEditableTags(result, CONTENT_TYPES.LESSON, true, targetLocale);
     }
     
     return result;
@@ -1159,6 +1322,13 @@ export async function getCourseByLessonUid(lessonUid: string, locale?: string): 
       if (courseModules.some(m => m.uid === targetModuleUid)) {
         // Resolve author references for the matching course with the target locale
         const resolvedCourse = await resolveAuthorReferences(course, targetLocale);
+        
+        // Add Live Preview editable tags if enabled
+        const liveEdit = isLiveEditEnabled();
+        if (liveEdit && resolvedCourse) {
+          addEditableTags(resolvedCourse, CONTENT_TYPES.COURSE, true, targetLocale);
+        }
+        
         return resolvedCourse;
       }
     }
@@ -1233,6 +1403,14 @@ export async function getAllOnboardingSteps(): Promise<OnboardingBlockEntry[]> {
           });
         
         if (onboardingEntries.length > 0) {
+          // Add Live Preview editable tags if enabled
+          const liveEdit = isLiveEditEnabled();
+          if (liveEdit && onboardingEntries.length > 0) {
+            onboardingEntries.forEach((entry) => {
+              addEditableTags(entry, CONTENT_TYPES.ONBOARDING, true);
+            });
+          }
+          
           console.log(`[CMS] Successfully fetched ${onboardingEntries.length} onboarding steps from ${contentType}`);
           return onboardingEntries.sort((a, b) => a.current_step - b.current_step);
         }

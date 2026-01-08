@@ -585,6 +585,7 @@ export default function HomePage() {
             slug: cat.taxonomies?.[0]?.term_uid || cat.title.toLowerCase().replace(/\s+/g, '-'),
             icon: cat.category_icon || 'code',
             courseCount: 100 + (index * 25), // Placeholder count
+            _originalCategory: cat, // Preserve original entry for Live Preview
           }))
         // Legacy IconEntry format (fallback)
         : homeData.legacyCategories.map((cat, index) => ({
@@ -593,6 +594,7 @@ export default function HomePage() {
             slug: cat.title.toLowerCase().replace(/\s+/g, '-'),
             icon: cat.icon_name || 'code',
             courseCount: 100 + (index * 25),
+            _originalCategory: cat, // Preserve original entry for Live Preview
           }))
       )
     : fallbackCategories;

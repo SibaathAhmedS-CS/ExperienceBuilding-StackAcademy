@@ -158,6 +158,6 @@ export async function transformCourseToCard(course: CourseEntry): Promise<Transf
     isPopular,
     // Preserve original course entry for Live Preview $ attributes
     _originalCourse: course,
-  };
+  } as TransformedCourse & { _originalCourse: CourseEntry };
 }
 

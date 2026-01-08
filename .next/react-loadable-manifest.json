@@ -1,4 +1,10 @@
 {
+  "app/(auth)/login/page.tsx -> @/services/preferenceTracking": {
+    "id": "app/(auth)/login/page.tsx -> @/services/preferenceTracking",
+    "files": [
+      "static/chunks/_app-pages-browser_src_services_preferenceTracking_ts.js"
+    ]
+  },
   "app/(main)/home/page.tsx -> @/services/lytics": {
     "id": "app/(main)/home/page.tsx -> @/services/lytics",
     "files": []
@@ -15,6 +21,10 @@
   },
   "app/(main)/my-courses/page.tsx -> @/utils/userCache": {
     "id": "app/(main)/my-courses/page.tsx -> @/utils/userCache",
+    "files": []
+  },
+  "app/(main)/profile/page.tsx -> @/utils/userCache": {
+    "id": "app/(main)/profile/page.tsx -> @/utils/userCache",
     "files": []
   },
   "services/personalize.ts -> @/lib/contentstack": {

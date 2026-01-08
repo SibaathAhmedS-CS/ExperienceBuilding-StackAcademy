@@ -27,34 +27,7 @@ export function isLivePreviewActive(): boolean {
     // Server-side: check env variable only
     return process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
   }
-  
-  // Client-side: check both URL params and env variable
-  const urlParams = new URLSearchParams(window.location.search);
-  const hasPreviewParam = urlParams.get('live_preview') === 'true';
-  const hasEnvFlag = process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
-  
-  return hasPreviewParam || hasEnvFlag;
-}
-
-/**
- * Get Live Preview query parameters from URL
- * Returns preview-related params if present, including the tracker hash
- */
-export function getLivePreviewParams(): {
-  live_preview?: string;
-  content_type_uid?: string;
-  entry_uid?: string;
-  hash?: string;
-} {
-  if (typeof window === 'undefined') return {};
-  
-  const params = new URLSearchParams(window.location.search);
-  return {
-    live_preview: params.get('live_preview') || undefined,
-    content_type_uid: params.get('content_type_uid') || undefined,
-    entry_uid: params.get('entry_uid') || undefined,
-    hash: params.get('hash') || params.get('live_preview_hash') || undefined,
-  };
+  return false;
 }
 
 /**
@@ -81,37 +54,13 @@ export async function initializeLivePreview(): Promise<void> {
     console.log('[Live Preview] Preview mode not active. To enable, add ?live_preview=true to URL or set NEXT_PUBLIC_ENABLE_LIVE_PREVIEW=true');
     return;
   }
-
-  // Get tracker hash from URL early to check if it's present
-  const previewParams = getLivePreviewParams();
-  const trackerHash = previewParams.hash;
-  
-  // Warn if no hash is present - Live Preview requires a valid hash from Contentstack
-  if (!trackerHash) {
-    console.warn('[Live Preview] ⚠️ No tracker hash found in URL');
-    console.warn('[Live Preview] ⚠️ Live Preview requires a valid hash from Contentstack\'s preview URL');
-    console.warn('[Live Preview] 💡 To use Live Preview:');
-    console.warn('[Live Preview]    1. Open Contentstack CMS');
-    console.warn('[Live Preview]    2. Click "Preview" on any entry');
-    console.warn('[Live Preview]    3. Use the generated preview URL (it includes ?hash=...)');
-    console.warn('[Live Preview] ⚠️ Continuing without hash may cause errors...');
-  }
-
   // Get preview configuration from environment
-  const previewToken = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_TOKEN || 
-                       process.env.CONTENTSTACK_PREVIEW_TOKEN;
-  const previewHost = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_HOST || 
-                      process.env.CONTENTSTACK_PREVIEW_HOST || 
-                      'rest-preview.contentstack.com';
-  // Contentstack application host (for clientUrlParams) - different from preview API host
-  const applicationHost = process.env.NEXT_PUBLIC_CONTENTSTACK_CONTENT_APPLICATION || 
-                          'app.contentstack.com';
-  const apiKey = process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || 
-                 process.env.CONTENTSTACK_API_KEY || '';
-  const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || 
-                      process.env.CONTENTSTACK_ENVIRONMENT || 'dev';
-  const branch = process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || 
-                 process.env.CONTENTSTACK_BRANCH || 'main';
+  const previewToken = process.env.CONTENTSTACK_PREVIEW_TOKEN;
+  const previewHost = process.env.CONTENTSTACK_PREVIEW_HOST;
+  const applicationHost = process.env.CONTENTSTACK_APP_HOST;
+  const apiKey = process.env.CONTENTSTACK_API_KEY;
+  const environment = process.env.CONTENTSTACK_ENVIRONMENT;
+  const branch = process.env.CONTENTSTACK_BRANCH;
 
   // Validate required configuration
   if (!previewToken) {
@@ -139,13 +88,6 @@ export async function initializeLivePreview(): Promise<void> {
     const { defaultStack } = await import('./contentstack');
     const stackForPreview = defaultStack;
 
-    // Initialize Live Preview SDK
-    // The SDK will intercept Contentstack API calls and modify them for preview mode
-    console.log('[Live Preview] 📦 Initializing SDK with config...');
-    if (trackerHash) {
-      console.log('[Live Preview] 🔑 Tracker hash found in URL:', trackerHash.substring(0, 20) + '...');
-    }
-    
     // Match Contentstack documentation pattern for SSR
     // Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/set-up-live-preview-with-rest-for-server-side-rendering
     const initConfig: any = {
@@ -170,14 +112,8 @@ export async function initializeLivePreview(): Promise<void> {
         port: 443, // As per documentation
       },
     };
-    
-    // Add tracker hash if present in URL
-    // This is required for Live Preview to work correctly
-    if (trackerHash) {
-      initConfig.clientUrlParams.hash = trackerHash;
-      console.log('[Live Preview] ✅ Tracker hash added to SDK config');
-    }
-    
+
+
     const initResult = await ContentstackLivePreview.init(initConfig);
 
     livePreviewInitialized = true;
@@ -205,11 +141,6 @@ export async function initializeLivePreview(): Promise<void> {
     }
     
     console.log('[Live Preview] 📡 Listening for real-time content updates...');
-    
-    // Log preview params if present (reuse previewParams from above)
-    if (previewParams.entry_uid || previewParams.content_type_uid || previewParams.hash) {
-      console.log('[Live Preview] Preview params:', previewParams);
-    }
   } catch (error) {
     console.error('[Live Preview] ❌ Initialization failed:', error);
     livePreviewInitialized = false;

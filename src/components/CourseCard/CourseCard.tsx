@@ -5,6 +5,8 @@ import Image from 'next/image';
 import { Star, Clock, Users, BookOpen } from 'lucide-react';
 import lyticsService from '@/services/lytics';
 import styles from './CourseCard.module.css';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
+import { CourseEntry } from '@/types/contentstack';
 
 interface CourseCardProps {
   uid: string;
@@ -24,6 +26,7 @@ interface CourseCardProps {
   progress?: number; // For enrolled courses
   variant?: 'default' | 'horizontal' | 'compact';
   redirectTo?: string; // Override the default navigation (e.g., redirect to signup for non-logged-in users)
+  _originalCourse?: CourseEntry; // Original course entry with $ properties for Live Preview
 }
 
 export default function CourseCard({
@@ -44,6 +47,7 @@ export default function CourseCard({
   progress,
   variant = 'default',
   redirectTo,
+  _originalCourse,
 }: CourseCardProps) {
   const levelColors = {
     beginner: 'var(--success-500)',
@@ -72,6 +76,9 @@ export default function CourseCard({
     });
   };
 
+  // Get live preview attributes from original course entry
+  const livePreviewAttrs = _originalCourse ? getLivePreviewAttributes(_originalCourse.$) : undefined;
+  
   return (
     <Link 
       href={href} 
@@ -85,6 +92,7 @@ export default function CourseCard({
         course_level: level,
       })}
       data-lytics-element="course_card"
+      {...livePreviewAttrs}
     >
       {/* Thumbnail */}
       <div className={styles.thumbnail}>
@@ -129,7 +137,7 @@ export default function CourseCard({
         </div>
 
         {/* Title */}
-        <h3 className={styles.title}>
+        <h3 className={styles.title} {...getLivePreviewAttributes(_originalCourse?.$?.title)}>
           {title}
         </h3>
 
@@ -142,7 +150,11 @@ export default function CourseCard({
               <span>{instructorName.charAt(0)}</span>
             )}
           </div>
-          <span className={styles.instructorName}>
+          <span className={styles.instructorName} {...getLivePreviewAttributes(
+            Array.isArray(_originalCourse?.author) 
+              ? _originalCourse?.author?.[0]?.$?.title 
+              : _originalCourse?.author?.$?.title
+          )}>
             {instructorName}
           </span>
         </div>

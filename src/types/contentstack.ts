@@ -32,6 +32,7 @@ export interface IconEntry {
   icon_name?: string;    // e.g., "book-open" - Lucide icon name
   icon_title?: string;   // e.g., "StackAcademy" - Text to display next to icon
   description?: string;  // Description text for features, categories, etc.
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Category Entry (categories_block) - Used for category sections with taxonomy
@@ -61,6 +62,7 @@ export interface AuthorEntry {
     instagram_link?: Link;
     portfolio_link?: Link;
   };
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Banner Content Type - Updated with color picker
@@ -106,6 +108,7 @@ export interface HeroBlockEntry {
     };
     _metadata?: { uid: string };
   }[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Testimonial Content Type - Updated with rating extension and author reference
@@ -115,6 +118,7 @@ export interface TestimonialEntry {
   rating?: number | { value: number } | any; // Custom extension field
   review?: string;
   author?: AuthorEntry | AuthorEntry[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Global Field: Title and Description
@@ -277,6 +281,7 @@ export interface PageEntry {
   url?: string;
   header?: HeaderEntry | HeaderEntry[];
   section?: PageSection[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // ============================================
@@ -297,6 +302,7 @@ export interface HeaderEntry {
   }[];  // Supported languages with tags
   search_bar: boolean;  // Search bar visibility from CMS
   components: HeaderComponent[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Header Component types (modular blocks)
@@ -347,6 +353,7 @@ export interface FooterEntry {
   };
   social_links: Link[];  // Array of links (title + href)
   copyright_text: string;
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Newsletter Content Type - Matches Contentstack schema
@@ -383,6 +390,7 @@ export interface FAQEntry {
   section_title: string;
   section_subtitle: string;
   faq_question: FAQQuestionEntry | FAQQuestionEntry[];  // Reference (can be single or array)
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // ============================================
@@ -458,6 +466,7 @@ export interface LessonEntry {
   video_url?: Link;
   lesson_content?: string;
   resources?: LessonResource[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Module Entry (from CMS)
@@ -496,6 +505,7 @@ export interface CourseEntry {
   updated_at?: string;
   is_featured?: boolean;  // Featured flag from Contentstack CMS
   is_popular?: boolean;  // Popular flag from Contentstack CMS
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Helper type guards for lesson resources

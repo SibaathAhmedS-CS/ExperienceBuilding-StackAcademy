@@ -36,6 +36,7 @@ import { trackCourseView } from '@/services/preferenceTracking';
 import { getCourseReviewStats, getTopReviews, getCourseEnrollmentCount, getInstructorStats, type InstructorStats } from '@/services/reviews';
 import type { CourseReview } from '@/services/reviews';
 import { transformCourseToCard, TransformedCourse } from '@/hooks/useCourses';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
 import styles from './page.module.css';
 
 // Mock user data
@@ -606,8 +607,8 @@ export default function CoursePage() {
 
       <main className={styles.main}>
         {/* Hero Section */}
-        <section className={styles.hero}>
-          <div className={styles.heroBackground}>
+        <section className={styles.hero} {...getLivePreviewAttributes(courseData?.$)}>
+          <div className={styles.heroBackground} {...getLivePreviewAttributes(courseData?.$?.course_image || courseData?.$?.course_image_link)}>
             <Image
               src={heroImage}
               alt={courseData.title}
@@ -615,6 +616,7 @@ export default function CoursePage() {
               sizes="100vw"
               priority
               className={styles.heroImage}
+              {...getLivePreviewAttributes(courseData?.$?.course_image || courseData?.$?.course_image_link)}
             />
             <div className={styles.heroOverlay} />
           </div>
@@ -632,15 +634,15 @@ export default function CoursePage() {
             </nav>
 
             <div className={styles.heroText}>
-              <div className={styles.levelBadge}>
+              <div className={styles.levelBadge} {...getLivePreviewAttributes(courseData?.$?.difficulty_level)}>
                 <span className={styles.badge}>{courseData.difficulty_level?.toLowerCase() || 'intermediate'}</span>
                 <span className={styles.lastUpdated}>Updated {lastUpdated}</span>
               </div>
 
-              <h1 className={styles.courseTitle}>
+              <h1 className={styles.courseTitle} {...getLivePreviewAttributes(courseData?.$?.title)}>
                 {courseData.title}
               </h1>
-              <p className={styles.courseDescription}>
+              <p className={styles.courseDescription} {...getLivePreviewAttributes(courseData?.$?.short_text)}>
                 {stripHtml(courseData.short_text || '')}
               </p>
 
@@ -745,21 +747,22 @@ export default function CoursePage() {
           <div className={styles.contentContainer}>
             <div className={styles.mainContent}>
               {/* About Section - CMS Data */}
-              <section ref={aboutRef} className={styles.section}>
-                <h2>About This Course</h2>
+              <section ref={aboutRef} className={styles.section} {...getLivePreviewAttributes(courseData?.$)}>
+                <h2 {...getLivePreviewAttributes(courseData?.$?.about_the_course)}>About This Course</h2>
                 <div 
                   className={styles.description}
                   dangerouslySetInnerHTML={{ __html: courseData.about_the_course || '' }}
+                  {...getLivePreviewAttributes(courseData?.$?.about_the_course)}
                 />
 
                 {/* Instructor - CMS Data + DB Stats */}
                 {instructor && (
-                  <div className={styles.instructorCard}>
+                  <div className={styles.instructorCard} {...getLivePreviewAttributes(courseData?.author?.[0]?.$ || (Array.isArray(courseData?.author) ? courseData?.author?.[0]?.$ : courseData?.author?.$))}>
                     <div className={styles.instructorHeader}>
-                      <div className={styles.instructorAvatarLarge}>
+                      <div className={styles.instructorAvatarLarge} {...getLivePreviewAttributes(courseData?.author?.[0]?.$?.profile_image || (Array.isArray(courseData?.author) ? courseData?.author?.[0]?.$?.profile_image : courseData?.author?.$?.profile_image))}>
                         <Image src={instructorAvatar} alt={instructor.title} fill sizes="80px" />
                       </div>
-                      <h3 className={styles.instructorName}>
+                      <h3 className={styles.instructorName} {...getLivePreviewAttributes(courseData?.author?.[0]?.$?.title || (Array.isArray(courseData?.author) ? courseData?.author?.[0]?.$?.title : courseData?.author?.$?.title))}>
                         {instructor.title}
                       </h3>
                       {/* DB Data: Instructor Stats */}
@@ -770,7 +773,7 @@ export default function CoursePage() {
                       </div>
                     </div>
                     <p className={styles.instructorRole}>{instructor.bio?.split('.')[0] || 'Instructor'}</p>
-                    <p className={styles.instructorBio}>
+                    <p className={styles.instructorBio} {...getLivePreviewAttributes(courseData?.author?.[0]?.$?.bio || (Array.isArray(courseData?.author) ? courseData?.author?.[0]?.$?.bio : courseData?.author?.$?.bio))}>
                       {instructor.bio}
                     </p>
                   </div>
@@ -778,19 +781,19 @@ export default function CoursePage() {
               </section>
 
               {/* Outcomes Section - CMS Data */}
-              <section ref={outcomesRef} className={styles.section}>
-                <h2>What You&apos;ll Learn</h2>
-                <div className={styles.outcomesGrid}>
+              <section ref={outcomesRef} className={styles.section} {...getLivePreviewAttributes(courseData?.$)}>
+                <h2 {...getLivePreviewAttributes(courseData?.$?.learning_outcomes)}>What You&apos;ll Learn</h2>
+                <div className={styles.outcomesGrid} {...getLivePreviewAttributes(courseData?.$?.learning_outcomes)}>
                   {outcomes.map((outcome, index) => (
-                    <div key={index} className={styles.outcomeItem}>
+                    <div key={index} className={styles.outcomeItem} {...getLivePreviewAttributes((courseData as any)?.$?.[`learning_outcomes.point[${index}]`])}>
                       <CheckCircle size={20} />
                       <span>{outcome}</span>
                     </div>
                   ))}
                 </div>
 
-                <h3 className={styles.subheading}>Requirements</h3>
-                <ul className={styles.requirementsList}>
+                <h3 className={styles.subheading} {...getLivePreviewAttributes(courseData?.$?.requirements)}>Requirements</h3>
+                <ul className={styles.requirementsList} {...getLivePreviewAttributes(courseData?.$?.requirements)}>
                   {requirements.map((req, index) => (
                     <li key={index}>{req}</li>
                   ))}
@@ -798,8 +801,8 @@ export default function CoursePage() {
               </section>
 
               {/* Modules Section - CMS Data */}
-              <section ref={modulesRef} className={styles.section}>
-                <h2>Course Content</h2>
+              <section ref={modulesRef} className={styles.section} {...getLivePreviewAttributes(courseData?.$)}>
+                <h2 {...getLivePreviewAttributes(courseData?.$?.modules)}>Course Content</h2>
                 <p className={styles.modulesSummary}>
                   {modules.length} modules • {totalLessons} lessons • {courseDuration} total
                 </p>
@@ -812,11 +815,15 @@ export default function CoursePage() {
                     ).length;
                     const isUnlocked = isModuleUnlocked(moduleIndex);
                     const isModuleLocked = isEnrolled && currentUser && !isUnlocked;
+                    const modulePath = Array.isArray(courseData?.modules) 
+                      ? `modules[${moduleIndex}]`
+                      : 'modules';
                     
                     return (
                       <div 
                         key={module.uid} 
                         className={`${styles.moduleItem} ${expandedModules.includes(module.uid) ? styles.expanded : ''} ${isModuleLocked ? styles.moduleLocked : ''}`}
+                        {...getLivePreviewAttributes((courseData as any)?.$?.[modulePath])}
                       >
                         <button
                           className={styles.moduleHeader}
@@ -825,7 +832,7 @@ export default function CoursePage() {
                         >
                           <ChevronDown size={20} className={styles.moduleChevron} />
                           <div className={styles.moduleInfo}>
-                            <h4>
+                            <h4 {...getLivePreviewAttributes((courseData as any)?.$?.[`${modulePath}.title`])}>
                               {isModuleLocked && <Lock size={16} className={styles.moduleLockIcon} />}
                               {module.title}
                             </h4>
@@ -841,9 +848,12 @@ export default function CoursePage() {
                         </button>
 
                         <div className={styles.lessonsList}>
-                          {moduleLessons.map((lesson) => {
+                          {moduleLessons.map((lesson, lessonIndex) => {
                             const isCompleted = completedLessonIds.includes(lesson.uid);
                             const isAccessible = isLessonAccessible(lesson, moduleIndex);
+                            const lessonPath = Array.isArray(courseData?.modules)
+                              ? `modules[${moduleIndex}].lessons[${lessonIndex}]`
+                              : `modules.lessons[${lessonIndex}]`;
                             
                             return (
                               <Link
@@ -855,6 +865,7 @@ export default function CoursePage() {
                                     e.preventDefault();
                                   }
                                 }}
+                                {...getLivePreviewAttributes((courseData as any)?.$?.[lessonPath])}
                               >
                                 {isCompleted ? (
                                   <CheckCircle size={16} className={styles.completedIcon} />
@@ -863,10 +874,10 @@ export default function CoursePage() {
                                 ) : (
                                   <Lock size={16} />
                                 )}
-                                <span className={styles.lessonTitle}>
+                                <span className={styles.lessonTitle} {...getLivePreviewAttributes((courseData as any)?.$?.[`${lessonPath}.title`])}>
                                   {lesson.title}
                                 </span>
-                                <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
+                                <span className={styles.lessonDuration} {...getLivePreviewAttributes((courseData as any)?.$?.[`${lessonPath}.duration`])}>{lesson.duration || '15:00'}</span>
                                 {lesson.is_preview && isAccessible && (
                                   <span className={styles.previewBadge}>Preview</span>
                                 )}
