@@ -116,7 +116,6 @@ export async function getTopReviews(
 
     // If no 4-5 star reviews found, get all reviews (fallback)
     if ((!reviews || reviews.length === 0) && !error) {
-      console.log('[Reviews] No 4-5 star reviews found, fetching all reviews...');
       const { data: allReviews, error: allError } = await supabase
         .from('course_reviews')
         .select(`
@@ -147,7 +146,6 @@ export async function getTopReviews(
     if (error) {
       console.error('Error fetching top reviews:', error);
       // If join fails, try without profiles join as fallback
-      console.log('[Reviews] Attempting fallback query without profiles join...');
       const { data: fallbackReviews, error: fallbackError } = await supabase
         .from('course_reviews')
         .select('id, user_id, course_id, rating, comment, created_at, updated_at')

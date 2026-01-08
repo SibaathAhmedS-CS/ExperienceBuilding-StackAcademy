@@ -37,7 +37,6 @@ export function usePage(title: string) {
         }
         
         const currentVariant = getPersonalizeVariant();
-        console.log(`[usePage] Fetching page "${title}" with variant:`, currentVariant);
         
         const data = await getPage(title, selectedLanguage);
         
@@ -45,11 +44,6 @@ export function usePage(title: string) {
         lastVariantRef.current = currentVariant;
         
         if (data) {
-          console.log(`[usePage] Page "${title}" fetched:`, {
-            sectionsCount: data.section?.length || 0,
-            hasHeader: !!data.header,
-            variant: currentVariant,
-          });
         }
       } catch (err) {
         console.error('Error fetching page:', err);
@@ -63,7 +57,6 @@ export function usePage(title: string) {
     const checkVariantAndRefetch = () => {
       const currentVariant = getPersonalizeVariant();
       if (currentVariant && currentVariant !== lastVariantRef.current) {
-        console.log(`[usePage] Variant changed from ${lastVariantRef.current} to ${currentVariant}, refetching page...`);
         fetchPage();
       }
     };

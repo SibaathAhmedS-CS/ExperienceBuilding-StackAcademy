@@ -153,18 +153,6 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
     && !isMyCoursesPage 
     && !isLandingPage);
   
-  // Debug logging (can be removed later)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('[Header] Search visibility:', {
-      pathname,
-      search_bar: headerData?.search_bar,
-      isProfilePage,
-      isMyCoursesPage,
-      isCoursesPage,
-      isLandingPage,
-      showSearch,
-    });
-  }
 
   useEffect(() => {
     const handleScroll = () => {
@@ -512,38 +500,26 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
       document.head.appendChild(style);
       document.body.appendChild(logoutOverlay);
 
-      // Wait a moment to show the loading screen
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
       // Clear user session and set anonymous profile in Lytics before signing out
       lyticsService.clearUser();
       lyticsService.setAnonymousProfile();
-      
+            
       // Clear cached user profile
       clearUserCache();
-      
-      // Sign out from Supabase
-      await supabase.auth.signOut();
-      
+            
       // Clear any local storage
       localStorage.removeItem('user');
       localStorage.removeItem('skipped_onboarding');
       
-      // Clean up
-      if (document.body.contains(logoutOverlay)) {
-        document.body.removeChild(logoutOverlay);
-      }
-      if (document.head.contains(style)) {
-        document.head.removeChild(style);
-      }
+      // Sign out from Supabase (don't await - redirect immediately)
+      supabase.auth.signOut().catch(() => {
+        // Ignore errors - we're redirecting anyway
+      });
       
-      // Small delay to ensure cookies are cleared, then redirect
-      // Use window.location.replace to avoid adding to history and prevent double navigation
-      setTimeout(() => {
-        window.location.replace('/');
-      }, 200);
+      // Redirect immediately without any delay
+      // The overlay will prevent any content from showing during redirect
+      window.location.replace('/');
     } catch (error) {
-      console.error('Error signing out:', error);
       // Still redirect even if there's an error
       window.location.replace('/');
     }
@@ -569,12 +545,6 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
           {navLinks.map((link, index) => {
             // Get original link from CMS if available
             const cmsLink = headerData?.navigation?.link?.[index];
-            
-            // Debug: Log the $ structure for first link to understand the format
-            if (index === 0 && process.env.NODE_ENV === 'development') {
-              console.log('Header $ object:', (headerData as any)?.$);
-              console.log('Navigation $:', (headerData as any)?.$?.navigation);
-            }
             
             // For array items, Contentstack typically uses bracket notation or nested structure
             // Try multiple path formats to find the correct one

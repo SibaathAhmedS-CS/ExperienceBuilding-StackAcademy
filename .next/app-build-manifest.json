@@ -3,8 +3,7 @@
     "/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-2ccfbd.css",
-      "static/css/css-src_app_page_module_css.css",
+      "static/css/css-src_app_main_home_page_module_css-src_app_page_module_css-src_components_Carousel_Carouse-af2a32.css",
       "static/chunks/app/page.js"
     ],
     "/layout": [
@@ -27,50 +26,13 @@
     "/(main)/home/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-2ccfbd.css",
+      "static/css/css-src_app_main_home_page_module_css-src_app_page_module_css-src_components_Carousel_Carouse-af2a32.css",
       "static/chunks/app/(main)/home/page.js"
     ],
     "/(main)/layout": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(main)/layout.js"
-    ],
-    "/(main)/courses/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-2ccfbd.css",
-      "static/chunks/app/(main)/courses/page.js"
-    ],
-    "/(main)/course/[slug]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-2ccfbd.css",
-      "static/chunks/app/(main)/course/[slug]/page.js"
-    ],
-    "/(main)/module/[id]/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-2ccfbd.css",
-      "static/css/css-src_app_main_module_id_page_module_css.css",
-      "static/chunks/app/(main)/module/[id]/page.js"
-    ],
-    "/(main)/profile/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-2ccfbd.css",
-      "static/css/css-src_app_main_profile_page_module_css.css",
-      "static/chunks/app/(main)/profile/page.js"
-    ],
-    "/(main)/my-courses/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/css/css-src_app_main_course_slug_page_module_css-src_app_main_courses_page_module_css-src_app_mai-2ccfbd.css",
-      "static/chunks/app/(main)/my-courses/page.js"
-    ],
-    "/_not-found/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/_not-found/page.js"
     ]
   }
 }

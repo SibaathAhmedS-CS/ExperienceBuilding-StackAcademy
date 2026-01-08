@@ -164,7 +164,6 @@ export default function ModulePage() {
             
             // Check locale mismatch and force switch if needed
             if (enrollment.enrolled_locale && enrollment.enrolled_locale !== selectedLanguage) {
-              console.log(`[Module Page] Locale mismatch detected. Enrolled: ${enrollment.enrolled_locale}, Current: ${selectedLanguage}. Switching to enrolled locale.`);
               setEnrolledLocale(enrollment.enrolled_locale);
               setSelectedLanguage(enrollment.enrolled_locale);
               // Show notification
@@ -503,7 +502,6 @@ export default function ModulePage() {
           console.error('Error updating enrollment status:', enrollmentError);
           return false;
         } else {
-          console.log('✅ Course completed! Enrollment status updated to completed.');
           setIsCourseCompleted(true);
           
           // Send webhook notification to Contentstack Automate
@@ -613,7 +611,6 @@ export default function ModulePage() {
           }
           return prev;
         });
-        console.log('✅ Lesson marked as completed:', lessonUid);
       }
     } catch (error) {
       console.error('Error in markLessonAsCompleted:', error);
@@ -836,7 +833,7 @@ export default function ModulePage() {
             )}
 
             <div className={styles.lessonInfo}>
-              <h1 {...getLivePreviewAttrs(currentLessonData, 'title')}>
+              <h1 {...getLivePreviewAttributes(currentLessonData?.$?.title)}>
                 {currentLesson.title}
               </h1>
               <p>
@@ -926,7 +923,7 @@ export default function ModulePage() {
               {activeTab === 'content' && currentLesson && currentLessonData && (
                 <div 
                   className={styles.lessonContent}
-                  {...getLivePreviewAttributes(currentLessonData, 'lesson_content')}
+                  {...getLivePreviewAttributes(currentLessonData?.$?.lesson_content)}
                   dangerouslySetInnerHTML={{ __html: currentLesson.content }}
                 />
               )}

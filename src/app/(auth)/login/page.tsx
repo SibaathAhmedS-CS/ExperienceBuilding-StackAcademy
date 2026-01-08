@@ -20,12 +20,18 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [checkingSession, setCheckingSession] = useState(true);
   const [redirectingToHome, setRedirectingToHome] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   
   const supabase = createClient();
   const router = useRouter();
 
-  // Check if user is already logged in on mount
+  // Check if user is already logged in on mount (only if not currently logging in)
   useEffect(() => {
+    // Don't check session if we're in the middle of logging in
+    if (isLoggingIn || redirectingToHome) {
+      return;
+    }
+
     const checkSession = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
@@ -39,11 +45,11 @@ export default function LoginPage() {
             .maybeSingle();
 
           if (prefs) {
-            // Preferences exist - redirect to home
-            router.push('/home');
+            // Preferences exist - redirect to home using replace to avoid history issues
+            window.location.replace('/home');
           } else {
-            // No preferences - redirect to onboarding
-            router.push('/onboarding');
+            // No preferences - redirect to onboarding using replace
+            window.location.replace('/onboarding');
           }
         } else {
           // No session - set anonymous profile in Lytics (doesn't clear cookies)
@@ -51,7 +57,6 @@ export default function LoginPage() {
           setCheckingSession(false);
         }
       } catch (error) {
-        console.error('Error checking session:', error);
         // Set anonymous profile even on error (doesn't clear cookies)
         lyticsService.setAnonymousProfile();
         setCheckingSession(false);
@@ -59,11 +64,12 @@ export default function LoginPage() {
     };
 
     checkSession();
-  }, [supabase, router]);
+  }, [supabase, isLoggingIn, redirectingToHome]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setIsLoggingIn(true);
     setError('');
     
     const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -74,6 +80,7 @@ export default function LoginPage() {
     if (authError) {
       setError(authError.message);
       setIsLoading(false);
+      setIsLoggingIn(false);
       return;
     }
 
@@ -118,9 +125,7 @@ export default function LoginPage() {
       const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
       const total_completed_courses = completedCount;
       
-      if (enrollmentsError) {
-        console.error('[Login] Error fetching enrollments:', enrollmentsError);
-      }
+      // Error fetching enrollments - continue without enrollment counts
       
       // Cache user profile data for faster access
       cacheUserProfile(data.user.id, {
@@ -142,19 +147,19 @@ export default function LoginPage() {
           total_completed_courses
         );
         
-        // Wait a bit for audience processing, then refresh to show new audience
+        // Wait a bit for audience processing, then redirect to home
         setTimeout(() => {
-          window.location.href = '/home';
+          window.location.replace('/home');
         }, 3000);
       } else {
         // No preferences but user exists - just redirect
         setTimeout(() => {
-          router.push('/home');
+          window.location.replace('/home');
         }, 2000);
       }
     } else {
       // Case 1.2: No preferences -> redirect to onboarding (normal redirect, no special animation)
-      router.push('/onboarding');
+      window.location.replace('/onboarding');
     }
   };
 
@@ -185,9 +190,6 @@ export default function LoginPage() {
     }
   }
 
-  console.log('Login branding data:', brandingData);
-  console.log('Stats array:', statsArray);
-  console.log('Branding content:', brandingData?.branding_content);
 
   const brandData = {
     headline: brandingData?.headline || 'Welcome Back!',

@@ -20,11 +20,6 @@ export function useAuthBranding(pageType: 'login' | 'signup') {
         setBrandingData(data);
         
         if (data) {
-          console.log(`Auth branding for ${pageType} fetched:`, {
-            headline: data.headline,
-            hasStats: !!(Array.isArray(data.stats) ? data.stats.length : data.stats),
-            hasBrandingContent: !!data.branding_content,
-          });
         }
       } catch (err) {
         console.error('Error fetching auth branding:', err);

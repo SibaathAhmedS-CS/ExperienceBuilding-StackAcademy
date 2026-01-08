@@ -263,7 +263,6 @@ function extractHomePageData(pageData: PageEntry | null) {
       const type: CardBlockType = cardBlocks.length === 0 ? 'top_courses' : 'recommended';
       
       if (query) {
-        console.log(`Card Block "${title}" query:`, query);
       }
       
       cardBlocks.push({ type, title, description, ctaButton, query });
@@ -377,8 +376,6 @@ export default function HomePage() {
     
     // Debug logging for personalization
     if (topCoursesBlock?.query) {
-      console.log('[Personalization] Section 1 Query:', topCoursesBlock.query);
-      console.log('[Personalization] Section 1 Courses:', filtered.map(c => c.title));
     }
     
     return filtered;
@@ -392,8 +389,6 @@ export default function HomePage() {
     
     // Debug logging for personalization
     if (recommendedBlock?.query) {
-      console.log('[Personalization] Section 2 Query:', recommendedBlock.query);
-      console.log('[Personalization] Section 2 Courses:', filtered.map(c => c.title));
     }
     
     return filtered;
@@ -422,7 +417,7 @@ export default function HomePage() {
           const { clearUserCache } = await import('@/utils/userCache');
           clearUserCache();
           setIsLoadingUser(false);
-          router.push('/login');
+          window.location.replace('/login');
           return;
         }
 
@@ -488,14 +483,9 @@ export default function HomePage() {
         const fetchVariantImmediately = async () => {
           try {
             const { fetchVariantFromAudiences } = await import('@/services/personalize');
-            console.log('[Home] 🔄 Attempting to fetch variant immediately (with database fallback)');
-            console.log('[Home] 🔄 User ID:', authUser.id);
-            console.log('[Home] 🔄 Supabase client:', !!supabase);
             const result = await fetchVariantFromAudiences(authUser.id, supabase);
-            console.log('[Home] 🔄 Variant fetch result:', result);
           } catch (error) {
-            console.error('[Home] ❌ Failed to fetch variant immediately:', error);
-            console.error('[Home] ❌ Error details:', error instanceof Error ? error.stack : String(error));
+            // Failed to fetch variant - continue without variant
           }
         };
         
@@ -522,26 +512,19 @@ export default function HomePage() {
           total_completed_courses,
           waitForAudienceProcessing: true,
           onSegmentsReady: async (segments) => {
-            console.log('[Home] ✅ Lytics segments ready:', segments);
             
             // Check cs-lytics-audiences cookie and fetch variant if audience matches
             // Fallback to database if cookie is not present or doesn't match
             try {
               const { fetchVariantFromAudiences } = await import('@/services/personalize');
-              console.log('[Home] 🔄 Fetching variant after segments ready (with database fallback)');
-              console.log('[Home] 🔄 User ID:', authUser.id);
-              console.log('[Home] 🔄 Supabase client:', !!supabase);
               const result = await fetchVariantFromAudiences(authUser.id, supabase);
-              console.log('[Home] 🔄 Variant fetch result after segments:', result);
             } catch (error) {
-              console.error('[Home] ❌ Failed to fetch variant from audiences:', error);
-              console.error('[Home] ❌ Error details:', error instanceof Error ? error.stack : String(error));
+              // Failed to fetch variant from audiences - continue without variant
             }
             
             // Initialize Personalize SDK after segments are ready
             try {
               const personalizeService = await import('@/services/personalize');
-              console.log('[Home] 🔍 Initializing Personalize SDK with user:', authUser.id);
               
               // Wait a bit for segments to be fully processed
               setTimeout(async () => {
@@ -551,14 +534,13 @@ export default function HomePage() {
                 );
               }, 1000);
             } catch (error) {
-              console.error('[Home] ❌ Failed to initialize Personalize SDK:', error);
+              // Failed to initialize Personalize SDK - continue without personalization
             }
           }
         });
       } catch (error) {
-        console.error('Error checking user:', error);
         setIsLoadingUser(false);
-        router.push('/login');
+        window.location.replace('/login');
       }
     };
 

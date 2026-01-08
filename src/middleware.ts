@@ -63,6 +63,7 @@ export async function middleware(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') || request.nextUrl.pathname.startsWith('/signup')
   const isOnboardingPage = request.nextUrl.pathname.startsWith('/onboarding')
   const isHomePage = request.nextUrl.pathname.startsWith('/home')
+  const isLandingPage = request.nextUrl.pathname === '/'
 
   // CASE 2: User is authenticated
   if (user) {
@@ -75,6 +76,16 @@ export async function middleware(request: NextRequest) {
 
     // Check if user skipped onboarding in this session
     const skippedOnboarding = request.cookies.get('skipped_onboarding')?.value === 'true'
+
+    // If authenticated user tries to access landing page, redirect to home
+    if (isLandingPage && prefs) {
+      return NextResponse.redirect(new URL('/home', request.url))
+    }
+
+    // If authenticated user without preferences tries to access landing page, redirect to onboarding
+    if (isLandingPage && !prefs) {
+      return NextResponse.redirect(new URL('/onboarding', request.url))
+    }
 
     // If preferences exist (regardless of completed_at), redirect to home if trying to access onboarding
     if (prefs && isOnboardingPage) {

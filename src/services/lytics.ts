@@ -12,16 +12,13 @@ const waitForLytics = (callback: () => void, maxAttempts = 50): void => {
     attempts++;
     if (typeof window !== 'undefined' && (typeof window.jstag !== 'undefined' || typeof window.lio !== 'undefined')) {
       if (attempts > 1) {
-        console.log(`[Lytics Service] ✅ Lytics detected after ${attempts} attempts`);
       }
       callback();
     } else if (attempts < maxAttempts) {
       if (attempts === 1) {
-        console.log('[Lytics Service] ⏳ Waiting for Lytics to load...');
       }
       setTimeout(check, 100);
     } else {
-      console.warn('[Lytics Service] ⚠️ Lytics not detected after max attempts');
     }
   };
   check();
@@ -31,19 +28,11 @@ const sendToLytics = (data: Record<string, unknown>): void => {
   waitForLytics(() => {
     try {
       // Log the event data before sending
-      console.log('[Lytics Service] 📤 Preparing to send event:');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('Event Type:', data._e || 'unknown');
-      console.log('Full Data:', JSON.stringify(data, null, 2));
-      console.log('Timestamp:', new Date().toISOString());
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       if (typeof window !== 'undefined' && window.jstag && window.jstag.send) {
         window.jstag.send(data);
-        console.log('[Lytics Service] ✅ Event sent via jstag.send()');
       } else if (typeof window !== 'undefined' && window.lio) {
         window.lio('track', data._e || 'event', data);
-        console.log('[Lytics Service] ✅ Event sent via lio()');
       }
     } catch (error) {
       console.error('[Lytics Service] ❌ Error sending event:', error);
@@ -148,20 +137,11 @@ export const identifyUser = (
 
   waitForLytics(() => {
     try {
-      console.log('[Lytics Service] 👤 Identifying user:');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('Identify Data:', JSON.stringify(identifyData, null, 2));
-      console.log('Has Preferences:', !!preferences);
       if (preferences) {
-        console.log('Preferences being sent:', JSON.stringify(preferences, null, 2));
       }
-      console.log('Wait for audience processing:', waitForAudienceProcessing);
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       if (typeof window !== 'undefined' && window.jstag && window.jstag.send) {
         window.jstag.send(identifyData);
-        console.log('[Lytics Service] ✅ User identified via jstag.send()');
-        console.log('[Lytics Service] ⏳ Audience processing will begin shortly...');
         
         // If waiting for audience processing, set up listener
         if (waitForAudienceProcessing || onSegmentsReady) {
@@ -171,9 +151,6 @@ export const identifyUser = (
           // Listen for segment updates
           const unsubscribe = onSegmentsUpdate((segments) => {
             if (segments.length > 0) {
-              console.log('[Lytics Service] ✅ Audience processing complete!');
-              console.log('[Lytics Service] ⏱️ Processing time:', Date.now() - startTime, 'ms');
-              console.log('[Lytics Service] 📋 Segments:', JSON.stringify(segments, null, 2));
               
               if (onSegmentsReady) {
                 onSegmentsReady(segments);
@@ -191,9 +168,6 @@ export const identifyUser = (
             const segments = getSegmentsFromCookie();
             
             if (segments.length > 0) {
-              console.log('[Lytics Service] ✅ Audience processing complete (via cookie check)!');
-              console.log('[Lytics Service] ⏱️ Processing time:', Date.now() - startTime, 'ms');
-              console.log('[Lytics Service] 📋 Segments:', JSON.stringify(segments, null, 2));
               
               if (onSegmentsReady) {
                 onSegmentsReady(segments);
@@ -202,7 +176,6 @@ export const identifyUser = (
               clearInterval(checkInterval);
               unsubscribe();
             } else if (checkCount >= maxChecks) {
-              console.warn('[Lytics Service] ⚠️ Timeout waiting for audience processing');
               clearInterval(checkInterval);
               unsubscribe();
             }
@@ -210,7 +183,6 @@ export const identifyUser = (
         }
       } else if (typeof window !== 'undefined' && window.lio) {
         window.lio('identify', identifyData);
-        console.log('[Lytics Service] ✅ User identified via lio()');
       }
     } catch (error) {
       console.error('[Lytics Service] ❌ Error identifying user:', error);
@@ -227,20 +199,11 @@ export const clearUser = (): void => {
       const logoutData = { _e: 'logout' };
       
       // Log the event data before sending
-      console.log('[Lytics Service] 📤 Preparing to send logout event:');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('Event Type:', logoutData._e || 'unknown');
-      console.log('Full Data:', JSON.stringify(logoutData, null, 2));
-      console.log('Timestamp:', new Date().toISOString());
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      console.log('[Lytics Service] 🚪 Clearing user session (logout) - making user anonymous');
       if (typeof window !== 'undefined' && window.jstag && window.jstag.send) {
         window.jstag.send(logoutData);
-        console.log('[Lytics Service] ✅ Logout event sent via jstag.send()');
       } else if (typeof window !== 'undefined' && window.lio) {
         window.lio('track', 'logout', logoutData);
-        console.log('[Lytics Service] ✅ Logout event sent via lio()');
       }
     } catch (error) {
       console.error('[Lytics Service] ❌ Error clearing user:', error);
@@ -261,22 +224,12 @@ export const setAnonymousProfile = (): void => {
       };
 
       // Log the event data before sending
-      console.log('[Lytics Service] 📤 Preparing to send anonymous profile event (logout):');
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('Event Type:', anonymousData._e || 'unknown');
-      console.log('Full Data:', JSON.stringify(anonymousData, null, 2));
-      console.log('Timestamp:', new Date().toISOString());
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
       if (typeof window !== 'undefined' && window.jstag && window.jstag.send) {
         // Use logout event to reset to anonymous profile
         window.jstag.send(anonymousData);
-        console.log('[Lytics Service] ✅ Anonymous profile event (logout) sent via jstag.send()');
-        console.log('[Lytics Service] ℹ️ Note: Cookies not cleared - only logout event sent to Lytics');
       } else if (typeof window !== 'undefined' && window.lio) {
         window.lio('track', 'logout', anonymousData);
-        console.log('[Lytics Service] ✅ Anonymous profile event (logout) sent via lio()');
-        console.log('[Lytics Service] ℹ️ Note: Cookies not cleared - only logout event sent to Lytics');
       }
     } catch (error) {
       console.error('[Lytics Service] ❌ Error setting anonymous profile:', error);
@@ -436,7 +389,6 @@ const getSegmentsFromCookie = (): string[] => {
   if (csAudiencesCookie) {
     try {
       const cookieValue = csAudiencesCookie.split('=')[1];
-      console.log('[Lytics Service] 🔍 Found cs-lytics-audiences cookie, raw value:', cookieValue);
       
       if (cookieValue) {
         // Handle pipe-delimited format: |segment1|segment2|segment3|
@@ -445,7 +397,6 @@ const getSegmentsFromCookie = (): string[] => {
             .split('|')
             .map(s => s.trim())
             .filter(s => s.length > 0);
-          console.log('[Lytics Service] ✅ Parsed pipe-delimited segments:', segments);
           if (segments.length > 0) {
             return segments;
           }
@@ -473,15 +424,12 @@ const getSegmentsFromCookie = (): string[] => {
         }
       }
     } catch (error) {
-      console.warn('[Lytics Service] ⚠️ Error parsing cs-lytics-audiences cookie:', error);
     }
   }
   
   // Debug: Log all cookies to help diagnose
   if (typeof document !== 'undefined') {
     const allCookies = document.cookie.split('; ').map(c => c.split('=')[0]);
-    console.log('[Lytics Service] 🔍 Available cookies:', allCookies);
-    console.log('[Lytics Service] ⚠️ No cs-lytics-audiences cookie found');
   }
   
   return [];
@@ -529,7 +477,6 @@ const clearSegmentsCookie = (): void => {
     });
   });
   
-  console.log('[Lytics Service] 🗑️ Cleared all Lytics cookies:', cookiesToClear.join(', '));
 };
 
 /**
@@ -545,7 +492,6 @@ const setupSegmentListeners = (onSegmentsUpdate: (segments: string[]) => void): 
         // Listen for 'segments' event - fired when segments are updated
         window.jstag.on('segments', (segments: unknown) => {
           const segmentArray = Array.isArray(segments) ? segments : [];
-          console.log('[Lytics Service] 🎯 Segments updated via event listener:', JSON.stringify(segmentArray, null, 2));
           onSegmentsUpdate(segmentArray);
         });
 
@@ -553,12 +499,10 @@ const setupSegmentListeners = (onSegmentsUpdate: (segments: string[]) => void): 
         window.jstag.on('profile', () => {
           const segments = getSegmentsFromCookie();
           if (segments.length > 0) {
-            console.log('[Lytics Service] 🎯 Profile updated, segments from cookie:', JSON.stringify(segments, null, 2));
             onSegmentsUpdate(segments);
           }
         });
 
-        console.log('[Lytics Service] ✅ Segment event listeners registered');
       }
     } catch (error) {
       console.error('[Lytics Service] ❌ Error setting up segment listeners:', error);
@@ -579,9 +523,6 @@ const setupCookieMonitor = (onSegmentsUpdate: (segments: string[]) => void): (()
     const currentCookieValue = currentSegments.join(',');
     
     if (currentCookieValue !== lastCookieValue) {
-      console.log('[Lytics Service] 🍪 Cookie changed! Segments updated:', JSON.stringify(currentSegments, null, 2));
-      console.log('[Lytics Service] Previous:', lastCookieValue);
-      console.log('[Lytics Service] Current:', currentCookieValue);
       lastCookieValue = currentCookieValue;
       onSegmentsUpdate(currentSegments);
     }
@@ -644,7 +585,6 @@ const initializeListeners = (): void => {
   setupCookieMonitor(notifyCallbacks);
   
   listenersInitialized = true;
-  console.log('[Lytics Service] ✅ Segment listeners initialized');
 };
 
 // Initialize listeners when module loads (client-side only)
@@ -660,11 +600,8 @@ export const getUserSegments = (options: {
   const { waitForProcessing = false, maxWaitTime = 10000 } = options;
   
   return new Promise((resolve) => {
-    console.log('[Lytics Service] 📋 Fetching user segments...');
-    console.log('[Lytics Service] Options:', { waitForProcessing, maxWaitTime });
     
     if (typeof document === 'undefined') {
-      console.log('[Lytics Service] ⚠️ Document not available, returning empty segments');
       resolve([]);
       return;
     }
@@ -675,7 +612,6 @@ export const getUserSegments = (options: {
     // First, try to get segments from cookie (fastest)
     const cookieSegments = getSegmentsFromCookie();
     if (cookieSegments.length > 0) {
-      console.log('[Lytics Service] ✅ Segments from cookie (immediate):', JSON.stringify(cookieSegments, null, 2));
       resolve(cookieSegments);
       return;
     }
@@ -685,16 +621,13 @@ export const getUserSegments = (options: {
         try {
           if (typeof window !== 'undefined' && window.jstag && window.jstag.getSegments) {
             window.jstag.getSegments((segments: string[]) => {
-              console.log('[Lytics Service] ✅ Segments from jstag.getSegments():', JSON.stringify(segments || [], null, 2));
               resolve(segments || []);
             });
           } else if (typeof window !== 'undefined' && window.lio) {
             window.lio('get', 'segments', (segments: string[]) => {
-              console.log('[Lytics Service] ✅ Segments from lio():', JSON.stringify(segments || [], null, 2));
               resolve(segments || []);
             });
           } else {
-            console.warn('[Lytics Service] ⚠️ No method available to get segments');
             resolve([]);
           }
         } catch (error) {
@@ -704,14 +637,12 @@ export const getUserSegments = (options: {
       });
 
       setTimeout(() => {
-        console.warn('[Lytics Service] ⚠️ Timeout waiting for segments, returning empty array');
         resolve([]);
       }, 3000);
       return;
     }
 
     // Wait for processing: monitor for segment updates
-    console.log('[Lytics Service] ⏳ Waiting for audience processing to complete...');
     
     let resolved = false;
     const startTime = Date.now();
@@ -722,8 +653,6 @@ export const getUserSegments = (options: {
       if (segments.length > 0) {
         if (!resolved) {
           resolved = true;
-          console.log('[Lytics Service] ✅ Segments received after processing:', JSON.stringify(segments, null, 2));
-          console.log('[Lytics Service] ⏱️ Wait time:', Date.now() - startTime, 'ms');
           resolve(segments);
         }
         return;
@@ -733,8 +662,6 @@ export const getUserSegments = (options: {
       if (Date.now() - startTime > maxWaitTime) {
         if (!resolved) {
           resolved = true;
-          console.warn('[Lytics Service] ⚠️ Timeout waiting for audience processing');
-          console.warn('[Lytics Service] ⏱️ Waited:', maxWaitTime, 'ms');
           
           // Try API methods as fallback
           waitForLytics(() => {
@@ -762,8 +689,6 @@ export const getUserSegments = (options: {
     const unsubscribe = onSegmentsUpdate((segments) => {
       if (!resolved && segments.length > 0) {
         resolved = true;
-        console.log('[Lytics Service] ✅ Segments received via event listener:', JSON.stringify(segments, null, 2));
-        console.log('[Lytics Service] ⏱️ Wait time:', Date.now() - startTime, 'ms');
         unsubscribe();
         resolve(segments);
       }

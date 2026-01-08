@@ -26,7 +26,6 @@ export default function LivePreviewInitComponent() {
     
     // Initialize if any of these conditions are met
     if (!hasPreviewParam && !hasEnvFlag && !hasEditTagsFlag) {
-      console.log('[Live Preview] Not initializing - no preview params or env flags');
       return; // Don't initialize if Live Preview is not active
     }
 
@@ -38,14 +37,12 @@ export default function LivePreviewInitComponent() {
     const branch = process.env.CONTENTSTACK_BRANCH;
 
     if (!previewToken || !apiKey) {
-      console.warn('[Live Preview] ⚠️ Preview token or API key not found. Live Preview disabled.');
       return;
     }
 
     const hash = urlParams.get('hash') || urlParams.get('live_preview_hash');
 
     try {
-      console.log('[Live Preview] 🚀 Initializing Live Preview SDK...');
       
       const initConfig: any = {
         enable: true,
@@ -71,37 +68,18 @@ export default function LivePreviewInitComponent() {
       // Add tracker hash if present in URL
       if (hash) {
         initConfig.clientUrlParams.hash = hash;
-        console.log('[Live Preview] 🔑 Tracker hash found:', hash.substring(0, 20) + '...');
       }
 
       const initResult = ContentstackLivePreview.init(initConfig);
       
-      console.log('[Live Preview] ✅ SDK initialized successfully');
-      console.log('[Live Preview] 📦 Init config:', {
-        enable: initConfig.enable,
-        ssr: initConfig.ssr,
-        editButtonEnabled: initConfig.editButton.enable,
-        hasStackSdk: !!initConfig.stackSdk,
-        hasHash: !!hash,
-        apiKey: apiKey ? `${apiKey.substring(0, 8)}...` : 'missing',
-        environment,
-        branch,
-      });
       
       // Verify SDK is initialized
       try {
         const config = (ContentstackLivePreview as any).config;
         if (config) {
-          console.log('[Live Preview] ✅ SDK config verified:', {
-            enable: config.enable,
-            hasEditButton: !!config.editButton,
-            editButtonEnabled: config.editButton?.enable,
-          });
         } else {
-          console.warn('[Live Preview] ⚠️ SDK config not found after initialization');
         }
       } catch (checkError) {
-        console.warn('[Live Preview] ⚠️ Could not verify SDK config:', checkError);
       }
     } catch (error) {
       console.error('[Live Preview] ❌ Initialization failed:', error);

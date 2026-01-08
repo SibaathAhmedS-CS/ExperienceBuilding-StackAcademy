@@ -24,7 +24,7 @@ import {
 
 // Contentstack SDK Configuration - Default Stack (uses Delivery Token)
 const stackConfig: any = {
-  api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY,
+  api_key: process.env.CONTENTSTACK_API_KEY,
   delivery_token:  process.env.CONTENTSTACK_DELIVERY_TOKEN,
   environment: process.env.CONTENTSTACK_ENVIRONMENT,
   branch: process.env.CONTENTSTACK_BRANCH,
@@ -160,7 +160,6 @@ async function enrichBannersWithFallback(
               (banner as any).banner_image = fallbackBanner.banner_image;
             }
           } catch (error) {
-            console.warn(`[CMS] Could not fetch fallback banner_image for banner ${banner.uid}:`, error);
           }
         }
       }
@@ -354,7 +353,6 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
     
     // Fallback to en-us if no page found in selected locale
     if (!pageEntry && targetLocale !== FALLBACK_LOCALE) {
-      console.log(`[CMS] Page "${title}" not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
       const fallbackQuery = stack.ContentType(CONTENT_TYPES.PAGE)
         .Query()
         .where('title', title)
@@ -385,7 +383,6 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
     
     // Debug logging
     if (pageEntry) {
-      console.log(`[CMS] Page "${title}" loaded with ${pageEntry.section?.length || 0} sections`);
     }
     
     return pageEntry;
@@ -432,7 +429,6 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
     } catch (localeError) {
       // Fallback to en-us if not found
       if (targetLocale !== FALLBACK_LOCALE) {
-        console.log(`[CMS] Page URL ${url} not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
         const fallbackQuery = stack.ContentType(CONTENT_TYPES.PAGE)
           .Query()
           .where('url', url)
@@ -465,7 +461,6 @@ export async function getPageByUrl(url: string, locale?: string): Promise<PageEn
     
     // If still no page entry, try fallback
     if (!pageEntry && targetLocale !== FALLBACK_LOCALE) {
-      console.log(`[CMS] Page URL ${url} not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
       const fallbackQuery = Stack.ContentType(CONTENT_TYPES.PAGE)
         .Query()
         .where('url', url)
@@ -577,10 +572,8 @@ export async function getHeader(title: string, locale: string = 'en-us'): Promis
     if (liveEdit && header) {
       addEditableTags(header, 'header', true, locale);
     }
-    console.log('Header $ structure:', JSON.stringify((header as any)?.$, null, 2));
     
     if (header) {
-      console.log(`[CMS] Header "${title}" loaded with ${header.accessibility_language?.length || 0} languages`);
     }
     
     return header;
@@ -736,11 +729,6 @@ export async function getFAQ(locale?: string): Promise<FAQEntry | null> {
     }
     
     if (faqEntry) {
-      console.log(`[CMS] FAQ Entry fetched (${targetLocale}):`, {
-        title: faqEntry.section_title,
-        hasIcon: !!faqEntry.icon,
-        faqQuestionType: Array.isArray(faqEntry.faq_question) ? 'array' : 'object',
-      });
     }
     
     return faqEntry;
@@ -836,7 +824,6 @@ export async function getAllCourses(locale?: string, customStack?: any, skipAuth
     
     // If no courses found and we're not already using fallback, try fallback locale
     if (courses.length === 0 && targetLocale !== FALLBACK_LOCALE) {
-      console.log(`[CMS] No courses found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
       const fallbackQuery = stackToUse.ContentType(CONTENT_TYPES.COURSE)
         .Query()
         .includeReference(['author', 'modules']);
@@ -890,7 +877,6 @@ export async function getCoursesByAuthorUid(authorUid: string, locale?: string):
     
     // If no courses found and we're not already using fallback, try fallback locale
     if (allCourses.length === 0 && targetLocale !== FALLBACK_LOCALE) {
-      console.log(`[CMS] No courses found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
       const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
         .Query()
         .includeReference(['author', 'modules']);
@@ -944,7 +930,6 @@ async function getAuthorByUid(uid: string, locale?: string): Promise<AuthorEntry
     } catch (localeError) {
       // If locale fetch fails and we're not already using fallback, try fallback
       if (targetLocale !== FALLBACK_LOCALE) {
-        console.log(`[CMS] Author UID ${uid} not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
         const fallbackQuery = Stack.ContentType(CONTENT_TYPES.AUTHOR)
           .Entry(uid);
         fallbackQuery.language(FALLBACK_LOCALE);
@@ -1017,7 +1002,6 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
     
     // If no course found, try with fallback locale first (maybe slug is the same but no localized content)
     if (!course && targetLocale !== FALLBACK_LOCALE) {
-      console.log(`[CMS] Course slug "${slug}" not found in ${targetLocale}, trying ${FALLBACK_LOCALE}...`);
       const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
         .Query()
         .where('slug', slug)
@@ -1033,7 +1017,6 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
       
       if (fallbackCourse) {
         // Found in fallback, now try to fetch the localized version by UID
-        console.log(`[CMS] Found course by slug in fallback locale, fetching localized content for ${targetLocale}...`);
         const localizedCourse = await getCourseByUid(fallbackCourse.uid, targetLocale);
         course = localizedCourse || fallbackCourse;
       }
@@ -1049,7 +1032,6 @@ export async function getCourseBySlug(slug: string, locale?: string): Promise<Co
         addEditableTags(course, CONTENT_TYPES.COURSE, true, targetLocale);
       }
       
-      console.log(`[CMS] Course "${course.title}" loaded with ${Array.isArray(course.modules) ? course.modules.length : course.modules ? 1 : 0} modules`);
     }
     
     return course;
@@ -1084,7 +1066,6 @@ export async function getCourseByUid(uid: string, locale?: string): Promise<Cour
     } catch (localeError) {
       // If locale fetch fails and we're not already using fallback, try fallback
       if (targetLocale !== FALLBACK_LOCALE) {
-        console.log(`[CMS] Course UID ${uid} not found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
         const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
           .Entry(uid)
           .includeReference([
@@ -1191,7 +1172,6 @@ export async function getLessonByUid(uid: string, locale?: string): Promise<Less
           }
         }
       } catch (fallbackError) {
-        console.warn(`[CMS] Could not fetch fallback video_url for lesson ${uid}:`, fallbackError);
       }
     }
     
@@ -1376,7 +1356,6 @@ export async function getAllOnboardingSteps(): Promise<OnboardingBlockEntry[]> {
       const result = await baseQuery.toJSON().find();
       const entries = (result[0] || []) as any[];
       
-      console.log(`[CMS] Attempted ${contentType}: Found ${entries.length} entries`);
       
       if (entries.length > 0) {
         // Filter and transform entries
@@ -1411,13 +1390,11 @@ export async function getAllOnboardingSteps(): Promise<OnboardingBlockEntry[]> {
             });
           }
           
-          console.log(`[CMS] Successfully fetched ${onboardingEntries.length} onboarding steps from ${contentType}`);
           return onboardingEntries.sort((a, b) => a.current_step - b.current_step);
         }
       }
     } catch (error: any) {
       // Log the error but continue trying other content types
-      console.log(`[CMS] Content type ${contentType} failed:`, error.message || error);
       continue;
     }
   }
@@ -1437,16 +1414,11 @@ export async function getAllOnboardingSteps(): Promise<OnboardingBlockEntry[]> {
     );
     
     if (onboardingPages.length > 0) {
-      console.log('[CMS] Found onboarding page(s), but need proper content type structure');
     }
   } catch (error) {
     console.error('Error searching for onboarding page:', error);
   }
 
-  console.warn('[CMS] No onboarding content type found. Please check:');
-  console.warn('1. Content type name in Contentstack (might be different)');
-  console.warn('2. Entries are published');
-  console.warn('3. API keys and environment are correct');
   return [];
 }
 
@@ -1475,13 +1447,6 @@ export async function getAuthBranding(pageType: 'login' | 'signup'): Promise<Aut
       const entry = entries[0];
       
       // Log for debugging
-      console.log(`[CMS] Auth branding entry for ${pageType}:`, {
-        headline: entry.headline,
-        subtitle: entry.subtitle,
-        branding_content: entry.branding_content,
-        stats: entry.stats,
-        statsType: Array.isArray(entry.stats) ? 'array' : typeof entry.stats,
-      });
       
       return {
         uid: entry.uid || entry._id || '',
@@ -1513,7 +1478,6 @@ let currentVariantUid: string | null = null;
  */
 export function setPersonalizeVariant(variantUid: string | null): void {
   currentVariantUid = variantUid;
-  console.log('[Contentstack] 🎭 Variant UID set:', variantUid);
   
   // Try to set header globally on Stack instance if possible
   if (variantUid && Stack) {
@@ -1521,26 +1485,19 @@ export function setPersonalizeVariant(variantUid: string | null): void {
       // Try different methods to set header globally
       if (typeof (Stack as any).setHeader === 'function') {
         (Stack as any).setHeader('x-cs-variant-uid', variantUid);
-        console.log('[Contentstack] 🎭 Set variant header globally on Stack via setHeader');
       } else if (typeof (Stack as any).addHeader === 'function') {
         (Stack as any).addHeader('x-cs-variant-uid', variantUid);
-        console.log('[Contentstack] 🎭 Set variant header globally on Stack via addHeader');
       } else if ((Stack as any).headers) {
         (Stack as any).headers['x-cs-variant-uid'] = variantUid;
-        console.log('[Contentstack] 🎭 Set variant header globally on Stack via headers object');
       } else {
-        console.log('[Contentstack] ℹ️ Stack instance does not support global headers, will apply per query');
       }
     } catch (error) {
-      console.warn('[Contentstack] ⚠️ Could not set variant header globally:', error);
-      console.log('[Contentstack] ℹ️ Will apply variant header per query instead');
     }
   } else if (!variantUid && Stack) {
     // Clear header if variant is null
     try {
       if ((Stack as any).headers && (Stack as any).headers['x-cs-variant-uid']) {
         delete (Stack as any).headers['x-cs-variant-uid'];
-        console.log('[Contentstack] 🎭 Cleared variant header from Stack');
       }
     } catch (error) {
       // Ignore errors when clearing
@@ -1578,44 +1535,31 @@ function applyVariantHeader(query: any): void {
       // Contentstack SDK supports addHeader method on queries
       if (typeof query.addHeader === 'function') {
         query.addHeader('x-cs-variant-uid', currentVariantUid);
-        console.log('[Contentstack] 🎭 Applied variant header to query:', currentVariantUid);
       } else if (typeof query.setHeader === 'function') {
         query.setHeader('x-cs-variant-uid', currentVariantUid);
-        console.log('[Contentstack] 🎭 Applied variant header to query:', currentVariantUid);
       } else if (query && typeof query.addParam === 'function') {
         // Some SDK versions use addParam for headers
         query.addParam('x-cs-variant-uid', currentVariantUid);
-        console.log('[Contentstack] 🎭 Applied variant header via addParam:', currentVariantUid);
       } else {
         // Try to set headers on the Stack instance globally
         if (Stack && typeof (Stack as any).setHeader === 'function') {
           (Stack as any).setHeader('x-cs-variant-uid', currentVariantUid);
-          console.log('[Contentstack] 🎭 Applied variant header to Stack globally:', currentVariantUid);
         } else if (Stack && typeof (Stack as any).addHeader === 'function') {
           (Stack as any).addHeader('x-cs-variant-uid', currentVariantUid);
-          console.log('[Contentstack] 🎭 Applied variant header to Stack globally:', currentVariantUid);
         } else {
           // Last resort: try to modify the query's internal headers
           try {
             if (query && query.headers) {
               query.headers['x-cs-variant-uid'] = currentVariantUid;
-              console.log('[Contentstack] 🎭 Applied variant header via headers object:', currentVariantUid);
-            } else {
-              console.warn('[Contentstack] ⚠️ Could not apply variant header - method not available');
-              console.warn('[Contentstack] ⚠️ Query type:', typeof query);
-              console.warn('[Contentstack] ⚠️ Query methods:', Object.getOwnPropertyNames(query || {}));
-              console.warn('[Contentstack] ⚠️ Variant UID:', currentVariantUid);
             }
           } catch (e) {
-            console.warn('[Contentstack] ⚠️ Could not apply variant header:', e);
+            // Could not apply variant header - continue without it
           }
         }
       }
     } catch (error) {
       console.error('[Contentstack] ❌ Error applying variant header:', error);
     }
-  } else {
-    console.log('[Contentstack] ℹ️ No variant set, skipping variant header');
   }
 }
 

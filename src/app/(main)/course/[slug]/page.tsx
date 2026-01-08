@@ -208,7 +208,6 @@ export default function CoursePage() {
         
         // If not found, try fallback locale
         if (!course) {
-          console.log(`[Course Page] Course not found in ${selectedLanguage}, trying fallback en-us`);
           course = await getCourseBySlug(slug, 'en-us');
         }
         
@@ -245,7 +244,6 @@ export default function CoursePage() {
                                      enrolledLocaleForFetch !== 'en-us';
                 
                 if (needsRefetch) {
-                  console.log(`[Course Page] Fetching course in enrolled locale ${enrolledLocaleForFetch}`);
                   const enrolledCourse = await getCourseByUid(course.uid, enrolledLocaleForFetch);
                   if (enrolledCourse) {
                     course = enrolledCourse;
@@ -261,7 +259,6 @@ export default function CoursePage() {
           
           // Check if enrolled locale differs from current locale - show popup
           if (enrolledLocaleForFetch && enrolledLocaleForFetch !== selectedLanguage) {
-            console.log(`[Course Page] Locale mismatch: Enrolled in ${enrolledLocaleForFetch}, viewing in ${selectedLanguage}`);
             setEnrolledLocale(enrolledLocaleForFetch);
             setShowLocalePopup(true);
           }
@@ -293,7 +290,7 @@ export default function CoursePage() {
               setTopReviews(reviews);
               setStudentsEnrolled(enrollmentCount);
             } catch (error) {
-              console.error('[Course Page] Error fetching reviews:', error);
+              // Error fetching reviews - continue without reviews
             }
           }
 
@@ -308,7 +305,7 @@ export default function CoursePage() {
               const stats = await getInstructorStats(instructor.uid, courseUids);
               setInstructorStats(stats);
             } catch (error) {
-              console.error('[Course Page] Error fetching instructor stats:', error);
+              // Error fetching instructor stats - continue without stats
             }
           }
           
@@ -330,7 +327,6 @@ export default function CoursePage() {
           setCourseData(null);
         }
       } catch (error) {
-        console.error('Error fetching course:', error);
         setCourseData(null);
       } finally {
         setIsLoading(false);
@@ -404,8 +400,7 @@ export default function CoursePage() {
           setIsLoadingUser(false);
         }
       } catch (error) {
-        console.error('Error fetching user data:', error);
-        // Don't set mock user on error
+        // Error fetching user data - continue without user
         setIsLoadingUser(false);
       }
     }
@@ -457,7 +452,6 @@ export default function CoursePage() {
 
         setRecommendedCourses(transformed);
       } catch (error) {
-        console.error('Error fetching recommended courses:', error);
         setRecommendedCourses([]);
       } finally {
         setIsLoadingRecommended(false);
@@ -756,15 +750,20 @@ export default function CoursePage() {
                 />
 
                 {/* Instructor - CMS Data + DB Stats */}
-                {instructor && (
-                  <div className={styles.instructorCard} {...getLivePreviewAttributes(courseData?.author?.[0]?.$ || (Array.isArray(courseData?.author) ? courseData?.author?.[0]?.$ : courseData?.author?.$))}>
-                    <div className={styles.instructorHeader}>
-                      <div className={styles.instructorAvatarLarge} {...getLivePreviewAttributes(courseData?.author?.[0]?.$?.profile_image || (Array.isArray(courseData?.author) ? courseData?.author?.[0]?.$?.profile_image : courseData?.author?.$?.profile_image))}>
-                        <Image src={instructorAvatar} alt={instructor.title} fill sizes="80px" />
-                      </div>
-                      <h3 className={styles.instructorName} {...getLivePreviewAttributes(courseData?.author?.[0]?.$?.title || (Array.isArray(courseData?.author) ? courseData?.author?.[0]?.$?.title : courseData?.author?.$?.title))}>
-                        {instructor.title}
-                      </h3>
+                {instructor && (() => {
+                  const authorArray = normalizeArray(courseData?.author);
+                  const firstAuthor = authorArray[0];
+                  const authorAttrs = firstAuthor?.$;
+                  
+                  return (
+                    <div className={styles.instructorCard} {...getLivePreviewAttributes(authorAttrs)}>
+                      <div className={styles.instructorHeader}>
+                        <div className={styles.instructorAvatarLarge} {...getLivePreviewAttributes(authorAttrs?.profile_image)}>
+                          <Image src={instructorAvatar} alt={instructor.title} fill sizes="80px" />
+                        </div>
+                        <h3 className={styles.instructorName} {...getLivePreviewAttributes(authorAttrs?.title)}>
+                          {instructor.title}
+                        </h3>
                       {/* DB Data: Instructor Stats */}
                       <div className={styles.instructorStats}>
                         <span><Star size={14} /> {instructorStats.averageRating > 0 ? instructorStats.averageRating.toFixed(1) : '0.0'} Rating</span>
@@ -772,12 +771,13 @@ export default function CoursePage() {
                         <span><BookOpen size={14} /> {instructorStats.coursesCount} Courses</span>
                       </div>
                     </div>
-                    <p className={styles.instructorRole}>{instructor.bio?.split('.')[0] || 'Instructor'}</p>
-                    <p className={styles.instructorBio} {...getLivePreviewAttributes(courseData?.author?.[0]?.$?.bio || (Array.isArray(courseData?.author) ? courseData?.author?.[0]?.$?.bio : courseData?.author?.$?.bio))}>
-                      {instructor.bio}
-                    </p>
-                  </div>
-                )}
+                        <p className={styles.instructorRole}>{instructor.bio?.split('.')[0] || 'Instructor'}</p>
+                        <p className={styles.instructorBio} {...getLivePreviewAttributes(authorAttrs?.bio)}>
+                          {instructor.bio}
+                        </p>
+                      </div>
+                    );
+                  })()}
               </section>
 
               {/* Outcomes Section - CMS Data */}

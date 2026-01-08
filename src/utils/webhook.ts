@@ -12,7 +12,6 @@ export async function sendCourseCompletionWebhook(data: {
   const webhookUrl = process.env.NEXT_PUBLIC_CONTENTSTACK_WEBHOOK_URL;
 
   if (!webhookUrl) {
-    console.warn('⚠️ Contentstack webhook URL not configured. Skipping webhook call.');
     return false;
   }
 
@@ -36,7 +35,6 @@ export async function sendCourseCompletionWebhook(data: {
       return false;
     }
 
-    console.log('✅ Course completion webhook sent successfully');
     return true;
   } catch (error) {
     console.error('❌ Error sending webhook:', error);
@@ -59,7 +57,6 @@ export async function sendCourseEnrollmentWebhook(data: {
   const webhookUrl = process.env.NEXT_PUBLIC_CONTENTSTACK_ENROLLMENT_WEBHOOK_URL;
 
   if (!webhookUrl) {
-    console.warn('⚠️ Contentstack enrollment webhook URL not configured. Skipping webhook call.');
     return false;
   }
 
@@ -83,7 +80,6 @@ export async function sendCourseEnrollmentWebhook(data: {
       return false;
     }
 
-    console.log('✅ Course enrollment webhook sent successfully');
     return true;
   } catch (error) {
     console.error('❌ Error sending enrollment webhook:', error);
