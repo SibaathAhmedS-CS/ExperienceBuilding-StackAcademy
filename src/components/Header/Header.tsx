@@ -31,8 +31,9 @@ import {
 } from '@/types/contentstack';
 import { useLanguage } from '@/contexts/LanguageContext';
 import lyticsService from '@/services/lytics';
-import { getAllCourses } from '@/lib/contentstack';
 import { clearUserCache } from '@/utils/userCache';
+import { useAlgoliaSearch } from '@/hooks/useAlgoliaSearch';
+import type { AlgoliaCourseRecord } from '@/lib/algolia';
 
 // Icon mapping - maps CMS icon names to Lucide components
 const iconMap: Record<string, LucideIcon> = {
@@ -108,10 +109,8 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isLanguageOpen, setIsLanguageOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchSuggestions, setSearchSuggestions] = useState<CourseEntry[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isLoadingCourses, setIsLoadingCourses] = useState(false);
-  const [allCourses, setAllCourses] = useState<CourseEntry[]>([]);
+  const { results: searchSuggestions, isLoading: isSearching } = useAlgoliaSearch(searchQuery);
   const [activeSection, setActiveSection] = useState<string>('');
   const searchRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
@@ -247,55 +246,14 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
     };
   }, [isLandingPage, pathname]);
 
-  // Fetch all courses for search autocomplete
+  // Show suggestions when Algolia returns results
   useEffect(() => {
-    if (!showSearch) {
-      setAllCourses([]);
-      return;
-    }
-
-    let isMounted = true;
-    setIsLoadingCourses(true);
-
-    async function fetchCourses() {
-      try {
-        const courses = await getAllCourses(selectedLanguage);
-        if (isMounted) {
-          setAllCourses(courses);
-        }
-      } catch (error) {
-        console.error('Error fetching courses for search:', error);
-        if (isMounted) {
-          setAllCourses([]);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingCourses(false);
-        }
-      }
-    }
-
-    fetchCourses();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [showSearch, selectedLanguage]);
-
-  // Filter courses based on search query
-  useEffect(() => {
-    if (searchQuery.trim().length > 0 && allCourses.length > 0) {
-      const query = searchQuery.trim().toLowerCase();
-      const filtered = allCourses.filter(course => 
-        course.title?.toLowerCase().startsWith(query)
-      ).slice(0, 5); // Limit to 5 suggestions
-      setSearchSuggestions(filtered);
-      setShowSuggestions(filtered.length > 0);
+    if (searchQuery.trim().length >= 2 && searchSuggestions.length > 0) {
+      setShowSuggestions(true);
     } else {
-      setSearchSuggestions([]);
       setShowSuggestions(false);
     }
-  }, [searchQuery, allCourses]);
+  }, [searchQuery, searchSuggestions]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -465,11 +423,10 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
     }
   };
 
-  const handleSuggestionClick = (course: CourseEntry) => {
+  const handleSuggestionClick = (course: AlgoliaCourseRecord) => {
     setSearchQuery('');
     setShowSuggestions(false);
-    const slug = course.slug || course.uid;
-    router.push(`/course/${slug}`);
+    router.push(`/course/${course.slug}`);
   };
 
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -688,15 +645,27 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
                 <div className={styles.searchSuggestions}>
                   {searchSuggestions.map((course) => (
                     <button
-                      key={course.uid}
+                      key={course.objectID}
                       className={styles.suggestionItem}
                       onClick={() => handleSuggestionClick(course)}
                       type="button"
                     >
                       <Search size={16} className={styles.suggestionIcon} />
-                      <span className={styles.suggestionText}>{course.title}</span>
+                      <div className={styles.suggestionContent}>
+                        <span className={styles.suggestionText}>{course.title}</span>
+                        {course.instructor_name && (
+                          <span className={styles.suggestionMeta}>{course.instructor_name}</span>
+                        )}
+                      </div>
                     </button>
                   ))}
+                </div>
+              )}
+              {isSearching && searchQuery.trim().length >= 2 && (
+                <div className={styles.searchSuggestions}>
+                  <div className={styles.suggestionItem}>
+                    <span className={styles.suggestionText}>Searching...</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -830,7 +799,7 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
                 <div className={styles.mobileSearchSuggestions}>
                   {searchSuggestions.map((course) => (
                     <button
-                      key={course.uid}
+                      key={course.objectID}
                       className={styles.suggestionItem}
                       onClick={() => {
                         handleSuggestionClick(course);

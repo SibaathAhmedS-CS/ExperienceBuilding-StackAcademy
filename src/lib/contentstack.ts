@@ -31,6 +31,7 @@ const stackConfig: any = {
   delivery_token: process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '',
   environment: process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev',
   branch: process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main',
+  region: process.env.CONTENTSTACK_REGION ? process.env.CONTENTSTACK_REGION : 'us',
 };
 
 // Add live_preview config if preview token is available
@@ -140,6 +141,22 @@ function getStack(queryParams?: Record<string, string | string[] | undefined>): 
 // Export default Stack for backward compatibility
 // Note: For Live Preview, use getStack() function instead
 const Stack = defaultStack;
+
+/**
+ * Create a fresh Stack instance with current environment variables
+ * Useful for scripts that need to ensure env vars are loaded before Stack initialization
+ */
+export function createFreshStack(): any {
+  const stackConfig: any = {
+    api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '',
+    delivery_token: process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '',
+    environment: process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev',
+    branch: process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main',
+    region: process.env.CONTENTSTACK_REGION ? process.env.CONTENTSTACK_REGION : 'us',
+  };
+  
+  return Contentstack.Stack(stackConfig);
+}
 
 /**
  * Add editable tags to content entry for Live Preview edit buttons
@@ -903,12 +920,14 @@ export async function getAllTestimonials(): Promise<TestimonialEntry[]> {
  * Fetch all courses with author reference
  * Falls back to English if no content found in selected locale
  */
-export async function getAllCourses(locale?: string): Promise<CourseEntry[]> {
+export async function getAllCourses(locale?: string, customStack?: any, skipAuthorResolution?: boolean): Promise<CourseEntry[]> {
   try {
+    // Use custom Stack if provided (for scripts), otherwise use default Stack
+    const stackToUse = customStack || Stack;
     const targetLocale = locale || getCurrentLocale();
     
     // First try with selected locale
-    const query = Stack.ContentType(CONTENT_TYPES.COURSE)
+    const query = stackToUse.ContentType(CONTENT_TYPES.COURSE)
       .Query()
       .includeReference(['author', 'modules']);
     query.language(targetLocale);
@@ -919,13 +938,18 @@ export async function getAllCourses(locale?: string): Promise<CourseEntry[]> {
     // If no courses found and we're not already using fallback, try fallback locale
     if (courses.length === 0 && targetLocale !== FALLBACK_LOCALE) {
       console.log(`[CMS] No courses found in ${targetLocale}, falling back to ${FALLBACK_LOCALE}`);
-      const fallbackQuery = Stack.ContentType(CONTENT_TYPES.COURSE)
+      const fallbackQuery = stackToUse.ContentType(CONTENT_TYPES.COURSE)
         .Query()
         .includeReference(['author', 'modules']);
       fallbackQuery.language(FALLBACK_LOCALE);
       
       const fallbackResult = await fallbackQuery.toJSON().find();
       courses = (fallbackResult[0] || []) as CourseEntry[];
+    }
+    
+    // Skip author resolution if requested (for sync scripts that don't need full author data)
+    if (skipAuthorResolution) {
+      return courses;
     }
     
     // Resolve author references for all courses with the target locale

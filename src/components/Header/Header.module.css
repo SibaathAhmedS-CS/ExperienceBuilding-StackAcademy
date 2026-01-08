@@ -434,8 +434,24 @@
   flex-shrink: 0;
 }
 
-.suggestionText {
+.suggestionContent {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.suggestionText {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestionMeta {
+  font-size: 0.8rem;
+  color: var(--neutral-500);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
