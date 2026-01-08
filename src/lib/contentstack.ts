@@ -20,32 +20,35 @@ import {
 import { isLivePreviewActive } from './livePreview';
 
 // Contentstack SDK Configuration - Default Stack (uses Delivery Token)
-// Live Preview configuration is included directly in the Stack config
-// Build live_preview config conditionally
+// Matches reference implementation pattern with live_preview config
 const previewToken = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_TOKEN || process.env.CONTENTSTACK_PREVIEW_TOKEN;
 const previewHost = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_HOST || process.env.CONTENTSTACK_PREVIEW_HOST || 'rest-preview.contentstack.com';
-const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
 
 const stackConfig: any = {
-  api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '',
+  api_key: process.env.CONTENTSTACK_API_KEY 
+    ? process.env.CONTENTSTACK_API_KEY
+    : process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || '',
   delivery_token: process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '',
   environment: process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev',
   branch: process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main',
+  region: process.env.CONTENTSTACK_REGION ? process.env.CONTENTSTACK_REGION : 'us',
 };
 
-// Add live_preview config if preview token is available
+// Add live_preview config if preview token is available (matches reference pattern)
 if (previewToken) {
   stackConfig.live_preview = {
-    // Enable live preview if specified in environment variables
-    enable: isPreviewEnabled,
-    // Setting the preview token from environment variables
-    preview_token: previewToken,
-    // Setting the host for live preview
+    enable: true, // Always enable if preview token is available (matches reference)
     host: previewHost,
+    preview_token: previewToken,
   };
 }
 
 export const defaultStack = Contentstack.Stack(stackConfig);
+
+// Set custom host if specified (matches reference pattern)
+if (process.env.CONTENTSTACK_API_HOST) {
+  defaultStack.setHost(process.env.CONTENTSTACK_API_HOST);
+}
 
 // Create a function to get Stack with Live Preview config when needed
 function createStackWithLivePreview(): any {
@@ -144,22 +147,28 @@ const Stack = defaultStack;
 /**
  * Add editable tags to content entry for Live Preview edit buttons
  * This adds data-cslp attributes that Live Preview SDK needs to show edit buttons
- * Uses Contentstack.Utils.addEditableTags() pattern from reference implementation
+ * Uses @contentstack/utils addEditableTags pattern from reference implementation
+ * 
+ * Matches reference pattern: liveEdit && addEditableTags(entry, contentTypeUid, true)
  * 
  * Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/set-up-live-edit-tags-for-entries-with-rest
  */
 function addLivePreviewTags<T>(entry: T | null, contentTypeUid?: string): T | null {
   if (!entry) return null;
   
-  // Check if Live Preview is enabled via environment variable
-  const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
-                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
+  // Check if Live Edit Tags should be enabled
+  // Matches reference pattern: const liveEdit = process.env.CONTENTSTACK_LIVE_EDIT_TAGS === "true"
+  // Enable in both development and local environments
+  const liveEdit = process.env.CONTENTSTACK_LIVE_EDIT_TAGS === 'true' ||
+                   process.env.NEXT_PUBLIC_CONTENTSTACK_LIVE_EDIT_TAGS === 'true' ||
+                   process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true' ||
+                   process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true';
   
-  // Also check if Live Preview is active (client-side check)
-  let isLivePreviewActive = isPreviewEnabled;
+  // Also check URL params for live preview mode (client-side)
+  let isLivePreviewActive = liveEdit;
   if (typeof window !== 'undefined') {
     const urlParams = new URLSearchParams(window.location.search);
-    isLivePreviewActive = isPreviewEnabled || urlParams.get('live_preview') === 'true' || !!urlParams.get('hash');
+    isLivePreviewActive = liveEdit || urlParams.get('live_preview') === 'true' || !!urlParams.get('hash');
   }
   
   if (!isLivePreviewActive) {
@@ -167,41 +176,25 @@ function addLivePreviewTags<T>(entry: T | null, contentTypeUid?: string): T | nu
   }
   
   try {
-    // Use @contentstack/utils addEditableTags (recommended approach)
-    // This is the official way to add editable tags for Live Preview
+    // Use @contentstack/utils addEditableTags (matches reference implementation)
+    // Reference pattern: addEditableTags(entry, contentTypeUid, true)
     const { addEditableTags } = require('@contentstack/utils');
     const contentType = contentTypeUid || (entry as any)?.content_type || (entry as any)?._content_type_uid || '';
-    const locale = (entry as any)?.publish_details?.locale || 
-                   (entry as any)?.locale || 
-                   'en-us';
-    const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || 
-                        process.env.CONTENTSTACK_ENVIRONMENT || 
-                        'dev';
     
     if (contentType && (entry as any)?.uid) {
-      // addEditableTags(entry, contentTypeUid, locale, environment)
-      // This adds data-cslp attributes to the entry object's fields
-      // Each field will have a $ property containing the data-cslp attributes
-      const taggedEntry = addEditableTags(entry as any, contentType, locale, environment);
+      // Matches reference: addEditableTags(entry, contentTypeUid, true)
+      // The third parameter (true) enables the edit tags
+      const taggedEntry = addEditableTags(entry as any, contentType, true);
       
       // Log for debugging
       if (typeof window !== 'undefined' && isLivePreviewActive) {
         console.log('[Contentstack] ✅ Added Live Preview tags to entry:', {
           contentType,
           uid: (entry as any)?.uid,
-          entryKeys: Object.keys(taggedEntry || {}).slice(0, 10),
         });
       }
       
       return taggedEntry as T;
-    }
-    
-    // Fallback: Try Contentstack.Utils if @contentstack/utils doesn't work
-    if (typeof Contentstack !== 'undefined' && (Contentstack as any).Utils && (Contentstack as any).Utils.addEditableTags) {
-      const contentType = contentTypeUid || (entry as any)?.content_type || (entry as any)?._content_type_uid || '';
-      if (contentType && (entry as any)?.uid) {
-        return (Contentstack as any).Utils.addEditableTags(entry, contentType, true) as T;
-      }
     }
     
     return entry;

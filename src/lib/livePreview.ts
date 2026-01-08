@@ -9,6 +9,8 @@
  * 2. Initializes Contentstack Live Preview SDK with preview token
  * 3. Sets up real-time content updates from Contentstack
  * 4. Provides utilities to check preview status
+ * 
+ * Based on Contentstack Live Preview SDK v4.x pattern
  */
 
 import ContentstackLivePreview from '@contentstack/live-preview-utils';
@@ -146,28 +148,25 @@ export async function initializeLivePreview(): Promise<void> {
       console.log('[Live Preview] 🔑 Tracker hash found in URL:', trackerHash.substring(0, 20) + '...');
     }
     
-    // Match Contentstack documentation pattern for SSR
-    // Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/set-up-live-preview-with-rest-for-server-side-rendering
+    // Match reference implementation pattern - CSR mode for client-side updates
+    // Reference implementation uses ssr: false and mode: 'preview'
     const initConfig: any = {
-      enable: process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
-              process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true', // Enabling live preview if specified
-      ssr: true, // Enable SSR mode for Next.js App Router (as per documentation)
       stackSdk: stackForPreview as any, // Pass stack instance directly
-      // Recommended: Enables Edit Tags (as per documentation)
-      // This enables the edit buttons that appear on content elements
-      editButton: {
-        enable: true, // Enable edit buttons
-        exclude: [], // Don't exclude any elements (show edit buttons everywhere)
-      },
       stackDetails: {
-        apiKey: apiKey, // Setting the API key from environment variables
-        environment: environment, // Setting the environment from environment variables
-        branch: branch, // Setting the branch from environment variables
+        apiKey: apiKey,
+        environment: environment,
+        branch: branch,
       },
       clientUrlParams: {
-        protocol: 'https', // As per documentation
-        host: applicationHost, // Contentstack application host (app.contentstack.com), not preview API host
-        port: 443, // As per documentation
+        protocol: 'https',
+        port: 443,
+        host: applicationHost, // Contentstack application host (app.contentstack.com)
+      },
+      enable: true, // Always enable if preview token is available
+      ssr: false, // CSR mode for client-side updates (matches reference)
+      mode: 'preview', // Preview mode (matches reference)
+      editButton: {
+        enable: true, // Enable edit buttons (matches reference)
       },
     };
     
@@ -278,4 +277,36 @@ export function isLivePreviewSDKReady(): boolean {
     return livePreviewInitialized;
   }
 }
+
+/**
+ * Export onEntryChange for client-side Live Preview
+ * This callback is triggered when content changes in Contentstack
+ * 
+ * Usage in components:
+ *   import { onEntryChange } from '@/lib/livePreview';
+ *   useEffect(() => {
+ *     const unsubscribe = onEntryChange((entry) => {
+ *       // Update component state with new entry data
+ *       setEntryData(entry);
+ *     });
+ *     return () => unsubscribe();
+ *   }, []);
+ */
+export const onEntryChange = ContentstackLivePreview.onEntryChange;
+
+/**
+ * Export onLiveEdit for Live Preview edit button interactions
+ * This callback is triggered when edit buttons are clicked
+ * 
+ * Usage in components:
+ *   import { onLiveEdit } from '@/lib/livePreview';
+ *   useEffect(() => {
+ *     const unsubscribe = onLiveEdit((data) => {
+ *       // Handle edit button click
+ *       console.log('Edit clicked:', data);
+ *     });
+ *     return () => unsubscribe();
+ *   }, []);
+ */
+export const onLiveEdit = ContentstackLivePreview.onLiveEdit;
 
