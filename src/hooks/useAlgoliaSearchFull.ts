@@ -38,8 +38,10 @@ export function useAlgoliaSearchFull(query: string, hitsPerPage: number = 20) {
             },
           },
         ])
-        .then((response) => {
-          const hits = response.results[0]?.hits || [];
+        .then((response: any) => {
+          // Type-safe extraction of hits from Algolia response
+          const firstResult = response?.results?.[0] as any;
+          const hits = firstResult?.hits || [];
           setResults(hits as AlgoliaCourseRecord[]);
           setIsLoading(false);
         })
@@ -59,4 +61,3 @@ export function useAlgoliaSearchFull(query: string, hitsPerPage: number = 20) {
 
   return { results, isLoading, error };
 }
-
