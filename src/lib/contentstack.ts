@@ -377,9 +377,6 @@ async function enrichBannersWithFallback(
   }
 }
 
-/**
- * Fetch single entry by content type and UID
- */
 export async function getEntry<T = ContentstackEntry>(
   contentType: string,
   entryUid: string,

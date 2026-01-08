@@ -663,8 +663,12 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
               )}
               {isSearching && searchQuery.trim().length >= 2 && (
                 <div className={styles.searchSuggestions}>
-                  <div className={styles.suggestionItem}>
-                    <span className={styles.suggestionText}>Searching...</span>
+                  <div className={styles.suggestionItemLoading}>
+                    <div className={styles.loadingDots}>
+                      <span className={styles.loadingDot}></span>
+                      <span className={styles.loadingDot}></span>
+                      <span className={styles.loadingDot}></span>
+                    </div>
                   </div>
                 </div>
               )}
