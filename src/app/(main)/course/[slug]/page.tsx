@@ -198,9 +198,21 @@ export default function CoursePage() {
         let enrolledLocaleForFetch: string | null = null;
         let courseUidFromEnrollment: string | null = null;
         
-        // If user is logged in, check all enrollments to find course by slug match
-        // We need to check enrollments first to get the enrolled locale
-        if (authUser) {
+        // FIRST: Fetch the course by slug (this is the primary lookup)
+        // We need to get the course first, then check enrollment status
+        let course: CourseEntry | null = null;
+        
+        // Try current locale first
+        course = await getCourseBySlug(slug, selectedLanguage);
+        
+        // If not found, try fallback locale
+        if (!course) {
+          console.log(`[Course Page] Course not found in ${selectedLanguage}, trying fallback en-us`);
+          course = await getCourseBySlug(slug, 'en-us');
+        }
+        
+        // If course found, check enrollment status
+        if (course && authUser) {
           // Get all enrollments for this user
           const { data: enrollments } = await supabase
             .from('enrollments')
@@ -208,79 +220,38 @@ export default function CoursePage() {
             .eq('user_id', authUser.id);
           
           if (enrollments && enrollments.length > 0) {
-            // Try to find course by fetching by UID (not slug) since slug might differ across locales
-            for (const enrollment of enrollments) {
-              try {
-                // Fetch course by UID in enrolled locale
-                const enrolledLocale = enrollment.enrolled_locale || 'en-us';
-                const courseByUid = await getCourseByUid(enrollment.course_id, enrolledLocale);
-                
-                // Check if slug matches (course might have different slug in different locales)
-                if (courseByUid && (courseByUid.slug === slug || courseByUid.uid === enrollment.course_id)) {
-                  // Found matching course from enrollment!
-                  enrolledLocaleForFetch = enrolledLocale;
-                  courseUidFromEnrollment = enrollment.course_id;
-                  setIsEnrolled(true);
-                  setEnrollmentId(enrollment.id);
-                  setEnrolledLocale(enrolledLocaleForFetch);
-                  
-                  if (enrollment.status === 'completed') {
-                    setIsCompleted(true);
-                  }
-                  break;
-                }
-              } catch (error) {
-                // Continue to next enrollment if this one fails
-                continue;
-              }
-            }
+            // Find enrollment that matches this course's UID
+            const matchingEnrollment = enrollments.find(e => e.course_id === course!.uid);
             
-            // If not found by UID, try fetching by slug in current locale and check if enrolled
-            if (!enrolledLocaleForFetch) {
-              const testCourse = await getCourseBySlug(slug, selectedLanguage);
-              if (testCourse) {
-                // Check if this course is enrolled
-                const matchingEnrollment = enrollments.find(e => e.course_id === testCourse.uid);
-                if (matchingEnrollment) {
-                  enrolledLocaleForFetch = matchingEnrollment.enrolled_locale || null;
-                  courseUidFromEnrollment = matchingEnrollment.course_id;
-                  setIsEnrolled(true);
-                  setEnrollmentId(matchingEnrollment.id);
-                  setEnrolledLocale(enrolledLocaleForFetch);
-                  
-                  if (matchingEnrollment.status === 'completed') {
-                    setIsCompleted(true);
+            if (matchingEnrollment) {
+              // User is enrolled in this course!
+              enrolledLocaleForFetch = matchingEnrollment.enrolled_locale || null;
+              courseUidFromEnrollment = matchingEnrollment.course_id;
+              setIsEnrolled(true);
+              setEnrollmentId(matchingEnrollment.id);
+              setEnrolledLocale(enrolledLocaleForFetch);
+              
+              if (matchingEnrollment.status === 'completed') {
+                setIsCompleted(true);
+              }
+              
+              // If enrolled locale differs from current locale, fetch course in enrolled locale
+              // This ensures the user sees the course in the locale they enrolled in
+              if (enrolledLocaleForFetch && enrolledLocaleForFetch !== selectedLanguage) {
+                // Only refetch if we haven't already fetched in this locale
+                // (We already tried selectedLanguage and possibly 'en-us' as fallback)
+                const needsRefetch = enrolledLocaleForFetch !== selectedLanguage && 
+                                     enrolledLocaleForFetch !== 'en-us';
+                
+                if (needsRefetch) {
+                  console.log(`[Course Page] Fetching course in enrolled locale ${enrolledLocaleForFetch}`);
+                  const enrolledCourse = await getCourseByUid(course.uid, enrolledLocaleForFetch);
+                  if (enrolledCourse) {
+                    course = enrolledCourse;
                   }
                 }
               }
             }
-          }
-        }
-        
-        // If we found course from enrollment, use it
-        // Otherwise, fetch course with current locale or enrolled locale
-        let course: CourseEntry | null = null;
-        
-        if (courseUidFromEnrollment && enrolledLocaleForFetch) {
-          // We already found the course from enrollment, fetch it by UID
-          course = await getCourseByUid(courseUidFromEnrollment, enrolledLocaleForFetch);
-        }
-        
-        // If not found from enrollment, try fetching by slug
-        if (!course) {
-          // Try current locale first
-          course = await getCourseBySlug(slug, selectedLanguage);
-          
-          // If not found and we have enrolled locale, try enrolled locale
-          if (!course && enrolledLocaleForFetch && enrolledLocaleForFetch !== selectedLanguage) {
-            console.log(`[Course Page] Course not found in ${selectedLanguage}, trying enrolled locale ${enrolledLocaleForFetch}`);
-            course = await getCourseBySlug(slug, enrolledLocaleForFetch);
-          }
-          
-          // If still not found, try fallback
-          if (!course) {
-            console.log(`[Course Page] Course not found, trying fallback en-us`);
-            course = await getCourseBySlug(slug, 'en-us');
           }
         }
         
