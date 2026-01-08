@@ -29,6 +29,8 @@ interface NormalizedSlide {
   ctaUrl: string;
   backgroundColor: string;
   textColor: string;
+  // Preserve original banner entry for Live Preview $ attributes
+  _originalBanner?: BannerEntry;
 }
 
 interface CarouselProps {
@@ -87,6 +89,8 @@ function normalizeBanners(
       ctaUrl: banner.button?.href || '#',
       backgroundColor: extractColor(banner.banner_color, defaultColors[index % defaultColors.length]),
       textColor: extractColor(banner.banner_text_color, '#ffffff'),
+      // Preserve original banner entry for Live Preview $ attributes
+      _originalBanner: banner,
     }));
   }
 
@@ -165,9 +169,25 @@ export default function Carousel({
           >
             <div className={styles.slideContent}>
               <div className={styles.textContent}>
-                <h2 className={styles.slideTitle} style={{ color: slide.textColor }}>{slide.label}</h2>
-                <p className={styles.slideDescription} style={{ color: slide.textColor }}>{slide.description}</p>
-                <Link href={slide.ctaUrl} className={styles.ctaButton}>
+                <h2 
+                  className={styles.slideTitle} 
+                  style={{ color: slide.textColor }}
+                  {...(slide._originalBanner?.title as any)?.$ || (slide._originalBanner?.label as any)?.$ || {}}
+                >
+                  {slide.label}
+                </h2>
+                <p 
+                  className={styles.slideDescription} 
+                  style={{ color: slide.textColor }}
+                  {...(slide._originalBanner?.description as any)?.$ || {}}
+                >
+                  {slide.description}
+                </p>
+                <Link 
+                  href={slide.ctaUrl} 
+                  className={styles.ctaButton}
+                  {...(slide._originalBanner?.button?.title as any)?.$ || {}}
+                >
                   {slide.ctaLabel.includes('→') ? slide.ctaLabel.replace('→', '') : slide.ctaLabel}
                   <ArrowRight size={18} />
                 </Link>

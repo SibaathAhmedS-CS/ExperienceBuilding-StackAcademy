@@ -666,8 +666,18 @@ export default function CoursePage() {
                 <span className={styles.lastUpdated}>Updated {lastUpdated}</span>
               </div>
 
-              <h1 className={styles.courseTitle}>{courseData.title}</h1>
-              <p className={styles.courseDescription}>{stripHtml(courseData.short_text || '')}</p>
+              <h1 
+                className={styles.courseTitle}
+                {...getLivePreviewAttrs(courseData, 'title')}
+              >
+                {courseData.title}
+              </h1>
+              <p 
+                className={styles.courseDescription}
+                {...getLivePreviewAttrs(courseData, 'short_text')}
+              >
+                {stripHtml(courseData.short_text || '')}
+              </p>
 
               <div className={styles.courseMeta}>
                 {/* DB Data: Rating and Reviews */}
@@ -785,7 +795,12 @@ export default function CoursePage() {
                       <div className={styles.instructorAvatarLarge}>
                         <Image src={instructorAvatar} alt={instructor.title} fill sizes="80px" />
                       </div>
-                      <h3 className={styles.instructorName}>{instructor.title}</h3>
+                      <h3 
+                        className={styles.instructorName}
+                        {...(instructor?.title as any)?.$ || {}}
+                      >
+                        {instructor.title}
+                      </h3>
                       {/* DB Data: Instructor Stats */}
                       <div className={styles.instructorStats}>
                         <span><Star size={14} /> {instructorStats.averageRating > 0 ? instructorStats.averageRating.toFixed(1) : '0.0'} Rating</span>
@@ -794,7 +809,12 @@ export default function CoursePage() {
                       </div>
                     </div>
                     <p className={styles.instructorRole}>{instructor.bio?.split('.')[0] || 'Instructor'}</p>
-                    <p className={styles.instructorBio}>{instructor.bio}</p>
+                    <p 
+                      className={styles.instructorBio}
+                      {...(instructor?.bio as any)?.$ || {}}
+                    >
+                      {instructor.bio}
+                    </p>
                   </div>
                 )}
               </section>
@@ -847,7 +867,7 @@ export default function CoursePage() {
                         >
                           <ChevronDown size={20} className={styles.moduleChevron} />
                           <div className={styles.moduleInfo}>
-                            <h4>
+                            <h4 {...(module?.title as any)?.$ || {}}>
                               {isModuleLocked && <Lock size={16} className={styles.moduleLockIcon} />}
                               {module.title}
                             </h4>
@@ -885,7 +905,12 @@ export default function CoursePage() {
                                 ) : (
                                   <Lock size={16} />
                                 )}
-                                <span className={styles.lessonTitle}>{lesson.title}</span>
+                                <span 
+                                  className={styles.lessonTitle}
+                                  {...(lesson?.title as any)?.$ || {}}
+                                >
+                                  {lesson.title}
+                                </span>
                                 <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
                                 {lesson.is_preview && isAccessible && (
                                   <span className={styles.previewBadge}>Preview</span>

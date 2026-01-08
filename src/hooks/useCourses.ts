@@ -156,6 +156,8 @@ export async function transformCourseToCard(course: CourseEntry): Promise<Transf
     category: course.taxonomies?.[0]?.term_uid || 'development',
     isFeatured,
     isPopular,
+    // Preserve original course entry for Live Preview $ attributes
+    _originalCourse: course,
   };
 }
 

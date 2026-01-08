@@ -24,6 +24,8 @@ interface CourseCardProps {
   progress?: number; // For enrolled courses
   variant?: 'default' | 'horizontal' | 'compact';
   redirectTo?: string; // Override the default navigation (e.g., redirect to signup for non-logged-in users)
+  // Preserve original course entry for Live Preview $ attributes
+  _originalCourse?: any;
 }
 
 export default function CourseCard({
@@ -44,6 +46,7 @@ export default function CourseCard({
   progress,
   variant = 'default',
   redirectTo,
+  _originalCourse,
 }: CourseCardProps) {
   const levelColors = {
     beginner: 'var(--success-500)',
@@ -129,7 +132,12 @@ export default function CourseCard({
         </div>
 
         {/* Title */}
-        <h3 className={styles.title}>{title}</h3>
+        <h3 
+          className={styles.title}
+          {...(_originalCourse?.title as any)?.$ || {}}
+        >
+          {title}
+        </h3>
 
         {/* Instructor */}
         <div className={styles.instructor}>
@@ -140,7 +148,13 @@ export default function CourseCard({
               <span>{instructorName.charAt(0)}</span>
             )}
           </div>
-          <span className={styles.instructorName}>{instructorName}</span>
+          <span 
+            className={styles.instructorName}
+            {...(_originalCourse?.author as any)?.[0]?.title?.$ || 
+                (_originalCourse?.author as any)?.title?.$ || {}}
+          >
+            {instructorName}
+          </span>
         </div>
 
         {/* Meta Info */}

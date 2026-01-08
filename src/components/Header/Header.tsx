@@ -549,21 +549,31 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
           <div className={styles.logoIcon}>
             <LogoIcon size={24} />
           </div>
-          <span className={styles.logoText}>{logoText}</span>
+          <span 
+            className={styles.logoText}
+            {...(headerData?.icon?.icon_title as any)?.$ || {}}
+          >
+            {logoText}
+          </span>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className={styles.nav}>
-          {navLinks.map((link) => (
-            <a
-              key={link.label}
-              href={link.href}
-              className={`${styles.navLink} ${isLinkActive(link.href) ? styles.active : ''}`}
-              onClick={(e) => isAnchorLink(link.href) ? scrollToSection(e, link.href) : undefined}
-            >
-              {link.label}
-            </a>
-          ))}
+          {navLinks.map((link, index) => {
+            // Get original link from CMS if available
+            const cmsLink = headerData?.navigation?.link?.[index];
+            return (
+              <a
+                key={link.label}
+                href={link.href}
+                className={`${styles.navLink} ${isLinkActive(link.href) ? styles.active : ''}`}
+                onClick={(e) => isAnchorLink(link.href) ? scrollToSection(e, link.href) : undefined}
+                {...(cmsLink?.title as any)?.$ || {}}
+              >
+                {link.label}
+              </a>
+            );
+          })}
           
           {/* Language Selector - Only on Home Page */}
           {showLanguageSelector && (
@@ -683,16 +693,27 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
             </div>
           ) : (
             <>
-              {hasAuthButtons() && !user && (
-                <div className={styles.authButtons}>
-                  <Link href={authButtons.login.url} className={styles.loginBtn}>
-                    {authButtons.login.text}
-                  </Link>
-                  <Link href={authButtons.signup.url} className={styles.signupBtn}>
-                    {authButtons.signup.text}
-                  </Link>
-                </div>
-              )}
+              {hasAuthButtons() && !user && (() => {
+                const authBlock = headerData?.components?.find(isAuthButtonsBlock);
+                return (
+                  <div className={styles.authButtons}>
+                    <Link 
+                      href={authButtons.login.url} 
+                      className={styles.loginBtn}
+                      {...(authBlock?.auth_buttons?.log_in?.title as any)?.$ || {}}
+                    >
+                      {authButtons.login.text}
+                    </Link>
+                    <Link 
+                      href={authButtons.signup.url} 
+                      className={styles.signupBtn}
+                      {...(authBlock?.auth_buttons?.sign_up?.title as any)?.$ || {}}
+                    >
+                      {authButtons.signup.text}
+                    </Link>
+                  </div>
+                );
+              })()}
 
               {hasProfile() && user && (
                 <div className={styles.userSection}>
@@ -711,7 +732,12 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
                           <ProfileTriggerIcon size={20} />
                         )}
                       </div>
-                      <span className={styles.userName}>{user.name}</span>
+                      <span 
+                        className={styles.userName}
+                        {...(headerData?.components?.find(isProfileBlock)?.profile_icon?.icon as any)?.$ || {}}
+                      >
+                        {user.name}
+                      </span>
                       <ChevronDown size={16} className={`${styles.chevron} ${isProfileOpen ? styles.open : ''}`} />
                     </button>
 

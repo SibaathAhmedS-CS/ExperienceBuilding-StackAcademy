@@ -236,17 +236,27 @@ export default function LandingPage() {
                 ) : (
                   <Rocket size={16} />
                 )}
-                <span>{hasCMSHero ? hero?.badge_text : 'Start Learning Today'}</span>
+                <span {...(hero?.badge_text as any)?.$ || {}}>
+                  {hasCMSHero ? hero?.badge_text : 'Start Learning Today'}
+                </span>
               </div>
               
-              <h1 className={styles.heroTitle}>
+              <h1 
+                className={styles.heroTitle}
+                {...(hero?.headline as any)?.$ || {}}
+              >
                 {hasCMSHero ? (
                   <>
                     {hero?.headline?.split(hero?.highlight_text || '').map((part, i, arr) => (
                       <span key={i}>
                         {part}
                         {i < arr.length - 1 && hero?.highlight_text && (
-                          <span className={styles.highlight}>{hero.highlight_text}</span>
+                          <span 
+                            className={styles.highlight}
+                            {...(hero?.highlight_text as any)?.$ || {}}
+                          >
+                            {hero.highlight_text}
+                          </span>
                         )}
                       </span>
                     ))}
@@ -260,7 +270,10 @@ export default function LandingPage() {
                 )}
               </h1>
               
-              <p className={styles.heroSubtitle}>
+              <p 
+                className={styles.heroSubtitle}
+                {...(hero?.subtitle as any)?.$ || {}}
+              >
                 {hasCMSHero && hero?.subtitle ? hero.subtitle : (
                   <>
                     <strong>1000+</strong> courses covering all tech domains for you to learn 
@@ -274,6 +287,7 @@ export default function LandingPage() {
                   href={hasCMSHero && hero?.primary_cta?.href ? hero.primary_cta.href : '/signup'}
                   className={styles.primaryBtn}
                   data-lytics-click='{"action": "cta_click", "button_type": "primary", "location": "hero", "text": "Get Started"}'
+                  {...(hero?.primary_cta?.title as any)?.$ || {}}
                 >
                   {hasCMSHero && hero?.primary_cta?.title ? hero.primary_cta.title : 'Get Started'}
                   <ArrowRight size={20} />
@@ -434,8 +448,12 @@ export default function LandingPage() {
                       <div className={styles.featureIcon}>
                         <FeatureIcon size={28} />
                       </div>
-                      <h3>{feature.icon_title || feature.title}</h3>
-                      <p>{feature.description}</p>
+                      <h3 {...(feature?.icon_title as any)?.$ || (feature?.title as any)?.$ || {}}>
+                        {feature.icon_title || feature.title}
+                      </h3>
+                      <p {...(feature?.description as any)?.$ || {}}>
+                        {feature.description}
+                      </p>
                     </div>
                   );
                 })
@@ -492,12 +510,18 @@ export default function LandingPage() {
         <section className={`${styles.howItWorks} section`}>
           <div className="container">
             <div className={styles.sectionHeader}>
-              <h2 className="section-title">
+              <h2 
+                className="section-title"
+                {...(sectionData?.workflowTitle?.title as any)?.$ || {}}
+              >
                 {hasCMSWorkflow && sectionData.workflowTitle.title
                   ? sectionData.workflowTitle.title
                   : 'How It Works'}
               </h2>
-              <p className="section-subtitle">
+              <p 
+                className="section-subtitle"
+                {...(sectionData?.workflowTitle?.description as any)?.$ || {}}
+              >
                 {hasCMSWorkflow && sectionData.workflowTitle.description
                   ? sectionData.workflowTitle.description
                   : 'Start your learning journey in just 3 simple steps.'}
@@ -512,8 +536,12 @@ export default function LandingPage() {
                     <div className={styles.step}>
                       <div className={styles.stepNumber}>{String(index + 1).padStart(2, '0')}</div>
                       <div className={styles.stepContent}>
-                        <h3>{step.icon_title || step.title}</h3>
-                        <p>{step.description}</p>
+                        <h3 {...(step?.icon_title as any)?.$ || (step?.title as any)?.$ || {}}>
+                          {step.icon_title || step.title}
+                        </h3>
+                        <p {...(step?.description as any)?.$ || {}}>
+                          {step.description}
+                        </p>
                       </div>
                     </div>
                     {index < sectionData.workflow.length - 1 && (
@@ -589,8 +617,10 @@ export default function LandingPage() {
                           )}
                         </div>
                         <div className={styles.authorInfo}>
-                          <h4>{author?.title || testimonial.title}</h4>
-                          <p>
+                          <h4 {...(author?.title as any)?.$ || (testimonial?.title as any)?.$ || {}}>
+                            {author?.title || testimonial.title}
+                          </h4>
+                          <p {...(author?.bio as any)?.$ || {}}>
                             {authorInfo.role}
                             {authorInfo.company && ` at ${authorInfo.company}`}
                           </p>

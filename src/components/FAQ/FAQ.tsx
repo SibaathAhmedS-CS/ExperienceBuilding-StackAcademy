@@ -118,34 +118,64 @@ export default function FAQ({
         <div className={styles.iconWrapper}>
           <HeaderIcon size={28} />
         </div>
-        <h2 className={styles.title}>{displayTitle}</h2>
-        {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+        <h2 
+          className={styles.title}
+          {...((faqData as any)?.section_title?.$ || {})}
+        >
+          {displayTitle}
+        </h2>
+        {subtitle && (
+          <p 
+            className={styles.subtitle}
+            {...((faqData as any)?.section_subtitle?.$ || {})}
+          >
+            {subtitle}
+          </p>
+        )}
       </div>
 
       <div className={styles.faqList}>
-        {faqItems.map((item, index) => (
-          <div
-            key={item.uid}
-            className={`${styles.faqItem} ${openIndex === index ? styles.open : ''}`}
-          >
-            <button
-              className={styles.question}
-              onClick={() => toggleItem(index)}
-              aria-expanded={openIndex === index}
+        {faqItems.map((item, index) => {
+          // Get question/answer entry for Live Preview attributes
+          const questionEntry = faqData?.faq_question 
+            ? (Array.isArray(faqData.faq_question) ? faqData.faq_question[0] : faqData.faq_question)
+            : null;
+          const questionItem = questionEntry?.questions?.[index];
+          const questionAttrs = (questionItem?.question as any)?.$ || {};
+          const answerAttrs = (questionItem?.answer as any)?.$ || {};
+          
+          return (
+            <div
+              key={item.uid}
+              className={`${styles.faqItem} ${openIndex === index ? styles.open : ''}`}
             >
-              <span className={styles.questionNumber}>
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <span className={styles.questionText}>{item.question}</span>
-              <ChevronDown size={20} className={styles.chevron} />
-            </button>
-            <div className={styles.answerWrapper}>
-              <div className={styles.answer}>
-                <p>{item.answer}</p>
+              <button
+                className={styles.question}
+                onClick={() => toggleItem(index)}
+                aria-expanded={openIndex === index}
+              >
+                <span className={styles.questionNumber}>
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <span 
+                  className={styles.questionText}
+                  {...questionAttrs}
+                >
+                  {item.question}
+                </span>
+                <ChevronDown size={20} className={styles.chevron} />
+              </button>
+              <div className={styles.answerWrapper}>
+                <div 
+                  className={styles.answer}
+                  {...answerAttrs}
+                >
+                  <p>{item.answer}</p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

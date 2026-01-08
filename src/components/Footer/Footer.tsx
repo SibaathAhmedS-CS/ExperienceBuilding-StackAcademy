@@ -279,8 +279,8 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
         <div className={styles.container}>
           <div className={styles.newsletterContent}>
             <div className={styles.newsletterText}>
-              <h3>{newsletterHeading}</h3>
-              <p>{newsletterDescription}</p>
+              <h3 {...(newsletterData?.heading as any)?.$ || {}}>{newsletterHeading}</h3>
+              <p {...(newsletterData?.description as any)?.$ || {}}>{newsletterDescription}</p>
             </div>
             {isHomePage ? (
               // Home page: Only subscribe button
@@ -352,7 +352,12 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
                 </div>
                 <span className={styles.logoText}>{logoText}</span>
               </Link>
-              <p className={styles.brandDescription}>{brandDescription}</p>
+              <p 
+                className={styles.brandDescription}
+                {...(footerData?.brand_desciption as any)?.$ || {}}
+              >
+                {brandDescription}
+              </p>
             </div>
 
             {/* Right: Contact Info */}
@@ -378,7 +383,12 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
       <div className={styles.bottom}>
         <div className={styles.container}>
           <div className={styles.bottomContent}>
-            <p className={styles.copyright}>{formattedCopyright}</p>
+            <p 
+              className={styles.copyright}
+              {...(footerData?.copyright_text as any)?.$ || {}}
+            >
+              {formattedCopyright}
+            </p>
             <div className={styles.socialLinks}>
               {socialLinks.map((social, index) => {
                 const SocialIcon = getSocialIcon(social.title);

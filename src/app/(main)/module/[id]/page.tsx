@@ -779,7 +779,12 @@ export default function ModulePage() {
                               <Circle size={18} />
                             )}
                           </span>
-                          <span className={styles.lessonTitle}>{lesson.title}</span>
+                          <span 
+                            className={styles.lessonTitle}
+                            {...(lesson?.title as any)?.$ || {}}
+                          >
+                            {lesson.title}
+                          </span>
                           <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
                         </Link>
                       );
@@ -810,6 +815,7 @@ export default function ModulePage() {
                 title={currentLesson.title}
                 onProgress={handleVideoProgress}
                 onComplete={handleVideoComplete}
+                {...(currentLessonData?.title as any)?.$ || {}}
               />
             </div>
           )}
@@ -829,7 +835,9 @@ export default function ModulePage() {
             )}
 
             <div className={styles.lessonInfo}>
-              <h1>{currentLesson.title}</h1>
+              <h1 {...getLivePreviewAttrs(currentLessonData, 'title')}>
+                {currentLesson.title}
+              </h1>
               <p>
                 Module {currentModuleIndex + 1}, Lesson {currentLessonIndex + 1} •{' '}
                 <Clock size={14} /> {currentLesson.duration}

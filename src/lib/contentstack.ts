@@ -15,7 +15,10 @@ import {
   OnboardingBlockEntry,
   AuthBrandingEntry,
   AuthorEntry,
-  isCarouselBlock
+  isCarouselBlock,
+  isHeroSectionBlock,
+  isTestimonialBlock,
+  normalizeArray
 } from '@/types/contentstack';
 import { isLivePreviewActive } from './livePreview';
 
@@ -35,10 +38,13 @@ const stackConfig: any = {
 };
 
 // Add live_preview config if preview token is available
+// According to docs, always enable live_preview when preview token exists
+// The enable flag controls whether preview mode is active, not whether the config exists
 if (previewToken) {
   stackConfig.live_preview = {
     // Enable live preview if specified in environment variables
-    enable: isPreviewEnabled,
+    // This allows the SDK to switch to preview API when needed
+    enable: isPreviewEnabled || process.env.CONTENTSTACK_LIVE_EDIT_TAGS === 'true',
     // Setting the preview token from environment variables
     preview_token: previewToken,
     // Setting the host for live preview
@@ -96,11 +102,15 @@ function createStackWithLivePreview(): any {
  * Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/set-up-live-preview-with-rest-for-server-side-rendering
  */
 function getStack(queryParams?: Record<string, string | string[] | undefined>): any {
+  // Check if Live Preview is active
+  const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
+                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
+  
   // If Live Preview is active and we have query params (server-side), create a new instance
   if (typeof window === 'undefined' && queryParams) {
     const hasLivePreview = queryParams.live_preview === 'true' || 
                           queryParams.hash || 
-                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
+                          isPreviewEnabled;
     
     if (hasLivePreview && previewToken) {
       // Create a new Stack instance and apply livePreviewQuery
@@ -121,20 +131,61 @@ function getStack(queryParams?: Record<string, string | string[] | undefined>): 
       // This is required for Live Preview to work in SSR mode
       // Convert queryParams to the format expected by livePreviewQuery
       if (typeof (stack as any).livePreviewQuery === 'function') {
-        const livePreviewParams: any = {
-          live_preview: queryParams.live_preview || 'true',
-          hash: queryParams.hash || queryParams.live_preview_hash,
-          content_type_uid: queryParams.content_type_uid,
-          entry_uid: queryParams.entry_uid,
-        };
+        const livePreviewParams: any = {};
+        
+        // Only include params that are actually present
+        if (queryParams.live_preview) {
+          livePreviewParams.live_preview = Array.isArray(queryParams.live_preview) 
+            ? queryParams.live_preview[0] 
+            : queryParams.live_preview;
+        } else if (isPreviewEnabled) {
+          livePreviewParams.live_preview = 'true';
+        }
+        
+        if (queryParams.hash) {
+          livePreviewParams.hash = Array.isArray(queryParams.hash) 
+            ? queryParams.hash[0] 
+            : queryParams.hash;
+        } else if (queryParams.live_preview_hash) {
+          livePreviewParams.hash = Array.isArray(queryParams.live_preview_hash) 
+            ? queryParams.live_preview_hash[0] 
+            : queryParams.live_preview_hash;
+        }
+        
+        if (queryParams.content_type_uid) {
+          livePreviewParams.content_type_uid = Array.isArray(queryParams.content_type_uid) 
+            ? queryParams.content_type_uid[0] 
+            : queryParams.content_type_uid;
+        }
+        
+        if (queryParams.entry_uid) {
+          livePreviewParams.entry_uid = Array.isArray(queryParams.entry_uid) 
+            ? queryParams.entry_uid[0] 
+            : queryParams.entry_uid;
+        }
+        
         (stack as any).livePreviewQuery(livePreviewParams);
+        console.log('[Contentstack] ✅ Applied livePreviewQuery with params:', livePreviewParams);
       }
       
       return stack;
     }
   }
   
-  // Client-side or no Live Preview - return defaultStack
+  // Client-side: check URL params if available
+  if (typeof window !== 'undefined') {
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasHash = urlParams.get('hash') || urlParams.get('live_preview_hash');
+    const hasPreviewParam = urlParams.get('live_preview') === 'true';
+    
+    if ((hasHash || hasPreviewParam || isPreviewEnabled) && previewToken) {
+      // For client-side, we still need to ensure live_preview is enabled
+      // The SDK will handle the rest
+      return defaultStack;
+    }
+  }
+  
+  // No Live Preview - return defaultStack
   return defaultStack;
 }
 
@@ -168,17 +219,29 @@ export function createFreshStack(): any {
 function addLivePreviewTags<T>(entry: T | null, contentTypeUid?: string): T | null {
   if (!entry) return null;
   
-  // Check if Live Preview is enabled via environment variable
+  // According to Contentstack docs, edit tags should be added when:
+  // 1. Live Preview is enabled via environment variable OR
+  // 2. Live Edit Tags are explicitly enabled OR
+  // 3. URL has live_preview=true or hash parameter (client-side)
+  // The hash is only needed for preview mode, NOT for edit tags to appear
   const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
-                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
+                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true' ||
+                          process.env.CONTENTSTACK_LIVE_EDIT_TAGS === 'true';
   
-  // Also check if Live Preview is active (client-side check)
+  // Client-side: also check URL params
   let isLivePreviewActive = isPreviewEnabled;
   if (typeof window !== 'undefined') {
     const urlParams = new URLSearchParams(window.location.search);
-    isLivePreviewActive = isPreviewEnabled || urlParams.get('live_preview') === 'true' || !!urlParams.get('hash');
+    // Edit tags should appear if Live Preview is enabled OR if URL has preview params
+    isLivePreviewActive = isPreviewEnabled || 
+                         urlParams.get('live_preview') === 'true' || 
+                         !!urlParams.get('hash') ||
+                         !!urlParams.get('live_preview_hash');
   }
   
+  // Always add tags if Live Preview is enabled (even without hash)
+  // According to docs: "Edit tags allow editors to directly jump from the Live Preview pane"
+  // This means edit tags should work even without preview mode active
   if (!isLivePreviewActive) {
     return entry;
   }
@@ -196,18 +259,113 @@ function addLivePreviewTags<T>(entry: T | null, contentTypeUid?: string): T | nu
                         'dev';
     
     if (contentType && (entry as any)?.uid) {
-      // addEditableTags(entry, contentTypeUid, locale, environment)
-      // This adds data-cslp attributes to the entry object's fields
-      // Each field will have a $ property containing the data-cslp attributes
-      const taggedEntry = addEditableTags(entry as any, contentType, locale, environment);
+      // CRITICAL: addEditableTags mutates the entry in place
+      // According to Contentstack docs: addEditableTags(entry, contentTypeUid, locale, environment)
+      // The entry must be a plain object (not a Contentstack SDK response wrapper)
       
-      // Log for debugging
-      if (typeof window !== 'undefined' && isLivePreviewActive) {
-        console.log('[Contentstack] ✅ Added Live Preview tags to entry:', {
-          contentType,
-          uid: (entry as any)?.uid,
-          entryKeys: Object.keys(taggedEntry || {}).slice(0, 10),
+      // IMPORTANT: addEditableTags expects the entry to be a plain JavaScript object
+      // Contentstack SDK responses are already plain objects, but we ensure it's not wrapped
+      const plainEntry = entry as any;
+      
+      // Debug: Log entry structure before calling addEditableTags
+      const entryKeysBefore = Object.keys(plainEntry || {});
+      console.log('[Contentstack] 🔍 Before addEditableTags:', {
+        contentType,
+        uid: plainEntry?.uid,
+        entryKeysCount: entryKeysBefore.length,
+        sampleKeys: entryKeysBefore.slice(0, 5),
+        hasTitle: !!plainEntry?.title,
+        hasDescription: !!plainEntry?.description,
+      });
+      
+      // Call addEditableTags - it mutates the entry in place
+      // CORRECT SIGNATURE: addEditableTags(entry, contentTypeUid, tagsAsObject, locale)
+      // tagsAsObject: boolean - if true, returns tags as object; if false/undefined, adds $ properties
+      // We want $ properties, so pass false or undefined for tagsAsObject
+      try {
+        // Correct function signature: (entry, contentTypeUid, tagsAsObject, locale)
+        // tagsAsObject = false means it will add $ properties to fields (what we want)
+        addEditableTags(plainEntry, contentType, false, locale);
+      } catch (addTagsError) {
+        console.error('[Contentstack] ❌ Error calling addEditableTags:', addTagsError);
+        throw addTagsError;
+      }
+      
+      // The entry is now modified with $ properties
+      const taggedEntry = plainEntry;
+      
+      // Log for debugging - ALWAYS log when tags are added (not just client-side)
+      // Check if $ properties were added
+      // IMPORTANT: $ properties are added to FIELD VALUES, not the entry itself
+      // Structure: entry.fieldName.$ = { 'data-cslp': '...' }
+      const entryKeysAfter = Object.keys(taggedEntry || {});
+      const hasDollarProps = entryKeysAfter.some(key => {
+        const fieldValue = (taggedEntry as any)?.[key];
+        // Check if field value has $ property (for string/object fields)
+        if (fieldValue && typeof fieldValue === 'object' && !Array.isArray(fieldValue)) {
+          return fieldValue.$ !== undefined;
+        }
+        return false;
+      });
+      
+      // Find sample fields with $ attributes for logging
+      const sampleFields = entryKeysAfter.filter(key => {
+        const fieldValue = (taggedEntry as any)?.[key];
+        return fieldValue && typeof fieldValue === 'object' && !Array.isArray(fieldValue) && fieldValue.$;
+      }).slice(0, 3);
+      
+      // ALWAYS log (not just client-side) for debugging
+      console.log('[Contentstack] ✅ Added Live Preview tags to entry:', {
+        contentType,
+        uid: (entry as any)?.uid,
+        hasDollarProps,
+        sampleFields: sampleFields.length > 0 ? sampleFields : ['none'],
+        totalFields: entryKeysAfter.length,
+        entryKeys: entryKeysAfter.slice(0, 10),
+        // Debug: show first few field types
+        fieldTypes: entryKeysAfter.slice(0, 5).map(key => ({
+          key,
+          type: typeof (taggedEntry as any)?.[key],
+          isObject: typeof (taggedEntry as any)?.[key] === 'object',
+          hasDollar: !!(taggedEntry as any)?.[key]?.$,
+        })),
+      });
+      
+      // Log sample $ attribute structure
+      if (sampleFields.length > 0) {
+        const firstField = sampleFields[0];
+        const fieldValue = (taggedEntry as any)?.[firstField];
+        console.log(`[Contentstack] 📋 Sample $ attribute for "${firstField}":`, {
+          hasDollarProp: !!fieldValue?.$,
+          dollarKeys: fieldValue?.$ ? Object.keys(fieldValue.$) : [],
+          dataCslp: fieldValue?.$?.['data-cslp'] || fieldValue?.$?.data_cslp || 'not found',
+          fieldValueType: typeof fieldValue,
         });
+      } else if (entryKeysAfter.length > 0) {
+        // Debug: show why no $ props were found
+        const firstKey = entryKeysAfter[0];
+        const firstValue = (taggedEntry as any)?.[firstKey];
+        console.log(`[Contentstack] 🔍 Debug first field "${firstKey}":`, {
+          type: typeof firstValue,
+          isObject: typeof firstValue === 'object',
+          isArray: Array.isArray(firstValue),
+          hasDollar: !!firstValue?.$,
+          keys: typeof firstValue === 'object' && !Array.isArray(firstValue) ? Object.keys(firstValue).slice(0, 5) : 'N/A',
+          value: typeof firstValue === 'string' ? firstValue.substring(0, 50) : firstValue,
+        });
+      }
+      
+      if (!hasDollarProps && entryKeysAfter.length > 0) {
+        console.warn('[Contentstack] ⚠️ No $ properties found in tagged entry. Edit buttons may not appear.');
+        console.warn('[Contentstack] 💡 This might mean:');
+        console.warn('[Contentstack]    1. @contentstack/utils addEditableTags is not working correctly');
+        console.warn('[Contentstack]    2. Entry structure is not compatible with addEditableTags');
+        console.warn('[Contentstack]    3. Check Contentstack documentation for correct usage');
+        console.warn('[Contentstack] 💡 Verify: CONTENTSTACK_LIVE_EDIT_TAGS=true is set in environment variables');
+      } else if (hasDollarProps) {
+        console.log('[Contentstack] ✅ $ attributes are ready to be spread in components!');
+      } else if (entryKeysAfter.length === 0) {
+        console.warn('[Contentstack] ⚠️ Entry has no fields! This might indicate an empty or invalid entry.');
       }
       
       return taggedEntry as T;
@@ -537,6 +695,49 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
     
     // Enrich banners with fallback images if banner_image is missing
     await enrichBannersWithFallback(pageEntry, targetLocale);
+    
+    // Add Live Preview tags to nested references (banners, testimonials, hero blocks, etc.)
+    if (pageEntry?.section) {
+      for (const section of pageEntry.section) {
+        // Add tags to carousel banners
+        if (isCarouselBlock(section) && section.carousel_block?.banner) {
+          const banners = normalizeArray(section.carousel_block.banner);
+          section.carousel_block.banner = banners.map(banner => 
+            addLivePreviewTags(banner, CONTENT_TYPES.BANNER)
+          ) as any;
+        }
+        
+        // Add tags to hero banner
+        if (isHeroSectionBlock(section) && section.hero_block?.hero_banner) {
+          const heroBanner = normalizeArray(section.hero_block.hero_banner);
+          section.hero_block.hero_banner = heroBanner.map(banner => 
+            addLivePreviewTags(banner, CONTENT_TYPES.BANNER)
+          ) as any;
+        }
+        
+        // Add tags to testimonials
+        if (isTestimonialBlock(section) && section.testimonial_block?.testimonial) {
+          const testimonials = normalizeArray(section.testimonial_block.testimonial);
+          section.testimonial_block.testimonial = testimonials.map(testimonial => 
+            addLivePreviewTags(testimonial, CONTENT_TYPES.TESTIMONIAL)
+          ) as any;
+        }
+        
+        // Add tags to categories - check if section has category_block
+        const sectionAny = section as any;
+        if (sectionAny.category_block?.category) {
+          const categories = normalizeArray(sectionAny.category_block.category);
+          sectionAny.category_block.category = categories.map((category: any) => 
+            addLivePreviewTags(category, CONTENT_TYPES.CATEGORY)
+          );
+        }
+      }
+    }
+    
+    // Add tags to the page entry itself
+    if (pageEntry) {
+      pageEntry = addLivePreviewTags(pageEntry, CONTENT_TYPES.PAGE) as PageEntry;
+    }
     
     // Fallback to en-us if no page found in selected locale
     if (!pageEntry && targetLocale !== FALLBACK_LOCALE) {
