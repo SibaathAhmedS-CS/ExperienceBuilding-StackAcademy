@@ -348,9 +348,6 @@ export default function LoginPage() {
             <div className={styles.inputGroup}>
               <div className={styles.labelRow}>
                 <label htmlFor="password">Password</label>
-                <Link href="/forgot-password" className={styles.forgotLink}>
-                  Forgot password?
-                </Link>
               </div>
               <div className={styles.inputWrapper}>
                 <Lock size={20} className={styles.inputIcon} />

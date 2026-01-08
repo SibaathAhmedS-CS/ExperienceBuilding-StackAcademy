@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "sync-algolia": "tsx scripts/sync-courses-to-algolia.ts"
+    "sync-algolia": "tsx scripts/sync-courses-to-algolia.ts",
+    "generate-sql": "tsx scripts/generate-sql-inserts.ts > seed-data.sql"
   },
   "dependencies": {
     "@algolia/autocomplete-js": "^1.19.4",
