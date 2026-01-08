@@ -2,7 +2,6 @@
 
 import { Toaster } from 'react-hot-toast';
 import { Providers } from '@/components/Providers';
-import LivePreviewInitComponent from '@/components/LivePreviewInitComponent';
 import './globals.css';
 
 export default function RootLayout({
@@ -256,7 +255,6 @@ jstag.pageView();
       <body>
         <Providers>
           {children}
-          <LivePreviewInitComponent />
           <Toaster position="top-right" />
         </Providers>
       </body>

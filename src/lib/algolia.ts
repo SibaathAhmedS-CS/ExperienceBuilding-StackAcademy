@@ -64,7 +64,7 @@ export function getIndexName(locale: string = 'en-us'): string {
     return 'courses_es';
   }
   
-  return `courses_${normalizedLocale}`;
+  return normalizedLocale;
 }
 
 // Course record structure for Algolia

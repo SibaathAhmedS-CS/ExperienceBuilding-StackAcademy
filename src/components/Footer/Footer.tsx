@@ -279,8 +279,8 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
         <div className={styles.container}>
           <div className={styles.newsletterContent}>
             <div className={styles.newsletterText}>
-              <h3 {...(newsletterData?.heading as any)?.$ || {}}>{newsletterHeading}</h3>
-              <p {...(newsletterData?.description as any)?.$ || {}}>{newsletterDescription}</p>
+              <h3>{newsletterHeading}</h3>
+              <p>{newsletterDescription}</p>
             </div>
             {isHomePage ? (
               // Home page: Only subscribe button
@@ -354,7 +354,6 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
               </Link>
               <p 
                 className={styles.brandDescription}
-                {...(footerData?.brand_desciption as any)?.$ || {}}
               >
                 {brandDescription}
               </p>
@@ -385,7 +384,6 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
           <div className={styles.bottomContent}>
             <p 
               className={styles.copyright}
-              {...(footerData?.copyright_text as any)?.$ || {}}
             >
               {formattedCopyright}
             </p>

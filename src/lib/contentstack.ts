@@ -20,15 +20,8 @@ import {
   isTestimonialBlock,
   normalizeArray
 } from '@/types/contentstack';
-import { isLivePreviewActive } from './livePreview';
 
 // Contentstack SDK Configuration - Default Stack (uses Delivery Token)
-// Live Preview configuration is included directly in the Stack config
-// Build live_preview config conditionally
-const previewToken = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_TOKEN || process.env.CONTENTSTACK_PREVIEW_TOKEN;
-const previewHost = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_HOST || process.env.CONTENTSTACK_PREVIEW_HOST || 'rest-preview.contentstack.com';
-const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
-
 const stackConfig: any = {
   api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '',
   delivery_token: process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '',
@@ -37,160 +30,16 @@ const stackConfig: any = {
   region: process.env.CONTENTSTACK_REGION ? process.env.CONTENTSTACK_REGION : 'us',
 };
 
-// Add live_preview config if preview token is available
-// According to docs, always enable live_preview when preview token exists
-// The enable flag controls whether preview mode is active, not whether the config exists
-if (previewToken) {
-  stackConfig.live_preview = {
-    // Enable live preview if specified in environment variables
-    // This allows the SDK to switch to preview API when needed
-    enable: isPreviewEnabled || process.env.CONTENTSTACK_LIVE_EDIT_TAGS === 'true',
-    // Setting the preview token from environment variables
-    preview_token: previewToken,
-    // Setting the host for live preview
-    host: previewHost,
-  };
-}
-
 export const defaultStack = Contentstack.Stack(stackConfig);
 
-// Create a function to get Stack with Live Preview config when needed
-function createStackWithLivePreview(): any {
-  const previewToken = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_TOKEN || 
-                       process.env.CONTENTSTACK_PREVIEW_TOKEN;
-  const previewHost = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW_HOST || 
-                      process.env.CONTENTSTACK_PREVIEW_HOST || 
-                      'rest-preview.contentstack.com';
-  
-  const deliveryToken = process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || 
-                        process.env.CONTENTSTACK_DELIVERY_TOKEN || '';
-  const apiKey = process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || 
-                 process.env.CONTENTSTACK_API_KEY || '';
-  const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || 
-                      process.env.CONTENTSTACK_ENVIRONMENT || 'dev';
-  const branch = process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || 
-                 process.env.CONTENTSTACK_BRANCH || 'main';
-  
-  if (!previewToken || !deliveryToken || !apiKey) {
-    console.warn('[Contentstack] Missing Live Preview config, using default Stack');
-    return defaultStack;
-  }
-
-  // IMPORTANT: Use delivery_token (not preview_token) for the Stack
-  // The preview_token goes in live_preview.preview_token
-  // The Live Preview SDK handles switching to preview API internally
-  return Contentstack.Stack({
-    api_key: apiKey,
-    delivery_token: deliveryToken, // Use delivery token (not preview token)
-    environment: environment,
-    branch: branch,
-    live_preview: {
-      enable: true,
-      preview_token: previewToken, // Preview token goes here
-      host: previewHost,
-    },
-  });
-}
-
 /**
- * Get the appropriate Stack instance
- * 
- * According to Contentstack documentation:
- * - For SSR, create a new Stack instance for each request when Live Preview is active
- * - Use Stack.livePreviewQuery(queryParams) to pass the hash from query parameters
- * 
- * Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/set-up-live-preview-with-rest-for-server-side-rendering
+ * Get the Stack instance
  */
-function getStack(queryParams?: Record<string, string | string[] | undefined>): any {
-  // Check if Live Preview is active
-  const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
-                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
-  
-  // If Live Preview is active and we have query params (server-side), create a new instance
-  if (typeof window === 'undefined' && queryParams) {
-    const hasLivePreview = queryParams.live_preview === 'true' || 
-                          queryParams.hash || 
-                          isPreviewEnabled;
-    
-    if (hasLivePreview && previewToken) {
-      // Create a new Stack instance and apply livePreviewQuery
-      // This ensures each request is isolated (as per documentation)
-      const stack = Contentstack.Stack({
-        api_key: process.env.NEXT_PUBLIC_CONTENTSTACK_API_KEY || process.env.CONTENTSTACK_API_KEY || '',
-        delivery_token: process.env.NEXT_PUBLIC_CONTENTSTACK_DELIVERY_TOKEN || process.env.CONTENTSTACK_DELIVERY_TOKEN || '',
-        environment: process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || process.env.CONTENTSTACK_ENVIRONMENT || 'dev',
-        branch: process.env.NEXT_PUBLIC_CONTENTSTACK_BRANCH || process.env.CONTENTSTACK_BRANCH || 'main',
-        live_preview: {
-          enable: true,
-          preview_token: previewToken,
-          host: previewHost,
-        },
-      });
-      
-      // Apply livePreviewQuery to pass hash from query parameters
-      // This is required for Live Preview to work in SSR mode
-      // Convert queryParams to the format expected by livePreviewQuery
-      if (typeof (stack as any).livePreviewQuery === 'function') {
-        const livePreviewParams: any = {};
-        
-        // Only include params that are actually present
-        if (queryParams.live_preview) {
-          livePreviewParams.live_preview = Array.isArray(queryParams.live_preview) 
-            ? queryParams.live_preview[0] 
-            : queryParams.live_preview;
-        } else if (isPreviewEnabled) {
-          livePreviewParams.live_preview = 'true';
-        }
-        
-        if (queryParams.hash) {
-          livePreviewParams.hash = Array.isArray(queryParams.hash) 
-            ? queryParams.hash[0] 
-            : queryParams.hash;
-        } else if (queryParams.live_preview_hash) {
-          livePreviewParams.hash = Array.isArray(queryParams.live_preview_hash) 
-            ? queryParams.live_preview_hash[0] 
-            : queryParams.live_preview_hash;
-        }
-        
-        if (queryParams.content_type_uid) {
-          livePreviewParams.content_type_uid = Array.isArray(queryParams.content_type_uid) 
-            ? queryParams.content_type_uid[0] 
-            : queryParams.content_type_uid;
-        }
-        
-        if (queryParams.entry_uid) {
-          livePreviewParams.entry_uid = Array.isArray(queryParams.entry_uid) 
-            ? queryParams.entry_uid[0] 
-            : queryParams.entry_uid;
-        }
-        
-        (stack as any).livePreviewQuery(livePreviewParams);
-        console.log('[Contentstack] ✅ Applied livePreviewQuery with params:', livePreviewParams);
-      }
-      
-      return stack;
-    }
-  }
-  
-  // Client-side: check URL params if available
-  if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasHash = urlParams.get('hash') || urlParams.get('live_preview_hash');
-    const hasPreviewParam = urlParams.get('live_preview') === 'true';
-    
-    if ((hasHash || hasPreviewParam || isPreviewEnabled) && previewToken) {
-      // For client-side, we still need to ensure live_preview is enabled
-      // The SDK will handle the rest
-      return defaultStack;
-    }
-  }
-  
-  // No Live Preview - return defaultStack
+function getStack(): any {
   return defaultStack;
 }
 
 // Export default Stack for backward compatibility
-// Note: For Live Preview, use getStack() function instead
 const Stack = defaultStack;
 
 /**
@@ -209,228 +58,6 @@ export function createFreshStack(): any {
   return Contentstack.Stack(stackConfig);
 }
 
-/**
- * Add editable tags to content entry for Live Preview edit buttons
- * This adds data-cslp attributes that Live Preview SDK needs to show edit buttons
- * Uses Contentstack.Utils.addEditableTags() pattern from reference implementation
- * 
- * Reference: https://www.contentstack.com/docs/developers/set-up-live-preview/set-up-live-edit-tags-for-entries-with-rest
- */
-function addLivePreviewTags<T>(entry: T | null, contentTypeUid?: string): T | null {
-  if (!entry) return null;
-  
-  // According to Contentstack docs, edit tags should be added when:
-  // 1. Live Preview is enabled via environment variable OR
-  // 2. Live Edit Tags are explicitly enabled OR
-  // 3. URL has live_preview=true or hash parameter (client-side)
-  // The hash is only needed for preview mode, NOT for edit tags to appear
-  const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
-                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true' ||
-                          process.env.CONTENTSTACK_LIVE_EDIT_TAGS === 'true';
-  
-  // Client-side: also check URL params
-  let isLivePreviewActive = isPreviewEnabled;
-  if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
-    // Edit tags should appear if Live Preview is enabled OR if URL has preview params
-    isLivePreviewActive = isPreviewEnabled || 
-                         urlParams.get('live_preview') === 'true' || 
-                         !!urlParams.get('hash') ||
-                         !!urlParams.get('live_preview_hash');
-  }
-  
-  // Always add tags if Live Preview is enabled (even without hash)
-  // According to docs: "Edit tags allow editors to directly jump from the Live Preview pane"
-  // This means edit tags should work even without preview mode active
-  if (!isLivePreviewActive) {
-    return entry;
-  }
-  
-  try {
-    // Use @contentstack/utils addEditableTags (recommended approach)
-    // This is the official way to add editable tags for Live Preview
-    const { addEditableTags } = require('@contentstack/utils');
-    const contentType = contentTypeUid || (entry as any)?.content_type || (entry as any)?._content_type_uid || '';
-    const locale = (entry as any)?.publish_details?.locale || 
-                   (entry as any)?.locale || 
-                   'en-us';
-    const environment = process.env.NEXT_PUBLIC_CONTENTSTACK_ENVIRONMENT || 
-                        process.env.CONTENTSTACK_ENVIRONMENT || 
-                        'dev';
-    
-    if (contentType && (entry as any)?.uid) {
-      // CRITICAL: addEditableTags mutates the entry in place
-      // According to Contentstack docs: addEditableTags(entry, contentTypeUid, locale, environment)
-      // The entry must be a plain object (not a Contentstack SDK response wrapper)
-      
-      // IMPORTANT: addEditableTags expects the entry to be a plain JavaScript object
-      // Contentstack SDK responses are already plain objects, but we ensure it's not wrapped
-      const plainEntry = entry as any;
-      
-      // Debug: Log entry structure before calling addEditableTags
-      const entryKeysBefore = Object.keys(plainEntry || {});
-      console.log('[Contentstack] 🔍 Before addEditableTags:', {
-        contentType,
-        uid: plainEntry?.uid,
-        entryKeysCount: entryKeysBefore.length,
-        sampleKeys: entryKeysBefore.slice(0, 5),
-        hasTitle: !!plainEntry?.title,
-        hasDescription: !!plainEntry?.description,
-      });
-      
-      // Call addEditableTags - it mutates the entry in place
-      // CORRECT SIGNATURE: addEditableTags(entry, contentTypeUid, tagsAsObject, locale)
-      // tagsAsObject: boolean - if true, returns tags as object; if false/undefined, adds $ properties
-      // We want $ properties, so pass false or undefined for tagsAsObject
-      try {
-        // Correct function signature: (entry, contentTypeUid, tagsAsObject, locale)
-        // tagsAsObject = false means it will add $ properties to fields (what we want)
-        addEditableTags(plainEntry, contentType, false, locale);
-      } catch (addTagsError) {
-        console.error('[Contentstack] ❌ Error calling addEditableTags:', addTagsError);
-        throw addTagsError;
-      }
-      
-      // The entry is now modified with $ properties
-      const taggedEntry = plainEntry;
-      
-      // Log for debugging - ALWAYS log when tags are added (not just client-side)
-      // Check if $ properties were added
-      // IMPORTANT: $ properties are added to FIELD VALUES, not the entry itself
-      // Structure: entry.fieldName.$ = { 'data-cslp': '...' }
-      const entryKeysAfter = Object.keys(taggedEntry || {});
-      const hasDollarProps = entryKeysAfter.some(key => {
-        const fieldValue = (taggedEntry as any)?.[key];
-        // Check if field value has $ property (for string/object fields)
-        if (fieldValue && typeof fieldValue === 'object' && !Array.isArray(fieldValue)) {
-          return fieldValue.$ !== undefined;
-        }
-        return false;
-      });
-      
-      // Find sample fields with $ attributes for logging
-      const sampleFields = entryKeysAfter.filter(key => {
-        const fieldValue = (taggedEntry as any)?.[key];
-        return fieldValue && typeof fieldValue === 'object' && !Array.isArray(fieldValue) && fieldValue.$;
-      }).slice(0, 3);
-      
-      // ALWAYS log (not just client-side) for debugging
-      console.log('[Contentstack] ✅ Added Live Preview tags to entry:', {
-        contentType,
-        uid: (entry as any)?.uid,
-        hasDollarProps,
-        sampleFields: sampleFields.length > 0 ? sampleFields : ['none'],
-        totalFields: entryKeysAfter.length,
-        entryKeys: entryKeysAfter.slice(0, 10),
-        // Debug: show first few field types
-        fieldTypes: entryKeysAfter.slice(0, 5).map(key => ({
-          key,
-          type: typeof (taggedEntry as any)?.[key],
-          isObject: typeof (taggedEntry as any)?.[key] === 'object',
-          hasDollar: !!(taggedEntry as any)?.[key]?.$,
-        })),
-      });
-      
-      // Log sample $ attribute structure
-      if (sampleFields.length > 0) {
-        const firstField = sampleFields[0];
-        const fieldValue = (taggedEntry as any)?.[firstField];
-        console.log(`[Contentstack] 📋 Sample $ attribute for "${firstField}":`, {
-          hasDollarProp: !!fieldValue?.$,
-          dollarKeys: fieldValue?.$ ? Object.keys(fieldValue.$) : [],
-          dataCslp: fieldValue?.$?.['data-cslp'] || fieldValue?.$?.data_cslp || 'not found',
-          fieldValueType: typeof fieldValue,
-        });
-      } else if (entryKeysAfter.length > 0) {
-        // Debug: show why no $ props were found
-        const firstKey = entryKeysAfter[0];
-        const firstValue = (taggedEntry as any)?.[firstKey];
-        console.log(`[Contentstack] 🔍 Debug first field "${firstKey}":`, {
-          type: typeof firstValue,
-          isObject: typeof firstValue === 'object',
-          isArray: Array.isArray(firstValue),
-          hasDollar: !!firstValue?.$,
-          keys: typeof firstValue === 'object' && !Array.isArray(firstValue) ? Object.keys(firstValue).slice(0, 5) : 'N/A',
-          value: typeof firstValue === 'string' ? firstValue.substring(0, 50) : firstValue,
-        });
-      }
-      
-      if (!hasDollarProps && entryKeysAfter.length > 0) {
-        console.warn('[Contentstack] ⚠️ No $ properties found in tagged entry. Edit buttons may not appear.');
-        console.warn('[Contentstack] 💡 This might mean:');
-        console.warn('[Contentstack]    1. @contentstack/utils addEditableTags is not working correctly');
-        console.warn('[Contentstack]    2. Entry structure is not compatible with addEditableTags');
-        console.warn('[Contentstack]    3. Check Contentstack documentation for correct usage');
-        console.warn('[Contentstack] 💡 Verify: CONTENTSTACK_LIVE_EDIT_TAGS=true is set in environment variables');
-      } else if (hasDollarProps) {
-        console.log('[Contentstack] ✅ $ attributes are ready to be spread in components!');
-      } else if (entryKeysAfter.length === 0) {
-        console.warn('[Contentstack] ⚠️ Entry has no fields! This might indicate an empty or invalid entry.');
-      }
-      
-      return taggedEntry as T;
-    }
-    
-    // Fallback: Try Contentstack.Utils if @contentstack/utils doesn't work
-    if (typeof Contentstack !== 'undefined' && (Contentstack as any).Utils && (Contentstack as any).Utils.addEditableTags) {
-      const contentType = contentTypeUid || (entry as any)?.content_type || (entry as any)?._content_type_uid || '';
-      if (contentType && (entry as any)?.uid) {
-        return (Contentstack as any).Utils.addEditableTags(entry, contentType, true) as T;
-      }
-    }
-    
-    return entry;
-  } catch (error) {
-    console.warn('[Contentstack] Could not add Live Preview tags:', error);
-    // Don't fail silently - log the error for debugging
-    if (isLivePreviewActive) {
-      console.error('[Contentstack] Live Preview tags failed. Make sure @contentstack/utils is installed and entry has uid and contentType.');
-    }
-    return entry;
-  }
-}
-
-/**
- * Extract data-cslp attributes from a Contentstack entry field
- * When addEditableTags is called, fields get a $ property with data-cslp attributes
- * This helper extracts those attributes for use in React components
- * 
- * Usage:
- *   const aboutCourse = courseData.about_the_course; // HTML string
- *   const aboutAttrs = getLivePreviewAttrs(courseData, 'about_the_course');
- *   <div {...aboutAttrs} dangerouslySetInnerHTML={{ __html: aboutCourse }} />
- */
-export function getLivePreviewAttrs(entry: any, fieldName: string): Record<string, string> {
-  if (!entry || !fieldName) return {};
-  
-  // Check if Live Preview is active
-  const isPreviewEnabled = process.env.NEXT_PUBLIC_CONTENTSTACK_PREVIEW === 'true' || 
-                          process.env.NEXT_PUBLIC_ENABLE_LIVE_PREVIEW === 'true';
-  
-  let isLivePreviewActive = isPreviewEnabled;
-  if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
-    isLivePreviewActive = isPreviewEnabled || urlParams.get('live_preview') === 'true' || !!urlParams.get('hash');
-  }
-  
-  if (!isLivePreviewActive) return {};
-  
-  // Get the field - it might be nested (e.g., entry.about_the_course)
-  const field = entry[fieldName];
-  if (!field) return {};
-  
-  // The $ property contains the data-cslp attributes
-  // Structure: field.$ = { 'data-cslp': '...' }
-  const attrs = (field as any)?.$ || {};
-  
-  // Extract data-cslp attribute if present
-  const dataCslp = attrs['data-cslp'] || attrs.data_cslp;
-  if (!dataCslp) return {};
-  
-  return {
-    'data-cslp': dataCslp,
-  };
-}
 
 // Type definitions for Contentstack entries
 export interface ContentstackEntry {
@@ -557,8 +184,7 @@ export async function getEntry<T = ContentstackEntry>(
     applyVariantHeader(query);
 
     const result = await query.toJSON().fetch();
-    // Add Live Preview tags for edit buttons (matches reference pattern)
-    return addLivePreviewTags(result as T, contentType);
+    return result as T;
   } catch (error) {
     console.error(`Error fetching entry: ${contentType}/${entryUid}`, error);
     return null;
@@ -616,8 +242,7 @@ export async function getEntries<T = ContentstackEntry>(
 
     const result = await query.toJSON().find();
     const entries = (result[0] || []) as T[];
-    // Add Live Preview tags for edit buttons (matches reference pattern)
-    return entries.map(entry => addLivePreviewTags(entry, contentType)).filter(Boolean) as T[];
+    return entries;
   } catch (error) {
     console.error(`Error fetching entries: ${contentType}`, error);
     return [];
@@ -645,8 +270,7 @@ export async function getEntryByUrl<T = ContentstackEntry>(
 
     const result = await query.toJSON().find();
     const entry = result[0]?.[0] as T || null;
-    // Add Live Preview tags for edit buttons (matches reference pattern)
-    return addLivePreviewTags(entry, contentType);
+    return entry;
   } catch (error) {
     console.error(`Error fetching entry by URL: ${contentType}/${url}`, error);
     return null;
@@ -695,49 +319,6 @@ export async function getPage(title: string, locale?: string): Promise<PageEntry
     
     // Enrich banners with fallback images if banner_image is missing
     await enrichBannersWithFallback(pageEntry, targetLocale);
-    
-    // Add Live Preview tags to nested references (banners, testimonials, hero blocks, etc.)
-    if (pageEntry?.section) {
-      for (const section of pageEntry.section) {
-        // Add tags to carousel banners
-        if (isCarouselBlock(section) && section.carousel_block?.banner) {
-          const banners = normalizeArray(section.carousel_block.banner);
-          section.carousel_block.banner = banners.map(banner => 
-            addLivePreviewTags(banner, CONTENT_TYPES.BANNER)
-          ) as any;
-        }
-        
-        // Add tags to hero banner
-        if (isHeroSectionBlock(section) && section.hero_block?.hero_banner) {
-          const heroBanner = normalizeArray(section.hero_block.hero_banner);
-          section.hero_block.hero_banner = heroBanner.map(banner => 
-            addLivePreviewTags(banner, CONTENT_TYPES.BANNER)
-          ) as any;
-        }
-        
-        // Add tags to testimonials
-        if (isTestimonialBlock(section) && section.testimonial_block?.testimonial) {
-          const testimonials = normalizeArray(section.testimonial_block.testimonial);
-          section.testimonial_block.testimonial = testimonials.map(testimonial => 
-            addLivePreviewTags(testimonial, CONTENT_TYPES.TESTIMONIAL)
-          ) as any;
-        }
-        
-        // Add tags to categories - check if section has category_block
-        const sectionAny = section as any;
-        if (sectionAny.category_block?.category) {
-          const categories = normalizeArray(sectionAny.category_block.category);
-          sectionAny.category_block.category = categories.map((category: any) => 
-            addLivePreviewTags(category, CONTENT_TYPES.CATEGORY)
-          );
-        }
-      }
-    }
-    
-    // Add tags to the page entry itself
-    if (pageEntry) {
-      pageEntry = addLivePreviewTags(pageEntry, CONTENT_TYPES.PAGE) as PageEntry;
-    }
     
     // Fallback to en-us if no page found in selected locale
     if (!pageEntry && targetLocale !== FALLBACK_LOCALE) {

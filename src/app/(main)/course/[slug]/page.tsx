@@ -26,7 +26,7 @@ import Footer from '@/components/Footer';
 import CourseCard from '@/components/CourseCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
-import { getCourseBySlug, getAllCourses, getCoursesByAuthorUid, getCourseByUid, getLivePreviewAttrs } from '@/lib/contentstack';
+import { getCourseBySlug, getAllCourses, getCoursesByAuthorUid, getCourseByUid } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
 import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
@@ -666,16 +666,10 @@ export default function CoursePage() {
                 <span className={styles.lastUpdated}>Updated {lastUpdated}</span>
               </div>
 
-              <h1 
-                className={styles.courseTitle}
-                {...getLivePreviewAttrs(courseData, 'title')}
-              >
+              <h1 className={styles.courseTitle}>
                 {courseData.title}
               </h1>
-              <p 
-                className={styles.courseDescription}
-                {...getLivePreviewAttrs(courseData, 'short_text')}
-              >
+              <p className={styles.courseDescription}>
                 {stripHtml(courseData.short_text || '')}
               </p>
 
@@ -781,10 +775,9 @@ export default function CoursePage() {
             <div className={styles.mainContent}>
               {/* About Section - CMS Data */}
               <section ref={aboutRef} className={styles.section}>
-                <h2 {...getLivePreviewAttrs(courseData, 'title')}>About This Course</h2>
+                <h2>About This Course</h2>
                 <div 
                   className={styles.description}
-                  {...getLivePreviewAttrs(courseData, 'about_the_course')}
                   dangerouslySetInnerHTML={{ __html: courseData.about_the_course || '' }}
                 />
 
@@ -795,10 +788,7 @@ export default function CoursePage() {
                       <div className={styles.instructorAvatarLarge}>
                         <Image src={instructorAvatar} alt={instructor.title} fill sizes="80px" />
                       </div>
-                      <h3 
-                        className={styles.instructorName}
-                        {...(instructor?.title as any)?.$ || {}}
-                      >
+                      <h3 className={styles.instructorName}>
                         {instructor.title}
                       </h3>
                       {/* DB Data: Instructor Stats */}
@@ -809,10 +799,7 @@ export default function CoursePage() {
                       </div>
                     </div>
                     <p className={styles.instructorRole}>{instructor.bio?.split('.')[0] || 'Instructor'}</p>
-                    <p 
-                      className={styles.instructorBio}
-                      {...(instructor?.bio as any)?.$ || {}}
-                    >
+                    <p className={styles.instructorBio}>
                       {instructor.bio}
                     </p>
                   </div>
@@ -867,7 +854,7 @@ export default function CoursePage() {
                         >
                           <ChevronDown size={20} className={styles.moduleChevron} />
                           <div className={styles.moduleInfo}>
-                            <h4 {...(module?.title as any)?.$ || {}}>
+                            <h4>
                               {isModuleLocked && <Lock size={16} className={styles.moduleLockIcon} />}
                               {module.title}
                             </h4>
@@ -905,10 +892,7 @@ export default function CoursePage() {
                                 ) : (
                                   <Lock size={16} />
                                 )}
-                                <span 
-                                  className={styles.lessonTitle}
-                                  {...(lesson?.title as any)?.$ || {}}
-                                >
+                                <span className={styles.lessonTitle}>
                                   {lesson.title}
                                 </span>
                                 <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>

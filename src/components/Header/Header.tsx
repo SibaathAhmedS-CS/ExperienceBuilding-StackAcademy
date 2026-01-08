@@ -549,10 +549,7 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
           <div className={styles.logoIcon}>
             <LogoIcon size={24} />
           </div>
-          <span 
-            className={styles.logoText}
-            {...(headerData?.icon?.icon_title as any)?.$ || {}}
-          >
+          <span className={styles.logoText}>
             {logoText}
           </span>
         </Link>
@@ -568,7 +565,6 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
                 href={link.href}
                 className={`${styles.navLink} ${isLinkActive(link.href) ? styles.active : ''}`}
                 onClick={(e) => isAnchorLink(link.href) ? scrollToSection(e, link.href) : undefined}
-                {...(cmsLink?.title as any)?.$ || {}}
               >
                 {link.label}
               </a>
@@ -700,14 +696,12 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
                     <Link 
                       href={authButtons.login.url} 
                       className={styles.loginBtn}
-                      {...(authBlock?.auth_buttons?.log_in?.title as any)?.$ || {}}
                     >
                       {authButtons.login.text}
                     </Link>
                     <Link 
                       href={authButtons.signup.url} 
                       className={styles.signupBtn}
-                      {...(authBlock?.auth_buttons?.sign_up?.title as any)?.$ || {}}
                     >
                       {authButtons.signup.text}
                     </Link>
@@ -734,7 +728,6 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
                       </div>
                       <span 
                         className={styles.userName}
-                        {...(headerData?.components?.find(isProfileBlock)?.profile_icon?.icon as any)?.$ || {}}
                       >
                         {user.name}
                       </span>

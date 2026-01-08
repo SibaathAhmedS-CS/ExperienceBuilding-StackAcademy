@@ -118,17 +118,11 @@ export default function FAQ({
         <div className={styles.iconWrapper}>
           <HeaderIcon size={28} />
         </div>
-        <h2 
-          className={styles.title}
-          {...((faqData as any)?.section_title?.$ || {})}
-        >
+        <h2 className={styles.title}>
           {displayTitle}
         </h2>
         {subtitle && (
-          <p 
-            className={styles.subtitle}
-            {...((faqData as any)?.section_subtitle?.$ || {})}
-          >
+          <p className={styles.subtitle}>
             {subtitle}
           </p>
         )}
@@ -136,14 +130,6 @@ export default function FAQ({
 
       <div className={styles.faqList}>
         {faqItems.map((item, index) => {
-          // Get question/answer entry for Live Preview attributes
-          const questionEntry = faqData?.faq_question 
-            ? (Array.isArray(faqData.faq_question) ? faqData.faq_question[0] : faqData.faq_question)
-            : null;
-          const questionItem = questionEntry?.questions?.[index];
-          const questionAttrs = (questionItem?.question as any)?.$ || {};
-          const answerAttrs = (questionItem?.answer as any)?.$ || {};
-          
           return (
             <div
               key={item.uid}
@@ -157,19 +143,13 @@ export default function FAQ({
                 <span className={styles.questionNumber}>
                   {String(index + 1).padStart(2, '0')}
                 </span>
-                <span 
-                  className={styles.questionText}
-                  {...questionAttrs}
-                >
+                <span className={styles.questionText}>
                   {item.question}
                 </span>
                 <ChevronDown size={20} className={styles.chevron} />
               </button>
               <div className={styles.answerWrapper}>
-                <div 
-                  className={styles.answer}
-                  {...answerAttrs}
-                >
+                <div className={styles.answer}>
                   <p>{item.answer}</p>
                 </div>
               </div>
