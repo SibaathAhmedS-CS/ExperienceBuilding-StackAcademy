@@ -5,6 +5,20 @@
       "static/chunks/_app-pages-browser_src_services_preferenceTracking_ts.js"
     ]
   },
+  "app/(main)/home/page.tsx -> @/services/lytics": {
+    "id": "app/(main)/home/page.tsx -> @/services/lytics",
+    "files": []
+  },
+  "app/(main)/home/page.tsx -> @/services/personalize": {
+    "id": "app/(main)/home/page.tsx -> @/services/personalize",
+    "files": [
+      "static/chunks/_app-pages-browser_src_services_personalize_ts.js"
+    ]
+  },
+  "app/(main)/home/page.tsx -> @/utils/userCache": {
+    "id": "app/(main)/home/page.tsx -> @/utils/userCache",
+    "files": []
+  },
   "services/personalize.ts -> @/lib/contentstack": {
     "id": "services/personalize.ts -> @/lib/contentstack",
     "files": []

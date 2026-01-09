@@ -115,6 +115,8 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
   const [activeSection, setActiveSection] = useState<string>('');
   const [avatarError, setAvatarError] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const profileDropdownRef = useRef<HTMLDivElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
   const pathname = usePathname();
   const router = useRouter();
   
@@ -248,6 +250,75 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
       setShowSuggestions(false);
     }
   }, [searchQuery, searchSuggestions]);
+
+  // Position profile dropdown to stay within viewport
+  useEffect(() => {
+    if (!isProfileOpen || !profileDropdownRef.current || !profileButtonRef.current) {
+      return;
+    }
+
+    const positionDropdown = () => {
+      const dropdown = profileDropdownRef.current;
+      const button = profileButtonRef.current;
+      if (!dropdown || !button) return;
+
+      const rect = button.getBoundingClientRect();
+      const dropdownWidth = dropdown.offsetWidth || 320;
+      const viewportWidth = window.innerWidth;
+      const spaceOnRight = viewportWidth - rect.right;
+      const spaceOnLeft = rect.left;
+      
+      // Calculate top position: button height + small gap (4px)
+      // Since dropdown is absolutely positioned relative to profileWrapper
+      const buttonHeight = button.offsetHeight;
+      dropdown.style.top = `${buttonHeight + 4}px`; // 4px gap below button
+      dropdown.style.left = '21px';
+      dropdown.style.right = '';
+      
+      // If dropdown would overflow on the right, adjust position
+      if (spaceOnRight < dropdownWidth) {
+        // Check if we have more space on the left
+        if (spaceOnLeft > spaceOnRight) {
+          // Position from left edge instead
+          const leftPosition = rect.left;
+          dropdown.style.left = `${leftPosition}px`;
+          dropdown.style.right = 'auto';
+        } else {
+          // Adjust right position to fit within viewport
+          const rightPosition = viewportWidth - rect.right - dropdownWidth;
+          dropdown.style.right = `${Math.max(8, rightPosition)}px`;
+        }
+      } else {
+        // Default: align to right edge of button
+        dropdown.style.right = '0px';
+      }
+      
+      // Ensure dropdown doesn't go off the left edge
+      requestAnimationFrame(() => {
+        if (dropdown) {
+          const dropdownRect = dropdown.getBoundingClientRect();
+          if (dropdownRect.left < 8) {
+            dropdown.style.left = '8px';
+            dropdown.style.right = 'auto';
+          }
+          // Ensure it doesn't go off the right edge either
+          if (dropdownRect.right > viewportWidth - 8) {
+            dropdown.style.right = '8px';
+            dropdown.style.left = 'auto';
+          }
+        }
+      });
+    };
+
+    // Position after dropdown is rendered
+    requestAnimationFrame(() => {
+      positionDropdown();
+    });
+
+    // Also position on window resize
+    window.addEventListener('resize', positionDropdown);
+    return () => window.removeEventListener('resize', positionDropdown);
+  }, [isProfileOpen]);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -746,6 +817,7 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
                 <div className={styles.userSection}>
                   <div className={styles.profileWrapper}>
                     <button
+                      ref={profileButtonRef}
                       className={styles.profileButton}
                       onClick={() => {
                         setIsProfileOpen(!isProfileOpen);
@@ -774,7 +846,7 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
 
                     {/* Profile Dropdown */}
                     {isProfileOpen && (
-                      <div className={styles.profileDropdown}>
+                      <div ref={profileDropdownRef} className={styles.profileDropdown}>
                         <div className={styles.profileHeader}>
                           <div className={styles.avatarLarge}>
                             {user.avatar && !avatarError ? (
