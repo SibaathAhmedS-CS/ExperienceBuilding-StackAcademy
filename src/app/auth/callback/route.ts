@@ -3,6 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
+  console.log("Reqest", request);
   const code = requestUrl.searchParams.get('code');
   const error = requestUrl.searchParams.get('error');
   const errorDescription = requestUrl.searchParams.get('error_description');

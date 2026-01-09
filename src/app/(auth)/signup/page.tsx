@@ -456,7 +456,7 @@ export default function SignupPage() {
           const oauthUrlObj = new URL(data.url);
           const redirectParam = oauthUrlObj.searchParams.get('redirect_to');
           if (redirectParam && redirectParam.includes('localhost:4000')) {
-            console.error('Supabase is using localhost:4000 in redirect URL:', redirectParam);
+            console.error('Supabase is using  in redirect URL:', redirectParam);
             alert('Redirect URL misconfiguration detected. Please check your Supabase project settings.');
             return;
           }
