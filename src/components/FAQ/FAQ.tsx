@@ -12,6 +12,7 @@ import {
 import styles from './FAQ.module.css';
 import { useFAQ } from '@/hooks/useFAQ';
 import { FAQEntry, FAQQuestionEntry, IconEntry } from '@/types/contentstack';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
 
 // Icon mapping for FAQ header icon
 const iconMap: Record<string, LucideIcon> = {
@@ -113,39 +114,57 @@ export default function FAQ({
   }
 
   return (
-    <section className={styles.faqSection}>
-      <div className={styles.header}>
-        <div className={styles.iconWrapper}>
+    <section className={styles.faqSection} {...getLivePreviewAttributes(faqData?.$)}>
+      <div className={styles.header} {...getLivePreviewAttributes(faqData?.$?.icon)}>
+        <div className={styles.iconWrapper} {...getLivePreviewAttributes(faqData?.$?.icon)}>
           <HeaderIcon size={28} />
         </div>
-        <h2 className={styles.title}>{displayTitle}</h2>
-        {subtitle && <p className={styles.subtitle}>{subtitle}</p>}
+        <h2 className={styles.title} {...getLivePreviewAttributes(faqData?.$?.section_title)}>
+          {displayTitle}
+        </h2>
+        {subtitle && (
+          <p className={styles.subtitle} {...getLivePreviewAttributes(faqData?.$?.section_subtitle)}>
+            {subtitle}
+          </p>
+        )}
       </div>
 
-      <div className={styles.faqList}>
-        {faqItems.map((item, index) => (
-          <div
-            key={item.uid}
-            className={`${styles.faqItem} ${openIndex === index ? styles.open : ''}`}
-          >
-            <button
-              className={styles.question}
-              onClick={() => toggleItem(index)}
-              aria-expanded={openIndex === index}
+      <div className={styles.faqList} {...getLivePreviewAttributes(faqData?.$?.faq_question)}>
+        {faqItems.map((item, index) => {
+          // Get editable tags for each question item
+          const questionPath = `faq_question.${index}`;
+          const questionAttributes = getLivePreviewAttributes((faqData as any)?.$?.[questionPath]);
+          const questionTitleAttributes = getLivePreviewAttributes((faqData as any)?.$?.[`${questionPath}.question`]);
+          const questionAnswerAttributes = getLivePreviewAttributes((faqData as any)?.$?.[`${questionPath}.answer`]);
+          
+          return (
+            <div
+              key={item.uid}
+              className={`${styles.faqItem} ${openIndex === index ? styles.open : ''}`}
+              {...questionAttributes}
             >
-              <span className={styles.questionNumber}>
-                {String(index + 1).padStart(2, '0')}
-              </span>
-              <span className={styles.questionText}>{item.question}</span>
-              <ChevronDown size={20} className={styles.chevron} />
-            </button>
-            <div className={styles.answerWrapper}>
-              <div className={styles.answer}>
-                <p>{item.answer}</p>
+              <button
+                className={styles.question}
+                onClick={() => toggleItem(index)}
+                aria-expanded={openIndex === index}
+                {...questionTitleAttributes}
+              >
+                <span className={styles.questionNumber}>
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <span className={styles.questionText}>
+                  {item.question}
+                </span>
+                <ChevronDown size={20} className={styles.chevron} />
+              </button>
+              <div className={styles.answerWrapper}>
+                <div className={styles.answer} {...questionAnswerAttributes}>
+                  <p>{item.answer}</p>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

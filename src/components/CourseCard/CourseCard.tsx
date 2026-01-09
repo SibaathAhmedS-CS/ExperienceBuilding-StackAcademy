@@ -3,7 +3,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Star, Clock, Users, BookOpen } from 'lucide-react';
+import lyticsService from '@/services/lytics';
 import styles from './CourseCard.module.css';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
+import { CourseEntry } from '@/types/contentstack';
 
 interface CourseCardProps {
   uid: string;
@@ -23,6 +26,7 @@ interface CourseCardProps {
   progress?: number; // For enrolled courses
   variant?: 'default' | 'horizontal' | 'compact';
   redirectTo?: string; // Override the default navigation (e.g., redirect to signup for non-logged-in users)
+  _originalCourse?: CourseEntry; // Original course entry with $ properties for Live Preview
 }
 
 export default function CourseCard({
@@ -43,6 +47,7 @@ export default function CourseCard({
   progress,
   variant = 'default',
   redirectTo,
+  _originalCourse,
 }: CourseCardProps) {
   const levelColors = {
     beginner: 'var(--success-500)',
@@ -58,10 +63,36 @@ export default function CourseCard({
   // Use redirectTo if provided, otherwise navigate to course detail page
   const href = redirectTo || `/course/${slug}`;
 
+  const handleClick = () => {
+    // Track course click using service layer
+    lyticsService.trackClick('course_card', {
+      action: 'course_click',
+      course_slug: slug,
+      course_title: title,
+      course_category: category,
+      course_level: level,
+      destination_url: href,
+      location: 'course_card',
+    });
+  };
+
+  // Get live preview attributes from original course entry
+  const livePreviewAttrs = _originalCourse ? getLivePreviewAttributes(_originalCourse.$) : undefined;
+  
   return (
     <Link 
       href={href} 
+      onClick={handleClick}
       className={`${styles.card} ${styles[variant]}`}
+      data-lytics-click={JSON.stringify({
+        action: 'course_click',
+        course_slug: slug,
+        course_title: title,
+        course_category: category,
+        course_level: level,
+      })}
+      data-lytics-element="course_card"
+      {...livePreviewAttrs}
     >
       {/* Thumbnail */}
       <div className={styles.thumbnail}>
@@ -69,6 +100,7 @@ export default function CourseCard({
           src={thumbnail || '/images/course-placeholder.jpg'}
           alt={title}
           fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           className={styles.thumbnailImage}
         />
         
@@ -105,18 +137,26 @@ export default function CourseCard({
         </div>
 
         {/* Title */}
-        <h3 className={styles.title}>{title}</h3>
+        <h3 className={styles.title} {...getLivePreviewAttributes(_originalCourse?.$?.title)}>
+          {title}
+        </h3>
 
         {/* Instructor */}
         <div className={styles.instructor}>
           <div className={styles.instructorAvatar}>
             {instructorAvatar ? (
-              <Image src={instructorAvatar} alt={instructorName} fill />
+              <Image src={instructorAvatar} alt={instructorName} fill sizes="32px" />
             ) : (
               <span>{instructorName.charAt(0)}</span>
             )}
           </div>
-          <span className={styles.instructorName}>{instructorName}</span>
+          <span className={styles.instructorName} {...getLivePreviewAttributes(
+            Array.isArray(_originalCourse?.author) 
+              ? _originalCourse?.author?.[0]?.$?.title 
+              : _originalCourse?.author?.$?.title
+          )}>
+            {instructorName}
+          </span>
         </div>
 
         {/* Meta Info */}

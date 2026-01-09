@@ -3,4 +3,5 @@ node_modules/
 *.sql
 *.md
 .next
+.cursor/rules/snyk_rules.mdc
 

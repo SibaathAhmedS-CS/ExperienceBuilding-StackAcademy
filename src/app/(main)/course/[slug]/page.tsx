@@ -12,7 +12,6 @@ import {
   Play,
   CheckCircle,
   Award,
-  Globe,
   FileText,
   Download,
   Heart,
@@ -27,9 +26,17 @@ import Footer from '@/components/Footer';
 import CourseCard from '@/components/CourseCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
-import { getCourseBySlug } from '@/lib/contentstack';
+import { getCourseBySlug, getAllCourses, getCoursesByAuthorUid, getCourseByUid } from '@/lib/contentstack';
 import { CourseEntry, ModuleEntry, LessonEntry, AuthorEntry, normalizeArray } from '@/types/contentstack';
 import { createClient } from '@/utils/supabase/client';
+import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
+import { useLanguage } from '@/contexts/LanguageContext';
+import LocaleMismatchPopup from '@/components/LocaleMismatchPopup';
+import { trackCourseView } from '@/services/preferenceTracking';
+import { getCourseReviewStats, getTopReviews, getCourseEnrollmentCount, getInstructorStats, type InstructorStats } from '@/services/reviews';
+import type { CourseReview } from '@/services/reviews';
+import { transformCourseToCard, TransformedCourse } from '@/hooks/useCourses';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
 import styles from './page.module.css';
 
 // Mock user data
@@ -82,57 +89,7 @@ const DUMMY_DB_DATA = {
   ],
 };
 
-// Recommended courses - using real CMS course slugs
-const recommendedCourses = [
-  {
-    uid: 'bltab2bba525506ec98',
-    title: 'Python for Data Science',
-    slug: 'python-data-science',
-    thumbnail: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600',
-    instructorName: 'Priya Sharma',
-    level: 'beginner' as const,
-    duration: '40 hours',
-    rating: 4.8,
-    reviewsCount: 12400,
-    studentsEnrolled: 52000,
-  },
-  {
-    uid: 'blte66355d66dec039d',
-    title: 'Complete React Developer Course',
-    slug: 'react-developer-course',
-    thumbnail: 'https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=600',
-    instructorName: 'Sarah Johnson',
-    level: 'beginner' as const,
-    duration: '35 hours',
-    rating: 4.9,
-    reviewsCount: 15600,
-    studentsEnrolled: 68000,
-  },
-  {
-    uid: 'blt71c92f2be109835e',
-    title: 'Docker and Kubernetes Mastery',
-    slug: 'docker-kubernetes-mastery',
-    thumbnail: 'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?w=600',
-    instructorName: 'James Liu',
-    level: 'intermediate' as const,
-    duration: '38 hours',
-    rating: 4.9,
-    reviewsCount: 4500,
-    studentsEnrolled: 15000,
-  },
-  {
-    uid: 'bltc50b57b3e30df2ff',
-    title: 'Node.js Backend Masterclass',
-    slug: 'nodejs-backend-masterclass',
-    thumbnail: 'https://images.unsplash.com/photo-1627398242454-45a1465c2479?w=600',
-    instructorName: 'Alex Rivera',
-    level: 'intermediate' as const,
-    duration: '42 hours',
-    rating: 4.8,
-    reviewsCount: 9200,
-    studentsEnrolled: 35000,
-  },
-];
+// Recommended courses will be fetched dynamically based on current course's category
 
 const faqs = [
   {
@@ -181,6 +138,7 @@ export default function CoursePage() {
   const supabase = createClient();
   
   const [user, setUser] = useState<typeof mockUser | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<TabType>('about');
   const [expandedModules, setExpandedModules] = useState<string[]>([]);
@@ -190,9 +148,21 @@ export default function CoursePage() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [completedLessonIds, setCompletedLessonIds] = useState<string[]>([]);
+  const [enrollmentId, setEnrollmentId] = useState<string | null>(null);
+  const [reviewStats, setReviewStats] = useState({ averageRating: 0, totalReviews: 0, ratingDistribution: { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 } });
+  const [topReviews, setTopReviews] = useState<CourseReview[]>([]);
+  const [studentsEnrolled, setStudentsEnrolled] = useState(0);
+  const [recommendedCourses, setRecommendedCourses] = useState<TransformedCourse[]>([]);
+  const [isLoadingRecommended, setIsLoadingRecommended] = useState(false);
+  const [instructorStats, setInstructorStats] = useState<InstructorStats>({ averageRating: 0, coursesCount: 0, studentsCount: 0 });
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
+  
+  // Get selected language for locale-aware content fetching
+  const { selectedLanguage, setSelectedLanguage } = useLanguage();
+  const [showLocalePopup, setShowLocalePopup] = useState(false);
+  const [enrolledLocale, setEnrolledLocale] = useState<string | null>(null);
 
   // Refs for scroll navigation
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -209,73 +179,287 @@ export default function CoursePage() {
 
   // Fetch course data from CMS and check enrollment
   useEffect(() => {
+    // Reset state when slug or language changes - set loading first to avoid "not found" flash
+    setIsLoading(true);
+    setCourseData(null);
+    setIsEnrolled(false);
+    setIsCompleted(false);
+    setCompletedLessonIds([]);
+    setEnrollmentId(null);
+    setExpandedModules([]);
+    setShowLocalePopup(false);
+    setEnrolledLocale(null);
+    
     async function fetchCourse() {
-      setIsLoading(true);
       try {
-        const course = await getCourseBySlug(slug);
+        // First, check if user is enrolled to get enrolled locale
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        setCurrentUser(authUser);
+        
+        let enrolledLocaleForFetch: string | null = null;
+        let courseUidFromEnrollment: string | null = null;
+        
+        // FIRST: Fetch the course by slug (this is the primary lookup)
+        // We need to get the course first, then check enrollment status
+        let course: CourseEntry | null = null;
+        
+        // Try current locale first
+        course = await getCourseBySlug(slug, selectedLanguage);
+        
+        // If not found, try fallback locale
+        if (!course) {
+          course = await getCourseBySlug(slug, 'en-us');
+        }
+        
+        // If course found, check enrollment status
+        if (course && authUser) {
+          // Get all enrollments for this user
+          const { data: enrollments } = await supabase
+            .from('enrollments')
+            .select('course_id, enrolled_locale, status, id')
+            .eq('user_id', authUser.id);
+          
+          if (enrollments && enrollments.length > 0) {
+            // Find enrollment that matches this course's UID
+            const matchingEnrollment = enrollments.find(e => e.course_id === course!.uid);
+            
+            if (matchingEnrollment) {
+              // User is enrolled in this course!
+              enrolledLocaleForFetch = matchingEnrollment.enrolled_locale || null;
+              courseUidFromEnrollment = matchingEnrollment.course_id;
+              setIsEnrolled(true);
+              setEnrollmentId(matchingEnrollment.id);
+              setEnrolledLocale(enrolledLocaleForFetch);
+              
+              if (matchingEnrollment.status === 'completed') {
+                setIsCompleted(true);
+              }
+              
+              // If enrolled locale differs from current locale, fetch course in enrolled locale
+              // This ensures the user sees the course in the locale they enrolled in
+              if (enrolledLocaleForFetch && enrolledLocaleForFetch !== selectedLanguage) {
+                // Only refetch if we haven't already fetched in this locale
+                // (We already tried selectedLanguage and possibly 'en-us' as fallback)
+                const needsRefetch = enrolledLocaleForFetch !== selectedLanguage && 
+                                     enrolledLocaleForFetch !== 'en-us';
+                
+                if (needsRefetch) {
+                  const enrolledCourse = await getCourseByUid(course.uid, enrolledLocaleForFetch);
+                  if (enrolledCourse) {
+                    course = enrolledCourse;
+                  }
+                }
+              }
+            }
+          }
+        }
+        
         if (course) {
           setCourseData(course);
+          
+          // Check if enrolled locale differs from current locale - show popup
+          if (enrolledLocaleForFetch && enrolledLocaleForFetch !== selectedLanguage) {
+            setEnrolledLocale(enrolledLocaleForFetch);
+            setShowLocalePopup(true);
+          }
+          
+          // Track course view to Lytics
+          const author = normalizeArray(course.author)[0];
+          trackCourseView({
+            course_slug: course.slug || slug,
+            course_title: course.title || '',
+            course_category: undefined,
+            instructor_name: author?.title || undefined,
+          });
+          
           // Expand first module by default
           const modules = normalizeArray(course.modules);
           if (modules.length > 0) {
             setExpandedModules([modules[0].uid]);
           }
           
-          // Check enrollment status from Supabase
-          const { data: { user: authUser } } = await supabase.auth.getUser();
-          setCurrentUser(authUser);
-          
-          if (authUser && course.uid) {
-            // Check enrollment
-            const { data: enrollment } = await supabase
-              .from('enrollments')
-              .select('id, status')
-              .eq('user_id', authUser.id)
-              .eq('course_id', course.uid)
-              .maybeSingle();
-            
-            if (enrollment) {
-              setIsEnrolled(true);
-              
-              // Check if course is completed
-              if (enrollment.status === 'completed') {
-                setIsCompleted(true);
-              }
-              
-              // Fetch completed lesson IDs
-              const { data: lessonProgress } = await supabase
-                .from('lesson_progress')
-                .select('lesson_id')
-                .eq('user_id', authUser.id)
-                .eq('course_id', course.uid)
-                .eq('is_completed', true);
-              
-              if (lessonProgress) {
-                setCompletedLessonIds(lessonProgress.map(lp => lp.lesson_id));
-              }
+          // Fetch review stats and enrollment count
+          if (course.uid) {
+            try {
+              const [stats, reviews, enrollmentCount] = await Promise.all([
+                getCourseReviewStats(course.uid),
+                getTopReviews(course.uid, 5),
+                getCourseEnrollmentCount(course.uid),
+              ]);
+              setReviewStats(stats);
+              setTopReviews(reviews);
+              setStudentsEnrolled(enrollmentCount);
+            } catch (error) {
+              // Error fetching reviews - continue without reviews
             }
           }
+
+          // Fetch instructor stats
+          const authors = normalizeArray(course.author);
+          const instructor = authors[0];
+          if (instructor?.uid) {
+            try {
+              const instructorLocale = enrolledLocaleForFetch || selectedLanguage;
+              const authorCourses = await getCoursesByAuthorUid(instructor.uid, instructorLocale);
+              const courseUids = authorCourses.map(c => c.uid).filter(Boolean) as string[];
+              const stats = await getInstructorStats(instructor.uid, courseUids);
+              setInstructorStats(stats);
+            } catch (error) {
+              // Error fetching instructor stats - continue without stats
+            }
+          }
+          
+          // Fetch completed lesson IDs if enrolled
+          if (authUser && course.uid && isEnrolled) {
+            const { data: lessonProgress } = await supabase
+              .from('lesson_progress')
+              .select('lesson_id')
+              .eq('user_id', authUser.id)
+              .eq('course_id', course.uid)
+              .eq('is_completed', true);
+            
+            if (lessonProgress) {
+              setCompletedLessonIds(lessonProgress.map(lp => lp.lesson_id));
+            }
+          }
+        } else {
+          // Course not found - reset state
+          setCourseData(null);
         }
       } catch (error) {
-        console.error('Error fetching course:', error);
+        setCourseData(null);
       } finally {
         setIsLoading(false);
       }
     }
     
-    if (slug) {
+    if (slug && selectedLanguage) {
       fetchCourse();
     }
-  }, [slug, supabase]);
+  }, [slug, supabase, selectedLanguage]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      setUser(mockUser);
+    async function fetchUserData() {
+      setIsLoadingUser(true);
+      try {
+        // Clear old localStorage 'user' key if it exists (might contain mock data)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user');
+        }
+        
+        const supabase = createClient();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (authUser) {
+          // Check cache first for instant display
+          const cachedProfile = getCachedUserProfile(authUser.id);
+          if (cachedProfile) {
+            setUser(cachedProfile);
+            setIsLoadingUser(false); // Show cached data immediately
+          }
+
+          // Fetch fresh data from Supabase in the background
+          const [profileResult, enrollmentsResult] = await Promise.all([
+            supabase
+              .from('profiles')
+              .select('full_name, avatar_url')
+              .eq('id', authUser.id)
+              .maybeSingle(),
+            supabase
+              .from('enrollments')
+              .select('status')
+              .eq('user_id', authUser.id)
+          ]);
+
+          const profile = profileResult.data;
+          const enrollments = enrollmentsResult.data;
+
+          const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+          const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
+
+          const userData = {
+            name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
+            email: authUser.email || '',
+            avatar: profile?.avatar_url || undefined,
+            coursesCompleted: completedCount,
+            coursesInProgress: inProgressCount,
+          };
+          
+          // Update cache with fresh data
+          cacheUserProfile(authUser.id, userData);
+          
+          // Update UI with fresh data (only if cache wasn't available or data changed)
+          if (!cachedProfile || JSON.stringify(cachedProfile) !== JSON.stringify(userData)) {
+            setUser(userData);
+          }
+          
+          setIsLoadingUser(false);
+        } else {
+          // User not authenticated - don't set any user data
+          setUser(null);
+          setIsLoadingUser(false);
+        }
+      } catch (error) {
+        // Error fetching user data - continue without user
+        setIsLoadingUser(false);
+      }
     }
+
+    fetchUserData();
   }, []);
+
+  // Fetch recommended courses based on current course's category
+  useEffect(() => {
+    async function fetchRecommendedCourses() {
+      if (!courseData || !courseData.uid) {
+        setRecommendedCourses([]);
+        return;
+      }
+
+      setIsLoadingRecommended(true);
+      try {
+        // Get current course's taxonomy term_uids
+        const currentCourseTerms = courseData.taxonomies?.map(t => t.term_uid) || [];
+        
+        // If no taxonomies, don't fetch recommended courses
+        if (currentCourseTerms.length === 0) {
+          setRecommendedCourses([]);
+          setIsLoadingRecommended(false);
+          return;
+        }
+
+        // Fetch all courses in the selected language
+        const allCourses = await getAllCourses(selectedLanguage);
+        
+        // Filter courses that:
+        // 1. Share at least one taxonomy term with the current course
+        // 2. Are not the current course
+        const matchingCourses = allCourses.filter(course => {
+          if (course.uid === courseData.uid) return false; // Exclude current course
+          
+          const courseTerms = course.taxonomies?.map(t => t.term_uid) || [];
+          // Check if there's at least one matching term
+          return courseTerms.some(term => currentCourseTerms.includes(term));
+        });
+
+        // Limit to 4 courses
+        const limitedCourses = matchingCourses.slice(0, 4);
+
+        // Transform courses to card format
+        const transformed = await Promise.all(
+          limitedCourses.map(course => transformCourseToCard(course))
+        );
+
+        setRecommendedCourses(transformed);
+      } catch (error) {
+        setRecommendedCourses([]);
+      } finally {
+        setIsLoadingRecommended(false);
+      }
+    }
+
+    fetchRecommendedCourses();
+  }, [courseData, selectedLanguage]);
 
   const scrollToSection = (tab: TabType) => {
     setActiveTab(tab);
@@ -372,7 +556,7 @@ export default function CoursePage() {
   if (isLoading) {
     return (
       <>
-        <Header variant="app" user={user} headerData={headerData} />
+        <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
         <main className={styles.main}>
           <div className={styles.loading}>
             <div className={styles.spinner}></div>
@@ -388,7 +572,7 @@ export default function CoursePage() {
   if (!courseData) {
     return (
       <>
-        <Header variant="app" user={user} headerData={headerData} />
+        <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
         <main className={styles.main}>
           <div className={styles.notFound}>
             <h1>Course not found</h1>
@@ -410,9 +594,6 @@ export default function CoursePage() {
   
   // Course duration in hours
   const courseDuration = courseData.total_duration ? `${courseData.total_duration} hours` : '38 hours';
-  
-  // Language - first from supported languages or default
-  const courseLanguage = courseData.languages_supported?.[0] || 'English';
 
   return (
     <>
@@ -420,13 +601,16 @@ export default function CoursePage() {
 
       <main className={styles.main}>
         {/* Hero Section */}
-        <section className={styles.hero}>
-          <div className={styles.heroBackground}>
+        <section className={styles.hero} {...getLivePreviewAttributes(courseData?.$)}>
+          <div className={styles.heroBackground} {...getLivePreviewAttributes(courseData?.$?.course_image || courseData?.$?.course_image_link)}>
             <Image
               src={heroImage}
               alt={courseData.title}
               fill
+              sizes="100vw"
+              priority
               className={styles.heroImage}
+              {...getLivePreviewAttributes(courseData?.$?.course_image || courseData?.$?.course_image_link)}
             />
             <div className={styles.heroOverlay} />
           </div>
@@ -444,35 +628,38 @@ export default function CoursePage() {
             </nav>
 
             <div className={styles.heroText}>
-              <div className={styles.levelBadge}>
+              <div className={styles.levelBadge} {...getLivePreviewAttributes(courseData?.$?.difficulty_level)}>
                 <span className={styles.badge}>{courseData.difficulty_level?.toLowerCase() || 'intermediate'}</span>
                 <span className={styles.lastUpdated}>Updated {lastUpdated}</span>
               </div>
 
-              <h1 className={styles.courseTitle}>{courseData.title}</h1>
-              <p className={styles.courseDescription}>{stripHtml(courseData.short_text || '')}</p>
+              <h1 className={styles.courseTitle} {...getLivePreviewAttributes(courseData?.$?.title)}>
+                {courseData.title}
+              </h1>
+              <p className={styles.courseDescription} {...getLivePreviewAttributes(courseData?.$?.short_text)}>
+                {stripHtml(courseData.short_text || '')}
+              </p>
 
               <div className={styles.courseMeta}>
                 {/* DB Data: Rating and Reviews */}
                 <div className={styles.rating}>
                   <Star size={18} fill="var(--warning-500)" stroke="var(--warning-500)" />
-                  <span className={styles.ratingValue}>{DUMMY_DB_DATA.rating}</span>
-                  <span className={styles.reviewsCount}>({DUMMY_DB_DATA.reviewsCount.toLocaleString()} reviews)</span>
+                  <span className={styles.ratingValue}>
+                    {reviewStats.averageRating > 0 ? reviewStats.averageRating.toFixed(1) : '0.0'}
+                  </span>
+                  <span className={styles.reviewsCount}>
+                    ({reviewStats.totalReviews.toLocaleString()} {reviewStats.totalReviews === 1 ? 'review' : 'reviews'})
+                  </span>
                 </div>
                 {/* DB Data: Students Enrolled */}
                 <div className={styles.metaItem}>
                   <Users size={18} />
-                  <span>{DUMMY_DB_DATA.studentsEnrolled.toLocaleString()} students</span>
+                  <span>{studentsEnrolled.toLocaleString()} {studentsEnrolled === 1 ? 'student' : 'students'}</span>
                 </div>
                 {/* CMS Data: Duration */}
                 <div className={styles.metaItem}>
                   <Clock size={18} />
                   <span>{courseDuration}</span>
-                </div>
-                {/* CMS Data: Language */}
-                <div className={styles.metaItem}>
-                  <Globe size={18} />
-                  <span>{courseLanguage}</span>
                 </div>
               </div>
 
@@ -492,7 +679,7 @@ export default function CoursePage() {
                       <span>Completed</span>
                     </div>
                     <Link 
-                      href={`/certificate/${courseData.uid}`}
+                      href={enrollmentId ? `/certificate/${enrollmentId}` : `/courses`}
                       className={`${styles.startBtn} ${styles.certificateBtn}`}
                     >
                       <FileText size={20} />
@@ -501,13 +688,24 @@ export default function CoursePage() {
                   </>
                 ) : isEnrolled ? (
                   // Enrolled State: Continue Learning
-                  <Link 
-                    href={firstAvailableLesson ? `/module/${firstAvailableLesson.uid}` : `/learn/${courseData.uid}`} 
+                  <button
+                    onClick={() => {
+                      // If locale mismatch, show popup (handled by popup component)
+                      // Otherwise, navigate normally
+                      if (enrolledLocale && enrolledLocale !== selectedLanguage) {
+                        setShowLocalePopup(true);
+                      } else {
+                        // Normal navigation
+                        if (firstAvailableLesson) {
+                          router.push(`/module/${firstAvailableLesson.uid}`);
+                        }
+                      }
+                    }}
                     className={`${styles.startBtn} ${styles.continueLearningBtn}`}
                   >
                     <Play size={20} />
                     Continue Learning
-                  </Link>
+                  </button>
                 ) : (
                   // Logged in but not enrolled: Enroll Now
                   <button 
@@ -543,48 +741,59 @@ export default function CoursePage() {
           <div className={styles.contentContainer}>
             <div className={styles.mainContent}>
               {/* About Section - CMS Data */}
-              <section ref={aboutRef} className={styles.section}>
-                <h2>About This Course</h2>
+              <section ref={aboutRef} className={styles.section} {...getLivePreviewAttributes(courseData?.$)}>
+                <h2 {...getLivePreviewAttributes(courseData?.$?.about_the_course)}>About This Course</h2>
                 <div 
                   className={styles.description}
                   dangerouslySetInnerHTML={{ __html: courseData.about_the_course || '' }}
+                  {...getLivePreviewAttributes(courseData?.$?.about_the_course)}
                 />
 
                 {/* Instructor - CMS Data + DB Stats */}
-                {instructor && (
-                  <div className={styles.instructorCard}>
-                    <div className={styles.instructorHeader}>
-                      <div className={styles.instructorAvatarLarge}>
-                        <Image src={instructorAvatar} alt={instructor.title} fill />
-                      </div>
-                      <h3 className={styles.instructorName}>{instructor.title}</h3>
+                {instructor && (() => {
+                  const authorArray = normalizeArray(courseData?.author);
+                  const firstAuthor = authorArray[0];
+                  const authorAttrs = firstAuthor?.$;
+                  
+                  return (
+                    <div className={styles.instructorCard} {...getLivePreviewAttributes(authorAttrs)}>
+                      <div className={styles.instructorHeader}>
+                        <div className={styles.instructorAvatarLarge} {...getLivePreviewAttributes(authorAttrs?.profile_image)}>
+                          <Image src={instructorAvatar} alt={instructor.title} fill sizes="80px" />
+                        </div>
+                        <h3 className={styles.instructorName} {...getLivePreviewAttributes(authorAttrs?.title)}>
+                          {instructor.title}
+                        </h3>
                       {/* DB Data: Instructor Stats */}
                       <div className={styles.instructorStats}>
-                        <span><Star size={14} /> {DUMMY_DB_DATA.instructorStats.rating} Rating</span>
-                        <span><Users size={14} /> {(DUMMY_DB_DATA.instructorStats.studentsCount / 1000).toFixed(0)}k Students</span>
-                        <span><BookOpen size={14} /> {DUMMY_DB_DATA.instructorStats.coursesCount} Courses</span>
+                        <span><Star size={14} /> {instructorStats.averageRating > 0 ? instructorStats.averageRating.toFixed(1) : '0.0'} Rating</span>
+                        <span><Users size={14} /> {instructorStats.studentsCount >= 1000 ? `${(instructorStats.studentsCount / 1000).toFixed(0)}k` : instructorStats.studentsCount} Students</span>
+                        <span><BookOpen size={14} /> {instructorStats.coursesCount} Courses</span>
                       </div>
                     </div>
-                    <p className={styles.instructorRole}>{instructor.bio?.split('.')[0] || 'Instructor'}</p>
-                    <p className={styles.instructorBio}>{instructor.bio}</p>
-                  </div>
-                )}
+                        <p className={styles.instructorRole}>{instructor.bio?.split('.')[0] || 'Instructor'}</p>
+                        <p className={styles.instructorBio} {...getLivePreviewAttributes(authorAttrs?.bio)}>
+                          {instructor.bio}
+                        </p>
+                      </div>
+                    );
+                  })()}
               </section>
 
               {/* Outcomes Section - CMS Data */}
-              <section ref={outcomesRef} className={styles.section}>
-                <h2>What You&apos;ll Learn</h2>
-                <div className={styles.outcomesGrid}>
+              <section ref={outcomesRef} className={styles.section} {...getLivePreviewAttributes(courseData?.$)}>
+                <h2 {...getLivePreviewAttributes(courseData?.$?.learning_outcomes)}>What You&apos;ll Learn</h2>
+                <div className={styles.outcomesGrid} {...getLivePreviewAttributes(courseData?.$?.learning_outcomes)}>
                   {outcomes.map((outcome, index) => (
-                    <div key={index} className={styles.outcomeItem}>
+                    <div key={index} className={styles.outcomeItem} {...getLivePreviewAttributes((courseData as any)?.$?.[`learning_outcomes.point[${index}]`])}>
                       <CheckCircle size={20} />
                       <span>{outcome}</span>
                     </div>
                   ))}
                 </div>
 
-                <h3 className={styles.subheading}>Requirements</h3>
-                <ul className={styles.requirementsList}>
+                <h3 className={styles.subheading} {...getLivePreviewAttributes(courseData?.$?.requirements)}>Requirements</h3>
+                <ul className={styles.requirementsList} {...getLivePreviewAttributes(courseData?.$?.requirements)}>
                   {requirements.map((req, index) => (
                     <li key={index}>{req}</li>
                   ))}
@@ -592,8 +801,8 @@ export default function CoursePage() {
               </section>
 
               {/* Modules Section - CMS Data */}
-              <section ref={modulesRef} className={styles.section}>
-                <h2>Course Content</h2>
+              <section ref={modulesRef} className={styles.section} {...getLivePreviewAttributes(courseData?.$)}>
+                <h2 {...getLivePreviewAttributes(courseData?.$?.modules)}>Course Content</h2>
                 <p className={styles.modulesSummary}>
                   {modules.length} modules • {totalLessons} lessons • {courseDuration} total
                 </p>
@@ -606,11 +815,15 @@ export default function CoursePage() {
                     ).length;
                     const isUnlocked = isModuleUnlocked(moduleIndex);
                     const isModuleLocked = isEnrolled && currentUser && !isUnlocked;
+                    const modulePath = Array.isArray(courseData?.modules) 
+                      ? `modules[${moduleIndex}]`
+                      : 'modules';
                     
                     return (
                       <div 
                         key={module.uid} 
                         className={`${styles.moduleItem} ${expandedModules.includes(module.uid) ? styles.expanded : ''} ${isModuleLocked ? styles.moduleLocked : ''}`}
+                        {...getLivePreviewAttributes((courseData as any)?.$?.[modulePath])}
                       >
                         <button
                           className={styles.moduleHeader}
@@ -619,7 +832,7 @@ export default function CoursePage() {
                         >
                           <ChevronDown size={20} className={styles.moduleChevron} />
                           <div className={styles.moduleInfo}>
-                            <h4>
+                            <h4 {...getLivePreviewAttributes((courseData as any)?.$?.[`${modulePath}.title`])}>
                               {isModuleLocked && <Lock size={16} className={styles.moduleLockIcon} />}
                               {module.title}
                             </h4>
@@ -635,9 +848,12 @@ export default function CoursePage() {
                         </button>
 
                         <div className={styles.lessonsList}>
-                          {moduleLessons.map((lesson) => {
+                          {moduleLessons.map((lesson, lessonIndex) => {
                             const isCompleted = completedLessonIds.includes(lesson.uid);
                             const isAccessible = isLessonAccessible(lesson, moduleIndex);
+                            const lessonPath = Array.isArray(courseData?.modules)
+                              ? `modules[${moduleIndex}].lessons[${lessonIndex}]`
+                              : `modules.lessons[${lessonIndex}]`;
                             
                             return (
                               <Link
@@ -649,6 +865,7 @@ export default function CoursePage() {
                                     e.preventDefault();
                                   }
                                 }}
+                                {...getLivePreviewAttributes((courseData as any)?.$?.[lessonPath])}
                               >
                                 {isCompleted ? (
                                   <CheckCircle size={16} className={styles.completedIcon} />
@@ -657,8 +874,10 @@ export default function CoursePage() {
                                 ) : (
                                   <Lock size={16} />
                                 )}
-                                <span className={styles.lessonTitle}>{lesson.title}</span>
-                                <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
+                                <span className={styles.lessonTitle} {...getLivePreviewAttributes((courseData as any)?.$?.[`${lessonPath}.title`])}>
+                                  {lesson.title}
+                                </span>
+                                <span className={styles.lessonDuration} {...getLivePreviewAttributes((courseData as any)?.$?.[`${lessonPath}.duration`])}>{lesson.duration || '15:00'}</span>
                                 {lesson.is_preview && isAccessible && (
                                   <span className={styles.previewBadge}>Preview</span>
                                 )}
@@ -675,52 +894,98 @@ export default function CoursePage() {
                 </div>
               </section>
 
-              {/* Reviews Section - DB Data (Dummy for now) */}
+              {/* Reviews Section - Real DB Data */}
               <section ref={reviewsRef} className={styles.section}>
                 <h2>Student Reviews</h2>
                 
-                <div className={styles.reviewsSummary}>
-                  <div className={styles.ratingLarge}>
-                    <span className={styles.ratingNumber}>{DUMMY_DB_DATA.rating}</span>
-                    <div className={styles.ratingStars}>
-                      {[...Array(5)].map((_, i) => (
-                        <Star 
-                          key={i} 
-                          size={20} 
-                          fill={i < Math.round(DUMMY_DB_DATA.rating) ? 'var(--warning-500)' : 'var(--neutral-300)'} 
-                          stroke={i < Math.round(DUMMY_DB_DATA.rating) ? 'var(--warning-500)' : 'var(--neutral-300)'}
-                        />
-                      ))}
-                    </div>
-                    <span className={styles.totalReviews}>
-                      {DUMMY_DB_DATA.reviewsCount.toLocaleString()} reviews
-                    </span>
-                  </div>
-                </div>
-
-                <div className={styles.reviewsList}>
-                  {DUMMY_DB_DATA.reviews.map((review) => (
-                    <div key={review.uid} className={styles.reviewItem}>
-                      <div className={styles.reviewHeader}>
-                        <div className={styles.reviewerAvatar}>
-                          <Image src={review.userAvatar} alt={review.userName} fill />
+                {reviewStats.totalReviews > 0 ? (
+                  <>
+                    <div className={styles.reviewsSummary}>
+                      <div className={styles.ratingLarge}>
+                        <span className={styles.ratingNumber}>
+                          {reviewStats.averageRating.toFixed(1)}
+                        </span>
+                        <div className={styles.ratingStars}>
+                          {[...Array(5)].map((_, i) => (
+                            <Star 
+                              key={i} 
+                              size={20} 
+                              fill={i < Math.round(reviewStats.averageRating) ? 'var(--warning-500)' : 'var(--neutral-300)'} 
+                              stroke={i < Math.round(reviewStats.averageRating) ? 'var(--warning-500)' : 'var(--neutral-300)'}
+                            />
+                          ))}
                         </div>
-                        <div className={styles.reviewerInfo}>
-                          <h4>{review.userName}</h4>
-                          <div className={styles.reviewMeta}>
-                            <div className={styles.reviewStars}>
-                              {[...Array(review.rating)].map((_, i) => (
-                                <Star key={i} size={14} fill="var(--warning-500)" stroke="var(--warning-500)" />
-                              ))}
-                            </div>
-                            <span>{review.date}</span>
-                          </div>
-                        </div>
+                        <span className={styles.totalReviews}>
+                          {reviewStats.totalReviews.toLocaleString()} {reviewStats.totalReviews === 1 ? 'review' : 'reviews'}
+                        </span>
                       </div>
-                      <p className={styles.reviewComment}>{review.comment}</p>
                     </div>
-                  ))}
-                </div>
+
+                    <div className={styles.reviewsList}>
+                      {topReviews.length > 0 ? (
+                        topReviews.map((review) => {
+                          const reviewDate = new Date(review.created_at);
+                          const formattedDate = reviewDate.toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          });
+                          
+                          const userName = review.user_name || 'Anonymous';
+                          const userInitial = userName.charAt(0).toUpperCase();
+                          
+                          return (
+                            <div key={review.id} className={styles.reviewItem}>
+                              <div className={styles.reviewHeader}>
+                                <div className={styles.reviewerAvatar}>
+                                  {review.user_avatar_url ? (
+                                    <Image 
+                                      src={review.user_avatar_url} 
+                                      alt={userName} 
+                                      fill 
+                                      sizes="48px"
+                                      style={{ objectFit: 'cover' }}
+                                    />
+                                  ) : (
+                                    <span>{userInitial}</span>
+                                  )}
+                                </div>
+                                <div className={styles.reviewerInfo}>
+                                  <h4>{userName}</h4>
+                                  <div className={styles.reviewMeta}>
+                                    <div className={styles.reviewStars}>
+                                      {[...Array(review.rating)].map((_, i) => (
+                                        <Star key={i} size={14} fill="var(--warning-500)" stroke="var(--warning-500)" />
+                                      ))}
+                                    </div>
+                                    <span>{formattedDate}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              {review.comment && (
+                                <p className={styles.reviewComment}>{review.comment}</p>
+                              )}
+                            </div>
+                          );
+                        })
+                      ) : reviewStats.totalReviews > 0 ? (
+                        <p style={{ color: 'var(--neutral-500)', textAlign: 'center', padding: '40px 0' }}>
+                          Loading reviews...
+                        </p>
+                      ) : (
+                        <p style={{ color: 'var(--neutral-500)', textAlign: 'center', padding: '40px 0' }}>
+                          No reviews yet. Be the first to review this course!
+                        </p>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <p style={{ color: 'var(--neutral-500)' }}>
+                      No reviews yet. Be the first to review this course!
+                    </p>
+                  </div>
+                )}
               </section>
             </div>
           </div>
@@ -730,11 +995,17 @@ export default function CoursePage() {
         <section className={styles.recommended}>
           <div className="container">
             <h2 className={styles.recommendedTitle}>You May Also Like</h2>
-            <div className={styles.recommendedGrid}>
-              {recommendedCourses.map((course) => (
-                <CourseCard key={course.uid} {...course} />
-              ))}
-            </div>
+            {isLoadingRecommended ? (
+              <div className={styles.loadingMessage}>Loading recommended courses...</div>
+            ) : recommendedCourses.length > 0 ? (
+              <div className={styles.recommendedGrid}>
+                {recommendedCourses.map((course) => (
+                  <CourseCard key={course.uid} {...course} />
+                ))}
+              </div>
+            ) : (
+              <div className={styles.noCoursesMessage}>No recommended courses found.</div>
+            )}
           </div>
         </section>
 
@@ -751,6 +1022,22 @@ export default function CoursePage() {
       </main>
 
       <Footer />
+      
+      {/* Locale Mismatch Popup */}
+      {showLocalePopup && enrolledLocale && (
+        <LocaleMismatchPopup
+          enrolledLocale={enrolledLocale}
+          currentLocale={selectedLanguage}
+          onSwitchLocale={() => {
+            setSelectedLanguage(enrolledLocale);
+            setShowLocalePopup(false);
+            // Navigate to first lesson after switching locale
+            if (firstAvailableLesson) {
+              router.push(`/module/${firstAvailableLesson.uid}`);
+            }
+          }}
+        />
+      )}
     </>
   );
 }

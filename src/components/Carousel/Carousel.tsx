@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ChevronLeft, ChevronRight, ArrowRight } from 'lucide-react';
 import styles from './Carousel.module.css';
 import { BannerEntry, normalizeArray, extractColor } from '@/types/contentstack';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
 
 // Legacy slide interface for backwards compatibility
 interface LegacyCarouselSlide {
@@ -43,11 +44,37 @@ interface CarouselProps {
 // Default colors for carousel slides
 const defaultColors = ['#3b82f6', '#7c3aed', '#059669', '#dc2626', '#ea580c'];
 
+// Helper to extract image URL from various possible formats with fallback
+function extractImageUrl(banner: BannerEntry): string {
+  // Try banner_image (asset reference)
+  if (banner.banner_image?.url) {
+    return banner.banner_image.url;
+  }
+  
+  // Try if banner_image is a string URL directly (variant case)
+  if (typeof banner.banner_image === 'string' && banner.banner_image) {
+    return banner.banner_image;
+  }
+  
+  // Check for any other image field patterns that might exist
+  const bannerAny = banner as any;
+  if (bannerAny.image?.url) {
+    return bannerAny.image.url;
+  }
+  if (bannerAny.image_url) {
+    return bannerAny.image_url;
+  }
+  
+  // If still no image, try to fetch from fallback locale (this should be done server-side)
+  // For now, return empty string - the fallback should be handled in getPage
+  return '';
+}
+
 // Normalize banner data to a common format
 function normalizeBanners(
   banners?: BannerEntry | BannerEntry[],
   slides?: LegacyCarouselSlide[]
-): NormalizedSlide[] {
+): (NormalizedSlide & { _originalBanner?: BannerEntry })[] {
   // If CMS banners are provided, convert them
   if (banners) {
     const bannerArray = normalizeArray(banners);
@@ -56,11 +83,12 @@ function normalizeBanners(
       label: banner.label || banner.title,
       title: banner.title,
       description: banner.description || '',
-      image: banner.banner_image?.url || '',
+      image: extractImageUrl(banner),
       ctaLabel: banner.button?.title || 'Learn More',
       ctaUrl: banner.button?.href || '#',
       backgroundColor: extractColor(banner.banner_color, defaultColors[index % defaultColors.length]),
       textColor: extractColor(banner.banner_text_color, '#ffffff'),
+      _originalBanner: banner, // Preserve original banner entry for Live Preview
     }));
   }
 
@@ -128,45 +156,82 @@ export default function Carousel({
       onMouseLeave={() => setIsPaused(false)}
     >
       <div className={styles.slidesWrapper}>
-        {slides.map((slide, index) => (
-          <div
-            key={slide.uid}
-            className={`${styles.slide} ${index === currentIndex ? styles.active : ''}`}
-            style={{ 
-              backgroundColor: slide.backgroundColor,
-              color: slide.textColor,
-            }}
-          >
-            <div className={styles.slideContent}>
-              <div className={styles.textContent}>
-                <h2 className={styles.slideTitle} style={{ color: slide.textColor }}>{slide.label}</h2>
-                <p className={styles.slideDescription} style={{ color: slide.textColor }}>{slide.description}</p>
-                <Link href={slide.ctaUrl} className={styles.ctaButton}>
-                  {slide.ctaLabel}
-                  <ArrowRight size={18} />
-                </Link>
+        {slides.map((slide, index) => {
+          // Get live preview attributes from original banner entry
+          const banner = (slide as any)._originalBanner;
+          const slideAttrs = banner ? getLivePreviewAttributes(banner.$) : undefined;
+          const titleAttrs = banner ? getLivePreviewAttributes(banner.$?.title) : undefined;
+          const labelAttrs = banner ? getLivePreviewAttributes(banner.$?.label) : undefined;
+          const descriptionAttrs = banner ? getLivePreviewAttributes(banner.$?.description) : undefined;
+          const buttonAttrs = banner ? getLivePreviewAttributes(banner.$?.button) : undefined;
+          const imageAttrs = banner ? getLivePreviewAttributes(banner.$?.banner_image) : undefined;
+          
+          return (
+            <div
+              key={slide.uid}
+              className={`${styles.slide} ${index === currentIndex ? styles.active : ''}`}
+              style={{ 
+                backgroundColor: slide.backgroundColor,
+                color: slide.textColor,
+              }}
+              {...slideAttrs}
+            >
+              <div className={styles.slideContent}>
+                <div className={styles.textContent}>
+                  <h2 
+                    className={styles.slideTitle} 
+                    style={{ color: slide.textColor }}
+                    {...labelAttrs || titleAttrs}
+                  >
+                    {slide.label}
+                  </h2>
+                  <p 
+                    className={styles.slideDescription} 
+                    style={{ color: slide.textColor }}
+                    {...descriptionAttrs}
+                  >
+                    {slide.description}
+                  </p>
+                  <Link 
+                    href={slide.ctaUrl} 
+                    className={styles.ctaButton}
+                    {...buttonAttrs}
+                  >
+                    <span {...getLivePreviewAttributes(banner?.$?.['button.title'])}>
+                      {slide.ctaLabel.includes('→') ? slide.ctaLabel.replace('→', '') : slide.ctaLabel}
+                    </span>
+                    <ArrowRight size={18} />
+                  </Link>
+                </div>
+                <div 
+                  className={styles.imageContent}
+                  style={{ '--slide-bg': slide.backgroundColor } as React.CSSProperties}
+                  {...imageAttrs}
+                >
+                  {slide.image ? (
+                    <Image
+                      src={slide.image}
+                      alt={slide.label}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 50vw"
+                      className={styles.slideImage}
+                      priority={index === 0}
+                      {...imageAttrs}
+                    />
+                  ) : (
+                    <div className={styles.imagePlaceholder} />
+                  )}
+                  <div className={styles.imageOverlay} />
+                </div>
               </div>
-              <div className={styles.imageContent}>
-                {slide.image ? (
-                  <Image
-                    src={slide.image}
-                    alt={slide.label}
-                    fill
-                    className={styles.slideImage}
-                    priority={index === 0}
-                  />
-                ) : (
-                  <div className={styles.imagePlaceholder} />
-                )}
-              </div>
-            </div>
 
-            {/* Decorative Elements */}
-            <div className={styles.decorCircle1} />
-            <div className={styles.decorCircle2} />
-            <div className={styles.decorCircle3} />
-          </div>
-        ))}
+              {/* Decorative Elements */}
+              <div className={styles.decorCircle1} />
+              <div className={styles.decorCircle2} />
+              <div className={styles.decorCircle3} />
+            </div>
+          );
+        })}
       </div>
 
       {/* Navigation Arrows */}

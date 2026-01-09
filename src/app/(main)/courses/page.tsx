@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { Search, Filter, Grid, List, ChevronDown, Check } from 'lucide-react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -8,7 +9,12 @@ import CourseCard from '@/components/CourseCard';
 import CategoryCard from '@/components/CategoryCard';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
-import { useCourses, transformCourseToCard } from '@/hooks/useCourses';
+import { useCourses, useTransformedCourses, transformCourseToCard } from '@/hooks/useCourses';
+import { useAlgoliaSearchFull } from '@/hooks/useAlgoliaSearchFull';
+import { getCourseByUid } from '@/lib/contentstack';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { createClient } from '@/utils/supabase/client';
+import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
 import {
   PageEntry,
   CategoryEntry,
@@ -243,9 +249,16 @@ const allCourses = [
 ];
 
 export default function CoursesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<typeof mockUser | null>(null);
+  const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  
+  // Get search query from URL params or use empty string
+  const urlSearchQuery = searchParams.get('search') || '';
+  const [searchQuery, setSearchQuery] = useState(urlSearchQuery);
+  
   const [sortBy, setSortBy] = useState('popular');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -260,21 +273,158 @@ export default function CoursesPage() {
   // Fetch courses from CMS
   const { courses: cmsCourses, isLoading: coursesLoading } = useCourses();
   
-  // Transform CMS courses to card format
-  const cmsCoursesForCards = cmsCourses.map(transformCourseToCard);
+  // Transform CMS courses to card format with real review/enrollment data
+  const { transformedCourses: cmsCoursesForCards, isTransforming } = useTransformedCourses(cmsCourses);
+
+  // Algolia search - only search if query is 2+ characters
+  const { results: algoliaResults, isLoading: isAlgoliaSearching } = useAlgoliaSearchFull(
+    searchQuery.trim().length >= 2 ? searchQuery : '',
+    50 // Get more results for full page search
+  );
+
+  const { selectedLanguage } = useLanguage();
+  const [algoliaCoursesData, setAlgoliaCoursesData] = useState<any[]>([]);
+  const [isLoadingAlgoliaCourses, setIsLoadingAlgoliaCourses] = useState(false);
+
+  // Determine if we're searching
+  const isSearching = searchQuery.trim().length >= 2;
+
+  // Fetch full course data from Contentstack when Algolia results change
+  useEffect(() => {
+    async function fetchAlgoliaCourses() {
+      if (!isSearching || algoliaResults.length === 0) {
+        setAlgoliaCoursesData([]);
+        return;
+      }
+
+      setIsLoadingAlgoliaCourses(true);
+      try {
+        // Fetch full course data from Contentstack for each Algolia result
+        const coursePromises = algoliaResults.map(async (result) => {
+          try {
+            const fullCourse = await getCourseByUid(result.objectID, selectedLanguage);
+            if (fullCourse) {
+              // Transform to card format with all rich data
+              return await transformCourseToCard(fullCourse);
+            }
+            return null;
+          } catch (error) {
+            console.error(`Error fetching course ${result.objectID}:`, error);
+            return null;
+          }
+        });
+
+        const courses = await Promise.all(coursePromises);
+        // Filter out null results
+        setAlgoliaCoursesData(courses.filter((c): c is NonNullable<typeof c> => c !== null));
+      } catch (error) {
+        console.error('Error fetching Algolia courses from Contentstack:', error);
+        setAlgoliaCoursesData([]);
+      } finally {
+        setIsLoadingAlgoliaCourses(false);
+      }
+    }
+
+    fetchAlgoliaCourses();
+  }, [algoliaResults, selectedLanguage, isSearching]);
 
   // Extract page section data
   const coursesPageData = extractCoursesPageData(pageData);
   const hasCMSSearch = coursesPageData && coursesPageData.searchTitle.title;
   const hasCMSCategories = coursesPageData && coursesPageData.categories.length > 0;
 
+  // Sync URL search param with local state
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      setUser(mockUser);
+    const urlQuery = searchParams.get('search') || '';
+    if (urlQuery !== searchQuery) {
+      setSearchQuery(urlQuery);
     }
+  }, [searchParams]);
+
+  // Update URL when search query changes
+  useEffect(() => {
+    const currentSearch = searchParams.get('search') || '';
+    if (searchQuery !== currentSearch) {
+      const params = new URLSearchParams(searchParams.toString());
+      if (searchQuery.trim()) {
+        params.set('search', searchQuery);
+      } else {
+        params.delete('search');
+      }
+      router.replace(`/courses?${params.toString()}`, { scroll: false });
+    }
+  }, [searchQuery, router, searchParams]);
+
+  useEffect(() => {
+    async function fetchUserData() {
+      setIsLoadingUser(true);
+      try {
+        // Clear old localStorage 'user' key if it exists (might contain mock data)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user');
+        }
+        
+        const supabase = createClient();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        
+        if (authUser) {
+          // Check cache first for instant display
+          const cachedProfile = getCachedUserProfile(authUser.id);
+          if (cachedProfile) {
+            setUser(cachedProfile);
+            setIsLoadingUser(false); // Show cached data immediately
+          }
+
+          // Fetch fresh data from Supabase in the background
+          const [profileResult, enrollmentsResult] = await Promise.all([
+            supabase
+              .from('profiles')
+              .select('full_name, avatar_url')
+              .eq('id', authUser.id)
+              .maybeSingle(),
+            supabase
+              .from('enrollments')
+              .select('status')
+              .eq('user_id', authUser.id)
+          ]);
+
+          const profile = profileResult.data;
+          const enrollments = enrollmentsResult.data;
+
+          const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+          const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
+
+          const userData = {
+            name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
+            email: authUser.email || '',
+            avatar: profile?.avatar_url || undefined,
+            coursesCompleted: completedCount,
+            coursesInProgress: inProgressCount,
+          };
+          
+          // Update cache with fresh data
+          cacheUserProfile(authUser.id, userData);
+          
+          // Update UI with fresh data (only if cache wasn't available or data changed)
+          if (!cachedProfile || JSON.stringify(cachedProfile) !== JSON.stringify(userData)) {
+            setUser(userData);
+          }
+          
+          setIsLoadingUser(false);
+        } else {
+          // User not authenticated - don't set any user data
+          setUser(null);
+          setIsLoadingUser(false);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        // Don't set mock user on error
+        setUser(null);
+        setIsLoadingUser(false);
+      }
+    }
+
+    fetchUserData();
   }, []);
 
   // Close dropdown when clicking outside
@@ -302,18 +452,27 @@ export default function CoursesPage() {
       ]
     : categories;
 
-  // Use CMS courses if available, otherwise fall back to static data
-  const displayCourses = cmsCoursesForCards.length > 0 ? cmsCoursesForCards : allCourses;
+  // Determine which courses to display
+  // If searching with Algolia, use full course data fetched from Contentstack
+  // Otherwise, use CMS courses or fallback to static data
+  let displayCourses;
+  if (isSearching) {
+    // Use the full course data fetched from Contentstack (with images, ratings, etc.)
+    displayCourses = algoliaCoursesData;
+  } else {
+    // Not searching - use CMS courses or fallback
+    displayCourses = cmsCoursesForCards.length > 0 ? cmsCoursesForCards : allCourses;
+  }
   
-  // Filter courses
-  const filteredCourses = displayCourses.filter(course => {
-    const courseCategory = course.category?.toLowerCase().replace(/[_ ]/g, '-') || '';
-    const matchesCategory = selectedCategory === 'all' || 
-      courseCategory.includes(selectedCategory.replace(/_/g, '-'));
-    const matchesSearch = course.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      course.instructorName.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  // Filter courses by category (only if not searching with Algolia)
+  const filteredCourses = isSearching
+    ? displayCourses // Don't filter when searching - Algolia handles it
+    : displayCourses.filter(course => {
+        const courseCategory = course.category?.toLowerCase().replace(/[_ ]/g, '-') || '';
+        const matchesCategory = selectedCategory === 'all' || 
+          courseCategory.includes(selectedCategory.replace(/_/g, '-'));
+        return matchesCategory;
+      });
 
   // Sort courses
   const sortedCourses = [...filteredCourses].sort((a, b) => {
@@ -331,7 +490,7 @@ export default function CoursesPage() {
 
   return (
     <>
-      <Header variant="app" user={user} headerData={headerData} />
+      <Header variant="app" user={user} headerData={headerData} isLoading={isLoadingUser} />
 
       <main className={styles.main}>
         {/* Hero Section */}
@@ -345,42 +504,40 @@ export default function CoursesPage() {
                 ? coursesPageData.searchTitle.description 
                 : 'Discover 1000+ courses to advance your skills and career'}
             </p>
-            
-            {/* Search Bar */}
-            <div className={styles.searchWrapper}>
-              <Search size={20} />
-              <input
-                type="text"
-                placeholder={hasCMSSearch 
-                  ? coursesPageData.searchPlaceholder 
-                  : 'Search courses, instructors...'}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
           </div>
         </section>
 
         {/* Filters & Content */}
         <section className={styles.content}>
           <div className="container">
-            {/* Category Tabs */}
-            <div className={styles.categoryTabs}>
-              {displayCategories.map((category) => (
-                <CategoryCard
-                  key={category.uid}
-                  {...category}
-                  variant="button"
-                  isActive={selectedCategory === category.slug}
-                  onClick={() => setSelectedCategory(category.slug)}
-                />
-              ))}
-            </div>
+            {/* Category Tabs - Hide when searching */}
+            {!isSearching && (
+              <div className={styles.categoryTabs}>
+                {displayCategories.map((category) => (
+                  <CategoryCard
+                    key={category.uid}
+                    {...category}
+                    variant="button"
+                    isActive={selectedCategory === category.slug}
+                    onClick={() => setSelectedCategory(category.slug)} 
+                  />
+                ))}
+              </div>
+            )}
 
             {/* Results Header */}
             <div className={styles.resultsHeader}>
               <p className={styles.resultsCount}>
-                <strong>{sortedCourses.length}</strong> courses found
+                {isSearching ? (
+                  <>
+                    <strong>{sortedCourses.length}</strong> {sortedCourses.length === 1 ? 'course' : 'courses'} found
+                    {searchQuery && ` for "${searchQuery}"`}
+                  </>
+                ) : (
+                  <>
+                    <strong>{sortedCourses.length}</strong> courses found
+                  </>
+                )}
               </p>
 
               <div className={styles.controls}>
@@ -435,7 +592,13 @@ export default function CoursesPage() {
             </div>
 
             {/* Course Grid */}
-            {sortedCourses.length > 0 ? (
+            {(isAlgoliaSearching || isLoadingAlgoliaCourses) && searchQuery.trim().length >= 2 ? (
+              <div className={styles.noResults}>
+                <Search size={48} />
+                <h3>Searching courses...</h3>
+                <p>Please wait while we find the best matches</p>
+              </div>
+            ) : sortedCourses.length > 0 ? (
               <div className={`${styles.coursesGrid} ${viewMode === 'list' ? styles.listView : ''}`}>
                 {sortedCourses.map((course) => (
                   <CourseCard 
@@ -449,7 +612,11 @@ export default function CoursesPage() {
               <div className={styles.noResults}>
                 <Search size={48} />
                 <h3>No courses found</h3>
-                <p>Try adjusting your search or filter criteria</p>
+                <p>
+                  {isSearching 
+                    ? `No courses found for "${searchQuery}". Try a different search term.`
+                    : 'Try adjusting your search or filter criteria'}
+                </p>
               </div>
             )}
           </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import {
   ChevronLeft,
   ChevronRight,
@@ -13,7 +13,6 @@ import {
   Clock,
   BookOpen,
   Download,
-  MessageSquare,
   FileText,
   Play,
   Lock,
@@ -24,7 +23,12 @@ import Header from '@/components/Header';
 import VideoPlayer from '@/components/VideoPlayer';
 import { useHeader } from '@/hooks/useHeader';
 import { getCourseByLessonUid, getLessonByUid } from '@/lib/contentstack';
+import { getLivePreviewAttributes } from '@/utils/livePreview'; 
 import { createClient } from '@/utils/supabase/client';
+import { sendCourseCompletionWebhook } from '@/utils/webhook';
+import { useLanguage } from '@/contexts/LanguageContext';
+import LocaleNotification from '@/components/LocaleNotification';
+import { getCachedUserProfile, cacheUserProfile } from '@/utils/userCache';
 import { 
   CourseEntry, 
   ModuleEntry, 
@@ -69,16 +73,17 @@ interface ProcessedLesson {
   is_preview: boolean;
   videoUrl: string;
   content: string;
-  resources: { title: string; type: string; size: string; url?: string; isLink?: boolean }[];
+  resources: { title: string; type: string; url?: string; isLink?: boolean }[];
 }
 
 export default function ModulePage() {
   const params = useParams();
+  const router = useRouter();
   const lessonId = params.id as string;
 
   const [user, setUser] = useState<typeof mockUser | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'content' | 'resources' | 'discussions'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'resources'>('content');
   const [videoProgress, setVideoProgress] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [courseData, setCourseData] = useState<CourseEntry | null>(null);
@@ -92,6 +97,11 @@ export default function ModulePage() {
   
   // Fetch header data from Contentstack
   const { headerData } = useHeader('App Header');
+  
+  // Language context for localized content
+  const { selectedLanguage, setSelectedLanguage } = useLanguage();
+  const [showLocaleNotification, setShowLocaleNotification] = useState(false);
+  const [enrolledLocale, setEnrolledLocale] = useState<string | null>(null);
 
   // Fetch course and lesson data from CMS, and lesson progress from DB
   useEffect(() => {
@@ -104,25 +114,62 @@ export default function ModulePage() {
           setCurrentUserId(authUser.id);
         }
         
-        // Fetch the lesson directly
-        const lesson = await getLessonByUid(lessonId);
+        // Fetch the lesson directly with locale (includes fallback for video_url)
+        const lesson = await getLessonByUid(lessonId, selectedLanguage);
         setCurrentLessonData(lesson);
         
-        // Fetch the course that contains this lesson
-        const course = await getCourseByLessonUid(lessonId);
+        // If lesson exists but video_url is still missing, try fetching from fallback locale
+        if (lesson && selectedLanguage !== 'en-us') {
+          const hasVideoUrl = lesson.video_url?.href || 
+                             (typeof lesson.video_url === 'string' && lesson.video_url) ||
+                             (lesson as any)?.video_link?.href;
+          
+          if (!hasVideoUrl) {
+            try {
+              const fallbackLesson = await getLessonByUid(lessonId, 'en-us');
+              if (fallbackLesson) {
+                const fallbackVideoUrl = fallbackLesson.video_url?.href || 
+                                       (typeof fallbackLesson.video_url === 'string' ? fallbackLesson.video_url : null) ||
+                                       (fallbackLesson as any)?.video_link?.href;
+                
+                if (fallbackVideoUrl) {
+                  // Merge fallback video_url into current lesson
+                  setCurrentLessonData({
+                    ...lesson,
+                    video_url: fallbackLesson.video_url || lesson.video_url,
+                  } as LessonEntry);
+                }
+              }
+            } catch (error) {
+              console.warn(`[Module] Could not fetch fallback video_url for lesson ${lessonId}:`, error);
+            }
+          }
+        }
+        
+        // Fetch the course that contains this lesson with locale
+        const course = await getCourseByLessonUid(lessonId, selectedLanguage);
         setCourseData(course);
         
         // Check enrollment status
         if (authUser && course?.uid) {
           const { data: enrollment } = await supabase
             .from('enrollments')
-            .select('id, status')
+            .select('id, status, enrolled_locale')
             .eq('user_id', authUser.id)
             .eq('course_id', course.uid)
             .maybeSingle();
           
           if (enrollment) {
             setIsEnrolled(true);
+            
+            // Check locale mismatch and force switch if needed
+            if (enrollment.enrolled_locale && enrollment.enrolled_locale !== selectedLanguage) {
+              setEnrolledLocale(enrollment.enrolled_locale);
+              setSelectedLanguage(enrollment.enrolled_locale);
+              // Show notification
+              setShowLocaleNotification(true);
+            }
+            
             // Check if course is completed
             if (enrollment.status === 'completed') {
               setIsCourseCompleted(true);
@@ -151,7 +198,7 @@ export default function ModulePage() {
     if (lessonId) {
       fetchData();
     }
-  }, [lessonId, supabase]);
+  }, [lessonId, supabase, selectedLanguage]);
 
   // Refresh completed lessons when a lesson is marked as complete
   useEffect(() => {
@@ -174,12 +221,61 @@ export default function ModulePage() {
   }, [currentUserId, courseData?.uid, supabase]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    } else {
-      setUser(mockUser);
+    // Don't use mock user - fetch real user data from Supabase
+    async function fetchUserData() {
+      try {
+        // Clear old localStorage 'user' key if it exists (might contain mock data)
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('user');
+        }
+        
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          // Check cache first
+          const cachedProfile = getCachedUserProfile(authUser.id);
+          if (cachedProfile) {
+            setUser(cachedProfile);
+          } else {
+            // Fetch from Supabase
+            const [profileResult, enrollmentsResult] = await Promise.all([
+              supabase
+                .from('profiles')
+                .select('full_name, avatar_url')
+                .eq('id', authUser.id)
+                .maybeSingle(),
+              supabase
+                .from('enrollments')
+                .select('status')
+                .eq('user_id', authUser.id)
+            ]);
+
+            const profile = profileResult.data;
+            const enrollments = enrollmentsResult.data;
+
+            const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+            const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
+
+            const userData = {
+              name: profile?.full_name || authUser.email?.split('@')[0] || 'User',
+              email: authUser.email || '',
+              avatar: profile?.avatar_url || undefined,
+              coursesCompleted: completedCount,
+              coursesInProgress: inProgressCount,
+            };
+            
+            cacheUserProfile(authUser.id, userData);
+            setUser(userData);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+        setUser(null);
+      }
     }
+    
+    fetchUserData();
   }, []);
 
   // Process course modules into flat lesson list
@@ -231,24 +327,35 @@ export default function ModulePage() {
   const currentModuleIndex = currentLessonInfo?.moduleIndex || 0;
   const currentLessonIndex = currentLessonInfo?.lessonIndex || 0;
   
-  // Get prev/next lessons (only accessible ones)
-  const getAccessiblePrevNext = () => {
+  // Get prev/next lessons
+  // For navigation buttons, we show next lesson even if not yet accessible
+  // (user can mark current lesson complete and then access it)
+  const getPrevNext = () => {
     let prev: typeof allLessons[0] | null = null;
     let next: typeof allLessons[0] | null = null;
     
-    // Find previous accessible lesson
+    // Find previous lesson (prefer accessible ones, but show any if enrolled)
     for (let i = currentIndex - 1; i >= 0; i--) {
       const lessonInfo = allLessons[i];
-      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex)) {
+      // Show previous lesson if accessible, or if enrolled (for same module)
+      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex) || 
+          (isEnrolled && lessonInfo.moduleIndex === currentModuleIndex)) {
         prev = lessonInfo;
         break;
       }
     }
     
-    // Find next accessible lesson
+    // Find next lesson (show next lesson in sequence if enrolled, even if not accessible yet)
+    // This allows users to see navigation buttons for text-based lessons
     for (let i = currentIndex + 1; i < allLessons.length; i++) {
       const lessonInfo = allLessons[i];
-      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex)) {
+      // Show next lesson if:
+      // 1. It's accessible, OR
+      // 2. User is enrolled and it's in the same module (sequential access), OR
+      // 3. User is enrolled and it's in the next module (will be accessible after completing current module)
+      if (isLessonAccessible(lessonInfo.lesson, lessonInfo.moduleIndex) ||
+          (isEnrolled && (lessonInfo.moduleIndex === currentModuleIndex || 
+                          lessonInfo.moduleIndex === currentModuleIndex + 1))) {
         next = lessonInfo;
         break;
       }
@@ -257,7 +364,7 @@ export default function ModulePage() {
     return { prev, next };
   };
 
-  const { prev: prevLessonInfo, next: nextLessonInfo } = getAccessiblePrevNext();
+  const { prev: prevLessonInfo, next: nextLessonInfo } = getPrevNext();
 
   // Check if current lesson is the last lesson of its module
   const currentModule = modules[currentModuleIndex];
@@ -270,7 +377,20 @@ export default function ModulePage() {
   // Check if this is the very last lesson of the entire course
   const isLastLessonOfCourse = isLastModule && isLastLessonInModule;
   
-  // Get next module's first lesson (if exists and is accessible)
+  // Check if all lessons except the current one are completed (required to show Complete Course button)
+  const allOtherLessonsCompleted = isLastLessonOfCourse && currentLessonData 
+    ? allLessons.filter(l => l.uid !== currentLessonData.uid)
+        .every(l => completedLessonIds.includes(l.uid))
+    : false;
+  
+  // Show Complete Course button only if:
+  // 1. It's the last lesson of the course
+  // 2. All other lessons are completed
+  // 3. Course is not already completed
+  const canCompleteCourse = isLastLessonOfCourse && allOtherLessonsCompleted && !isCourseCompleted;
+  
+  // Get next module's first lesson (if exists)
+  // Show it if accessible, or if enrolled (user can complete current module to unlock it)
   const getNextModuleFirstLesson = (): typeof allLessons[0] | null => {
     if (isLastModule) return null;
     
@@ -284,7 +404,8 @@ export default function ModulePage() {
       const firstLesson = nextModuleLessons[0];
       const firstLessonInfo = allLessons.find(l => l.uid === firstLesson.uid);
       
-      if (firstLessonInfo && isLessonAccessible(firstLessonInfo.lesson, nextModuleIndex)) {
+      // Show next module's first lesson if accessible, or if enrolled (sequential access)
+      if (firstLessonInfo && (isLessonAccessible(firstLessonInfo.lesson, nextModuleIndex) || isEnrolled)) {
         return firstLessonInfo;
       }
     }
@@ -306,14 +427,15 @@ export default function ModulePage() {
     duration: currentLessonData.duration || '15:00',
     completed: completedLessonIds.includes(currentLessonData.uid),
     is_preview: currentLessonData.is_preview || false,
-    videoUrl: currentLessonData.video_url?.href || '',
+    videoUrl: currentLessonData.video_url?.href || 
+              (typeof currentLessonData.video_url === 'string' ? currentLessonData.video_url : '') ||
+              (currentLessonData as any).video_link?.href || '',
     content: currentLessonData.lesson_content || '',
     resources: (currentLessonData.resources || []).map(res => {
       if (isFileResource(res)) {
         return {
           title: res.file_resource.resource_label || 'Resource',
           type: getFileType(res.file_resource.resource_file?.content_type),
-          size: formatFileSize(res.file_resource.resource_file?.file_size as unknown as number),
           url: res.file_resource.resource_file?.url,
           isLink: false
         };
@@ -321,7 +443,6 @@ export default function ModulePage() {
         return {
           title: res.link_resource.resource_label || res.link_resource.resource_link?.title || 'Link',
           type: 'link',
-          size: '',
           url: res.link_resource.resource_link?.href,
           isLink: true
         };
@@ -335,7 +456,8 @@ export default function ModulePage() {
   };
 
   // Check if course is completed and update enrollment status
-  const checkAndUpdateCourseCompletion = async () => {
+  // This should ONLY be called when the user clicks "Complete Course" button
+  const checkAndUpdateCourseCompletion = async (shouldRedirect: boolean = false) => {
     if (!currentUserId || !courseData) return false;
     
     try {
@@ -345,7 +467,7 @@ export default function ModulePage() {
         totalLessons += normalizeArray(module.lessons).length;
       });
 
-      // Get completed lessons count
+      // Get completed lessons count (including the current lesson that was just marked)
       const { data: lessonProgress } = await supabase
         .from('lesson_progress')
         .select('lesson_id')
@@ -354,10 +476,19 @@ export default function ModulePage() {
         .eq('is_completed', true);
 
       const completedLessons = lessonProgress?.length || 0;
-      const isCourseCompleted = totalLessons > 0 && completedLessons === totalLessons;
+      const wasAlreadyCompleted = isCourseCompleted;
+      const isCourseCompletedNow = totalLessons > 0 && completedLessons === totalLessons;
 
-      // Update enrollment status if course is completed
-      if (isCourseCompleted) {
+      // Only update enrollment status if course is completed AND it wasn't already completed
+      if (isCourseCompletedNow && !wasAlreadyCompleted) {
+        // First, get the enrollment ID before updating
+        const { data: enrollmentData } = await supabase
+          .from('enrollments')
+          .select('id')
+          .eq('user_id', currentUserId)
+          .eq('course_id', courseData.uid)
+          .maybeSingle();
+
         const { error: enrollmentError } = await supabase
           .from('enrollments')
           .update({ 
@@ -369,12 +500,61 @@ export default function ModulePage() {
 
         if (enrollmentError) {
           console.error('Error updating enrollment status:', enrollmentError);
+          return false;
         } else {
-          console.log('✅ Course completed! Enrollment status updated to completed.');
+          setIsCourseCompleted(true);
+          
+          // Send webhook notification to Contentstack Automate
+          try {
+            // Fetch user profile data (email and name)
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', user.id)
+                .maybeSingle();
+
+              const userName = profile?.full_name || user.email?.split('@')[0] || 'Student';
+              const userEmail = user.email || '';
+              
+              // Generate certificate URL using enrollment ID
+              const enrollmentId = enrollmentData?.id;
+              if (enrollmentId) {
+                const certificateUrl = `${window.location.origin}/certificate/${enrollmentId}`;
+                
+                // Send webhook asynchronously (don't block redirect)
+                sendCourseCompletionWebhook({
+                  email: userEmail,
+                  name: userName,
+                  courseName: courseData.title,
+                  certificateUrl: certificateUrl,
+                }).catch(error => {
+                  console.error('Failed to send webhook (non-blocking):', error);
+                });
+              } else {
+                console.warn('⚠️ Enrollment ID not found, skipping webhook');
+              }
+            }
+          } catch (webhookError) {
+            // Don't block the completion flow if webhook fails
+            console.error('Error preparing webhook data:', webhookError);
+          }
+          
+          // Redirect to completion success page if redirect is requested
+          if (shouldRedirect && courseData.slug) {
+            setTimeout(() => {
+              router.push(`/course/${courseData.slug}/completion-success`);
+            }, 500); // Small delay to ensure state is updated
+          }
+          return true;
         }
+      } else if (isCourseCompletedNow) {
+        setIsCourseCompleted(true);
+        return true;
       }
 
-      return isCourseCompleted;
+      return false;
     } catch (error) {
       console.error('Error checking course completion:', error);
       return false;
@@ -431,10 +611,6 @@ export default function ModulePage() {
           }
           return prev;
         });
-        console.log('✅ Lesson marked as completed:', lessonUid);
-        
-        // Check if course is now completed and update enrollment status
-        await checkAndUpdateCourseCompletion();
       }
     } catch (error) {
       console.error('Error in markLessonAsCompleted:', error);
@@ -443,14 +619,20 @@ export default function ModulePage() {
 
   const handleVideoComplete = async () => {
     // Mark lesson as complete when video ends or user skips to last second
-    if (currentLessonData && currentLessonData.video_url?.href) {
+    const hasVideo = currentLessonData?.video_url?.href || 
+                     (typeof currentLessonData?.video_url === 'string') ||
+                     (currentLessonData as any)?.video_link?.href;
+    if (currentLessonData && hasVideo) {
       await markLessonAsCompleted(currentLessonData.uid);
     }
   };
 
   const handleNextLesson = async () => {
     // For text-based courses, mark as complete when Next is pressed
-    if (currentLessonData && !currentLessonData.video_url?.href) {
+    const hasVideo = currentLessonData?.video_url?.href || 
+                     (typeof currentLessonData?.video_url === 'string') ||
+                     (currentLessonData as any)?.video_link?.href;
+    if (currentLessonData && !hasVideo) {
       await markLessonAsCompleted(currentLessonData.uid);
     }
     
@@ -595,7 +777,12 @@ export default function ModulePage() {
                               <Circle size={18} />
                             )}
                           </span>
-                          <span className={styles.lessonTitle}>{lesson.title}</span>
+                          <span 
+                            className={styles.lessonTitle}
+                            {...(lesson?.title as any)?.$ || {}}
+                          >
+                            {lesson.title}
+                          </span>
                           <span className={styles.lessonDuration}>{lesson.duration || '15:00'}</span>
                         </Link>
                       );
@@ -626,6 +813,7 @@ export default function ModulePage() {
                 title={currentLesson.title}
                 onProgress={handleVideoProgress}
                 onComplete={handleVideoComplete}
+                {...(currentLessonData?.title as any)?.$ || {}}
               />
             </div>
           )}
@@ -645,32 +833,44 @@ export default function ModulePage() {
             )}
 
             <div className={styles.lessonInfo}>
-              <h1>{currentLesson.title}</h1>
+              <h1 {...getLivePreviewAttributes(currentLessonData?.$?.title)}>
+                {currentLesson.title}
+              </h1>
               <p>
                 Module {currentModuleIndex + 1}, Lesson {currentLessonIndex + 1} •{' '}
                 <Clock size={14} /> {currentLesson.duration}
               </p>
             </div>
 
-            {isLastLessonOfCourse && !isCourseCompleted ? (
-              // Last lesson of last module - Show "Complete Course" (only if not already completed)
-              <button 
-                className={`${styles.navBtn} ${styles.navBtnComplete}`}
-                onClick={async () => {
-                  if (currentLessonData) {
-                    await markLessonAsCompleted(currentLessonData.uid);
-                  }
-                }}
-              >
-                <Award size={20} />
-                <span>Complete Course</span>
-              </button>
-            ) : isLastLessonOfCourse && isCourseCompleted ? (
-              // Course already completed - Show nothing or a message
+            {isLastLessonOfCourse && isCourseCompleted ? (
+              // Course already completed - Show message
               <div className={styles.courseCompletedMessage}>
                 <Award size={20} />
                 <span>Course Completed!</span>
               </div>
+            ) : isLastLessonOfCourse ? (
+              // Last lesson of last module - Show "Complete Course" button (enabled or disabled)
+              <button 
+                className={`${styles.navBtn} ${styles.navBtnComplete} ${!allOtherLessonsCompleted ? styles.disabled : ''}`}
+                disabled={!allOtherLessonsCompleted}
+                onClick={async () => {
+                  if (currentLessonData && allOtherLessonsCompleted) {
+                    // First, mark the current lesson as completed
+                    await markLessonAsCompleted(currentLessonData.uid);
+                    
+                    // Wait a bit for the database update to complete
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    
+                    // Then check if all lessons are completed and update enrollment/redirect
+                    // Since we already verified all other lessons are completed, this should succeed
+                    await checkAndUpdateCourseCompletion(true);
+                  }
+                }}
+                title={!allOtherLessonsCompleted ? "Complete all lessons to complete the course" : ""}
+              >
+                <Award size={20} />
+                <span>Complete Course</span>
+              </button>
             ) : isLastLessonInModule && nextModuleFirstLesson ? (
               // Last lesson of module (but not last module) - Show "Move to Next Module"
               <Link
@@ -692,18 +892,8 @@ export default function ModulePage() {
                 <ChevronRight size={20} />
               </Link>
             ) : (
-              // Fallback - should not happen, but show complete course
-              <button 
-                className={`${styles.navBtn} ${styles.navBtnComplete}`}
-                onClick={async () => {
-                  if (currentLessonData) {
-                    await markLessonAsCompleted(currentLessonData.uid);
-                  }
-                }}
-              >
-                <Award size={20} />
-                <span>Complete Course</span>
-              </button>
+              // Fallback - no navigation available
+              <div />
             )}
           </div>
 
@@ -727,19 +917,13 @@ export default function ModulePage() {
                   <span className={styles.tabBadge}>{currentLesson.resources.length}</span>
                 )}
               </button>
-              <button
-                className={`${styles.tabBtn} ${activeTab === 'discussions' ? styles.activeTab : ''}`}
-                onClick={() => setActiveTab('discussions')}
-              >
-                <MessageSquare size={18} />
-                Discussions
-              </button>
             </div>
 
             <div className={styles.tabContent}>
-              {activeTab === 'content' && (
+              {activeTab === 'content' && currentLesson && currentLessonData && (
                 <div 
                   className={styles.lessonContent}
+                  {...getLivePreviewAttributes(currentLessonData?.$?.lesson_content)}
                   dangerouslySetInnerHTML={{ __html: currentLesson.content }}
                 />
               )}
@@ -754,7 +938,6 @@ export default function ModulePage() {
                           <h4>{resource.title}</h4>
                           <span>
                             {resource.type.toUpperCase()}
-                            {resource.size && ` • ${resource.size}`}
                           </span>
                         </div>
                         {resource.isLink ? (
@@ -785,18 +968,6 @@ export default function ModulePage() {
                       <p>No resources available for this lesson.</p>
                     </div>
                   )}
-                </div>
-              )}
-
-              {activeTab === 'discussions' && (
-                <div className={styles.discussions}>
-                  <div className={styles.emptyState}>
-                    <MessageSquare size={48} />
-                    <p>No discussions yet. Be the first to start a conversation!</p>
-                    <button className={styles.startDiscussionBtn}>
-                      Start Discussion
-                    </button>
-                  </div>
                 </div>
               )}
             </div>

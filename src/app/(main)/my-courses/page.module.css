@@ -154,8 +154,8 @@
 /* Courses Grid */
 .coursesGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 28px;
 }
 
 .courseWrapper {
@@ -273,6 +273,18 @@
 }
 
 /* Responsive */
+@media (max-width: 1200px) {
+  .coursesGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .coursesGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .hero h1 {
     font-size: 2rem;
@@ -288,6 +300,7 @@
 
   .coursesGrid {
     grid-template-columns: 1fr;
+    gap: 20px;
   }
 
   .filters {

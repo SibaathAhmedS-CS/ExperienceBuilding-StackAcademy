@@ -17,6 +17,7 @@ import {
   LucideIcon
 } from 'lucide-react';
 import styles from './CategoryCard.module.css';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
 
 interface CategoryCardProps {
   uid: string;
@@ -28,6 +29,7 @@ interface CategoryCardProps {
   isActive?: boolean;
   onClick?: () => void;
   variant?: 'default' | 'compact' | 'button';
+  _originalCategory?: any; // Original category entry with $ properties for Live Preview
 }
 
 const iconMap: Record<string, LucideIcon> = {
@@ -46,19 +48,19 @@ const iconMap: Record<string, LucideIcon> = {
 };
 
 const colorMap: Record<string, { bg: string; color: string; gradient: string }> = {
-  code: { bg: '#eef2ff', color: '#4f46e5', gradient: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
-  briefcase: { bg: '#f0fdf4', color: '#16a34a', gradient: 'linear-gradient(135deg, #16a34a, #22c55e)' },
-  palette: { bg: '#fdf4ff', color: '#c026d3', gradient: 'linear-gradient(135deg, #c026d3, #e879f9)' },
-  chart: { bg: '#fff7ed', color: '#ea580c', gradient: 'linear-gradient(135deg, #ea580c, #fb923c)' },
-  users: { bg: '#fef2f2', color: '#dc2626', gradient: 'linear-gradient(135deg, #dc2626, #f87171)' },
-  cloud: { bg: '#f0f9ff', color: '#0284c7', gradient: 'linear-gradient(135deg, #0284c7, #38bdf8)' },
-  shield: { bg: '#f5f3ff', color: '#7c3aed', gradient: 'linear-gradient(135deg, #7c3aed, #a78bfa)' },
-  smartphone: { bg: '#ecfeff', color: '#0891b2', gradient: 'linear-gradient(135deg, #0891b2, #22d3ee)' },
-  brain: { bg: '#fef3c7', color: '#d97706', gradient: 'linear-gradient(135deg, #d97706, #fbbf24)' },
-  camera: { bg: '#fce7f3', color: '#db2777', gradient: 'linear-gradient(135deg, #db2777, #f472b6)' },
-  megaphone: { bg: '#e0f2fe', color: '#0369a1', gradient: 'linear-gradient(135deg, #0369a1, #0ea5e9)' },
-  heart: { bg: '#ffe4e6', color: '#e11d48', gradient: 'linear-gradient(135deg, #e11d48, #fb7185)' },
-  default: { bg: '#f3f4f6', color: '#374151', gradient: 'linear-gradient(135deg, #374151, #6b7280)' },
+  code: { bg: '#dbeafe', color: '#2563eb', gradient: 'linear-gradient(135deg, #2563eb, #7c3aed)' },
+  briefcase: { bg: '#dcfce7', color: '#16a34a', gradient: 'linear-gradient(135deg, #16a34a, #22c55e)' },
+  palette: { bg: '#f3e8ff', color: '#9333ea', gradient: 'linear-gradient(135deg, #9333ea, #a855f7)' },
+  chart: { bg: '#fef3c7', color: '#d97706', gradient: 'linear-gradient(135deg, #d97706, #f59e0b)' },
+  users: { bg: '#fee2e2', color: '#dc2626', gradient: 'linear-gradient(135deg, #dc2626, #ef4444)' },
+  cloud: { bg: '#dbeafe', color: '#0284c7', gradient: 'linear-gradient(135deg, #0284c7, #0ea5e9)' },
+  shield: { bg: '#ede9fe', color: '#7c3aed', gradient: 'linear-gradient(135deg, #7c3aed, #9333ea)' },
+  smartphone: { bg: '#cffafe', color: '#0891b2', gradient: 'linear-gradient(135deg, #0891b2, #06b6d4)' },
+  brain: { bg: '#fef9c3', color: '#d97706', gradient: 'linear-gradient(135deg, #d97706, #f59e0b)' },
+  camera: { bg: '#fce7f3', color: '#db2777', gradient: 'linear-gradient(135deg, #db2777, #ec4899)' },
+  megaphone: { bg: '#dbeafe', color: '#0284c7', gradient: 'linear-gradient(135deg, #0284c7, #0ea5e9)' },
+  heart: { bg: '#ffe4e6', color: '#e11d48', gradient: 'linear-gradient(135deg, #e11d48, #f43f5e)' },
+  default: { bg: '#e0e7ff', color: '#4f46e5', gradient: 'linear-gradient(135deg, #4f46e5, #7c3aed)' },
 };
 
 export default function CategoryCard({
@@ -71,10 +73,15 @@ export default function CategoryCard({
   isActive = false,
   onClick,
   variant = 'default',
+  _originalCategory,
 }: CategoryCardProps) {
   const IconComponent = iconMap[icon] || Code;
   const colors = colorMap[icon] || colorMap.default;
 
+  // Get live preview attributes from original category entry
+  const livePreviewAttrs = _originalCategory ? getLivePreviewAttributes(_originalCategory.$) : undefined;
+  const titleAttrs = _originalCategory ? getLivePreviewAttributes(_originalCategory.$?.title) : undefined;
+  
   if (variant === 'button') {
     return (
       <button
@@ -85,11 +92,12 @@ export default function CategoryCard({
           '--category-color': colors.color,
           '--category-gradient': colors.gradient,
         } as React.CSSProperties}
+        {...livePreviewAttrs}
       >
-        <div className={styles.buttonIcon}>
+        <div className={styles.buttonIcon} {...getLivePreviewAttributes(_originalCategory?.$?.category_icon)}>
           <IconComponent size={20} />
         </div>
-        <span className={styles.buttonLabel}>{title}</span>
+        <span className={styles.buttonLabel} {...titleAttrs}>{title}</span>
       </button>
     );
   }
@@ -104,12 +112,13 @@ export default function CategoryCard({
           '--category-color': colors.color,
           '--category-gradient': colors.gradient,
         } as React.CSSProperties}
+        {...livePreviewAttrs}
       >
-        <div className={styles.compactIcon}>
+        <div className={styles.compactIcon} {...getLivePreviewAttributes(_originalCategory?.$?.category_icon)}>
           <IconComponent size={22} />
         </div>
         <div className={styles.compactContent}>
-          <h4 className={styles.compactTitle}>{title}</h4>
+          <h4 className={styles.compactTitle} {...titleAttrs}>{title}</h4>
           {courseCount !== undefined && (
             <span className={styles.compactCount}>{courseCount} Courses</span>
           )}
@@ -127,13 +136,16 @@ export default function CategoryCard({
         '--category-color': colors.color,
         '--category-gradient': colors.gradient,
       } as React.CSSProperties}
+      {...livePreviewAttrs}
     >
-      <div className={styles.iconWrapper}>
+      <div className={styles.iconWrapper} {...getLivePreviewAttributes(_originalCategory?.$?.category_icon)}>
         <IconComponent size={28} />
       </div>
-      <h3 className={styles.title}>{title}</h3>
+      <h3 className={styles.title} {...titleAttrs}>{title}</h3>
       {description && (
-        <p className={styles.description}>{description}</p>
+        <p className={styles.description} {...getLivePreviewAttributes(_originalCategory?.$?.description)}>
+          {description}
+        </p>
       )}
       {courseCount !== undefined && (
         <span className={styles.courseCount}>{courseCount} Courses</span>

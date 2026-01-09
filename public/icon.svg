@@ -1,0 +1,6 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Book icon representing Stack Academy - matches the BookOpen icon theme -->
+  <path d="M16 2L26 8L16 14L6 8L16 2Z" fill="#4F46F6"/>
+  <path d="M6 8L16 14V28L6 22V8Z" fill="#6366F7"/>
+  <path d="M16 14L26 8V22L16 28V14Z" fill="#8189FF"/>
+</svg>

@@ -65,14 +65,11 @@ export function useOnboarding() {
     async function fetchSteps() {
       try {
         const data = await getAllOnboardingSteps();
-        console.log('[Onboarding] Fetched data:', data);
-        console.log('[Onboarding] Number of steps:', data?.length);
         
         if (data && data.length > 0) {
           const transformedSteps = data.map(transformStep);
           // Sort by stepNumber to ensure correct order
           transformedSteps.sort((a, b) => a.stepNumber - b.stepNumber);
-          console.log('[Onboarding] Transformed steps:', transformedSteps);
           setSteps(transformedSteps);
           setHasCMSData(true);
         } else {

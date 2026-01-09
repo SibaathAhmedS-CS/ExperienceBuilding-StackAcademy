@@ -32,6 +32,7 @@ export interface IconEntry {
   icon_name?: string;    // e.g., "book-open" - Lucide icon name
   icon_title?: string;   // e.g., "StackAcademy" - Text to display next to icon
   description?: string;  // Description text for features, categories, etc.
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Category Entry (categories_block) - Used for category sections with taxonomy
@@ -61,6 +62,7 @@ export interface AuthorEntry {
     instagram_link?: Link;
     portfolio_link?: Link;
   };
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Banner Content Type - Updated with color picker
@@ -106,6 +108,7 @@ export interface HeroBlockEntry {
     };
     _metadata?: { uid: string };
   }[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Testimonial Content Type - Updated with rating extension and author reference
@@ -115,6 +118,7 @@ export interface TestimonialEntry {
   rating?: number | { value: number } | any; // Custom extension field
   review?: string;
   author?: AuthorEntry | AuthorEntry[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Global Field: Title and Description
@@ -184,11 +188,19 @@ export interface TestimonialBlock {
   };
 }
 
-// Card Block (for course sections) - Updated with CTA button
+// Query parameters for filtering courses (used in personalization variants)
+export interface CourseQuery {
+  titles?: string;      // Comma-separated keywords (e.g., "CSS, Python, React")
+  difficulty?: 'Beginner' | 'Intermediate' | 'Advanced';
+  duration?: number;    // Max duration in hours
+}
+
+// Card Block (for course sections) - Updated with query and CTA button
 export interface CardBlock {
   card_block: {
     title_and_description?: TitleAndDescription;
-    cta_button?: Link;  // Optional CTA button link
+    query?: CourseQuery;  // Query parameters for filtering courses (from variants)
+    cta_button?: Link;    // Optional CTA button link
   };
 }
 
@@ -269,6 +281,7 @@ export interface PageEntry {
   url?: string;
   header?: HeaderEntry | HeaderEntry[];
   section?: PageSection[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // ============================================
@@ -283,8 +296,13 @@ export interface HeaderEntry {
   navigation: {
     link: Link[];
   };
-  search_visibility: boolean;
+  accessibility_language?: {
+    language: string;
+    language_tag: string;
+  }[];  // Supported languages with tags
+  search_bar: boolean;  // Search bar visibility from CMS
   components: HeaderComponent[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Header Component types (modular blocks)
@@ -335,6 +353,7 @@ export interface FooterEntry {
   };
   social_links: Link[];  // Array of links (title + href)
   copyright_text: string;
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Newsletter Content Type - Matches Contentstack schema
@@ -345,7 +364,8 @@ export interface NewsletterEntry {
   heading: string;
   description: string;
   placeholder_text: string;
-  button_text: string;
+  button_text: string;  // Text when subscribed
+  not_subscribed_text: string;  // Text when not subscribed
 }
 
 // ============================================
@@ -370,6 +390,7 @@ export interface FAQEntry {
   section_title: string;
   section_subtitle: string;
   faq_question: FAQQuestionEntry | FAQQuestionEntry[];  // Reference (can be single or array)
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // ============================================
@@ -445,6 +466,7 @@ export interface LessonEntry {
   video_url?: Link;
   lesson_content?: string;
   resources?: LessonResource[];
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Module Entry (from CMS)
@@ -474,7 +496,6 @@ export interface CourseEntry {
   difficulty_level: 'Beginner' | 'Intermediate' | 'Advanced';
   total_duration?: number;
   total_modules?: number;
-  languages_supported?: string[];
   about_the_course?: string;
   learning_outcomes?: {
     point?: string[];
@@ -482,6 +503,9 @@ export interface CourseEntry {
   requirements?: string;
   modules?: ModuleEntry | ModuleEntry[];
   updated_at?: string;
+  is_featured?: boolean;  // Featured flag from Contentstack CMS
+  is_popular?: boolean;  // Popular flag from Contentstack CMS
+  $?: Record<string, any>; // Live Preview editable tags
 }
 
 // Helper type guards for lesson resources

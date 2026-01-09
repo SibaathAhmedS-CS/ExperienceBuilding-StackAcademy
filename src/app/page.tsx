@@ -24,7 +24,8 @@ import CourseCard from '@/components/CourseCard';
 import FAQ from '@/components/FAQ';
 import { useHeader } from '@/hooks/useHeader';
 import { usePage } from '@/hooks/usePage';
-import { useCourses, transformCourseToCard } from '@/hooks/useCourses';
+import { useCourses, useTransformedCourses } from '@/hooks/useCourses';
+import { getLivePreviewAttributes } from '@/utils/livePreview';
 import {
   PageEntry,
   IconEntry,
@@ -128,8 +129,14 @@ function extractSectionData(pageData: PageEntry | null) {
   let testimonialsTitle = { title: '', description: '' };
   let popularCoursesBlock: CardBlockData | null = null;
   let ctaSectionBlock: CardBlockData | null = null;
+  let featureSectionIndex: number | null = null;
+  let workflowSectionIndex: number | null = null;
+  let partnersSectionIndex: number | null = null;
+  let testimonialSectionIndex: number | null = null;
+  let cardSectionIndex: number | null = null;
 
-  for (const section of pageData.section) {
+  for (let i = 0; i < pageData.section.length; i++) {
+    const section = pageData.section[i];
     if (isHeroSectionBlock(section)) {
       const heroBanners = normalizeArray(section.hero_block.hero_banner);
       heroBlock = heroBanners[0] || null;
@@ -140,6 +147,7 @@ function extractSectionData(pageData: PageEntry | null) {
         title: section.feature_block.title_and_description?.title || '',
         description: section.feature_block.title_and_description?.description || '',
       };
+      featureSectionIndex = i;
     }
     if (isWorkflowBlock(section)) {
       workflow = normalizeArray(section.workflow_block.stage);
@@ -147,12 +155,14 @@ function extractSectionData(pageData: PageEntry | null) {
         title: section.workflow_block.title_and_description?.title || '',
         description: section.workflow_block.title_and_description?.description || '',
       };
+      workflowSectionIndex = i;
     }
     if (isPartnersBlock(section)) {
       partners = {
         label: section.partners_block.label,
         names: section.partners_block.partner || [],
       };
+      partnersSectionIndex = i;
     }
     if (isTestimonialBlock(section)) {
       testimonials = normalizeArray(section.testimonial_block.testimonial);
@@ -160,6 +170,7 @@ function extractSectionData(pageData: PageEntry | null) {
         title: section.testimonial_block.title_and_description?.title || '',
         description: section.testimonial_block.title_and_description?.description || '',
       };
+      testimonialSectionIndex = i;
     }
     if (isCardBlock(section)) {
       const title = section.card_block.title_and_description?.title || '';
@@ -168,6 +179,7 @@ function extractSectionData(pageData: PageEntry | null) {
       
       // For landing page, we only have one card block (Popular Courses)
       popularCoursesBlock = { title, description, ctaButton };
+      cardSectionIndex = i;
     }
     if (isCTABlock(section)) {
       ctaSectionBlock = {
@@ -178,7 +190,7 @@ function extractSectionData(pageData: PageEntry | null) {
     }
   }
 
-  return { heroBlock, features, workflow, partners, testimonials, featuresTitle, workflowTitle, testimonialsTitle, popularCoursesBlock, ctaSectionBlock };
+  return { heroBlock, features, workflow, partners, testimonials, featuresTitle, workflowTitle, testimonialsTitle, popularCoursesBlock, ctaSectionBlock, featureSectionIndex, workflowSectionIndex, partnersSectionIndex, testimonialSectionIndex, cardSectionIndex };
 }
 
 export default function LandingPage() {
@@ -191,11 +203,13 @@ export default function LandingPage() {
   // Fetch courses from CMS
   const { courses: cmsCourses } = useCourses();
   
-  // Transform CMS courses to card format
-  const cmsCoursesForCards = cmsCourses.slice(0, 4).map(transformCourseToCard);
+  // Transform CMS courses to card format with real review/enrollment data
+  const { transformedCourses } = useTransformedCourses(cmsCourses);
+  const cmsCoursesForCards = transformedCourses.slice(0, 4);
 
   // Extract section data from CMS
   const sectionData = extractSectionData(pageData);
+  const { featureSectionIndex, workflowSectionIndex, partnersSectionIndex, testimonialSectionIndex, cardSectionIndex } = sectionData || {};
 
   // Determine what data to use (CMS or fallback)
   const hasCMSHero = sectionData?.heroBlock != null;
@@ -217,7 +231,7 @@ export default function LandingPage() {
       
       <main className={styles.main}>
         {/* Hero Section */}
-        <section id="hero" className={styles.hero}>
+        <section id="hero" className={styles.hero} {...getLivePreviewAttributes(pageData?.$)}>
           <div className={styles.heroBackground}>
             <div className={styles.gradientOrb1} />
             <div className={styles.gradientOrb2} />
@@ -226,7 +240,7 @@ export default function LandingPage() {
           
           <div className={styles.heroContainer}>
             <div className={styles.heroContent}>
-              <div className={styles.badge}>
+              <div className={styles.badge} {...getLivePreviewAttributes(hero?.$?.badge_text || hero?.$?.badge_icon)}>
                 {hasCMSHero && hero?.badge_icon ? (
                   (() => {
                     const BadgeIcon = iconMap[hero.badge_icon] || Rocket;
@@ -235,17 +249,21 @@ export default function LandingPage() {
                 ) : (
                   <Rocket size={16} />
                 )}
-                <span>{hasCMSHero ? hero?.badge_text : 'Start Learning Today'}</span>
+                <span {...getLivePreviewAttributes(hero?.$?.badge_text)}>
+                  {hasCMSHero ? hero?.badge_text : 'Start Learning Today'}
+                </span>
               </div>
               
-              <h1 className={styles.heroTitle}>
+              <h1 className={styles.heroTitle} {...getLivePreviewAttributes(hero?.$?.headline)}>
                 {hasCMSHero ? (
                   <>
                     {hero?.headline?.split(hero?.highlight_text || '').map((part, i, arr) => (
                       <span key={i}>
                         {part}
                         {i < arr.length - 1 && hero?.highlight_text && (
-                          <span className={styles.highlight}>{hero.highlight_text}</span>
+                          <span className={styles.highlight} {...getLivePreviewAttributes(hero?.$?.highlight_text)}>
+                            {hero.highlight_text}
+                          </span>
                         )}
                       </span>
                     ))}
@@ -259,7 +277,7 @@ export default function LandingPage() {
                 )}
               </h1>
               
-              <p className={styles.heroSubtitle}>
+              <p className={styles.heroSubtitle} {...getLivePreviewAttributes(hero?.$?.subtitle)}>
                 {hasCMSHero && hero?.subtitle ? hero.subtitle : (
                   <>
                     <strong>1000+</strong> courses covering all tech domains for you to learn 
@@ -269,17 +287,15 @@ export default function LandingPage() {
               </p>
               
               <div className={styles.heroCta}>
-                <Link 
-                  href={hasCMSHero && hero?.primary_cta?.href ? hero.primary_cta.href : '/signup'} 
+                <Link
+                  href={hasCMSHero && hero?.primary_cta?.href ? hero.primary_cta.href : '/signup'}
                   className={styles.primaryBtn}
+                  data-lytics-click='{"action": "cta_click", "button_type": "primary", "location": "hero", "text": "Get Started"}'
+                  {...getLivePreviewAttributes(hero?.$?.primary_cta)}
                 >
                   {hasCMSHero && hero?.primary_cta?.title ? hero.primary_cta.title : 'Get Started'}
                   <ArrowRight size={20} />
                 </Link>
-                <button className={styles.secondaryBtn}>
-                  <Play size={20} fill="var(--primary-500)" />
-                  <span>{hasCMSHero && hero?.secondary_cta?.title ? hero.secondary_cta.title : 'How it Works'}</span>
-                </button>
               </div>
 
               {/* Stats */}
@@ -307,7 +323,7 @@ export default function LandingPage() {
             </div>
 
             <div className={styles.heroImage}>
-              <div className={styles.heroImageWrapper}>
+              <div className={styles.heroImageWrapper} {...getLivePreviewAttributes(hero?.$?.hero_image)}>
                 {hasCMSHero && hero?.hero_image?.url ? (
                   <Image
                     src={hero.hero_image.url}
@@ -315,6 +331,7 @@ export default function LandingPage() {
                     fill
                     className={styles.heroImg}
                     priority
+                    {...getLivePreviewAttributes(hero?.$?.hero_image)}
                   />
                 ) : (
                   <Image
@@ -384,14 +401,14 @@ export default function LandingPage() {
         </section>
 
         {/* Partners Section */}
-        <section className={styles.partners}>
+        <section className={styles.partners} {...getLivePreviewAttributes(pageData?.$)}>
           <div className="container">
-            <p className={styles.partnersLabel}>
+            <p className={styles.partnersLabel} {...getLivePreviewAttributes(partnersSectionIndex !== null ? (pageData as any)?.$?.[`section[${partnersSectionIndex}].partners_block.label`] : (pageData as any)?.$?.['section[].partners_block.label'])}>
               {hasCMSPartners ? sectionData.partners.label : 'Trusted by learners from top companies'}
             </p>
-            <div className={styles.partnerLogos}>
+            <div className={styles.partnerLogos} {...getLivePreviewAttributes(partnersSectionIndex !== null ? (pageData as any)?.$?.[`section[${partnersSectionIndex}].partners_block.partner`] : (pageData as any)?.$?.['section[].partners_block.partner'])}>
               {(hasCMSPartners ? sectionData.partners.names : fallbackPartners).map((partner, index) => (
-                <div key={`partner-${index}`} className={styles.partnerLogo}>
+                <div key={`partner-${index}`} className={styles.partnerLogo} {...getLivePreviewAttributes(partnersSectionIndex !== null ? (pageData as any)?.$?.[`section[${partnersSectionIndex}].partners_block.partner[${index}]`] : (pageData as any)?.$?.[`section[].partners_block.partner[${index}]`])}>
                   <span>{partner}</span>
                 </div>
               ))}
@@ -400,15 +417,15 @@ export default function LandingPage() {
         </section>
 
         {/* Features Section */}
-        <section id="features" className={`${styles.features} section`}>
+        <section id="features" className={`${styles.features} section`} {...getLivePreviewAttributes(pageData?.$)}>
           <div className="container">
             <div className={styles.sectionHeader}>
-              <h2 className="section-title">
+              <h2 className="section-title" {...getLivePreviewAttributes(featureSectionIndex !== null ? (pageData as any)?.$?.[`section[${featureSectionIndex}].feature_block.title_and_description.title`] : (pageData as any)?.$?.['section[].feature_block.title_and_description.title'])}>
                 {hasCMSFeatures && sectionData.featuresTitle.title 
                   ? sectionData.featuresTitle.title 
                   : 'Why Choose StackAcademy?'}
               </h2>
-              <p className="section-subtitle">
+              <p className="section-subtitle" {...getLivePreviewAttributes(featureSectionIndex !== null ? (pageData as any)?.$?.[`section[${featureSectionIndex}].feature_block.title_and_description.description`] : (pageData as any)?.$?.['section[].feature_block.title_and_description.description'])}>
                 {hasCMSFeatures && sectionData.featuresTitle.description
                   ? sectionData.featuresTitle.description
                   : 'We provide the best learning experience with cutting-edge features designed for your success.'}
@@ -420,17 +437,23 @@ export default function LandingPage() {
                 // Render CMS features
                 sectionData.features.map((feature, index) => {
                   const FeatureIcon = iconMap[feature.icon_name || 'zap'] || Zap;
+                  const featurePath = featureSectionIndex !== null ? `section[${featureSectionIndex}].feature_block.features[${index}]` : `section[].feature_block.features[${index}]`;
                   return (
                     <div 
                       key={feature.uid} 
                       className={styles.featureCard}
                       style={{ animationDelay: `${index * 0.1}s` }}
+                      {...getLivePreviewAttributes(feature.$ || (pageData as any)?.$?.[featurePath])}
                     >
-                      <div className={styles.featureIcon}>
+                      <div className={styles.featureIcon} {...getLivePreviewAttributes(feature.$?.icon_name || (pageData as any)?.$?.[`${featurePath}.icon_name`])}>
                         <FeatureIcon size={28} />
                       </div>
-                      <h3>{feature.icon_title || feature.title}</h3>
-                      <p>{feature.description}</p>
+                      <h3 {...getLivePreviewAttributes(feature.$?.icon_title || feature.$?.title || (pageData as any)?.$?.[`${featurePath}.icon_title`] || (pageData as any)?.$?.[`${featurePath}.title`])}>
+                        {feature.icon_title || feature.title}
+                      </h3>
+                      <p {...getLivePreviewAttributes(feature.$?.description || (pageData as any)?.$?.[`${featurePath}.description`])}>
+                        {feature.description}
+                      </p>
                     </div>
                   );
                 })
@@ -455,20 +478,21 @@ export default function LandingPage() {
         </section>
 
         {/* Popular Courses Section */}
-        <section id="courses" className={`${styles.courses} section`}>
+        <section id="courses" className={`${styles.courses} section`} {...getLivePreviewAttributes(pageData?.$)}>
           <div className="container">
             <div className={styles.sectionHeader}>
               <div>
-                <h2 className="section-title">
+                <h2 className="section-title" {...getLivePreviewAttributes(cardSectionIndex !== null ? (pageData as any)?.$?.[`section[${cardSectionIndex}].card_block.title_and_description.title`] : (pageData as any)?.$?.['section[].card_block.title_and_description.title'])}>
                   {sectionData?.popularCoursesBlock?.title || 'Popular Courses'}
                 </h2>
-                <p className="section-subtitle">
+                <p className="section-subtitle" {...getLivePreviewAttributes(cardSectionIndex !== null ? (pageData as any)?.$?.[`section[${cardSectionIndex}].card_block.title_and_description.description`] : (pageData as any)?.$?.['section[].card_block.title_and_description.description'])}>
                   {sectionData?.popularCoursesBlock?.description || 'Explore our most popular courses and start learning today!'}
                 </p>
               </div>
               <Link 
                 href={sectionData?.popularCoursesBlock?.ctaButton?.href || '/courses'} 
                 className={styles.viewAllBtn}
+                {...getLivePreviewAttributes(cardSectionIndex !== null ? (pageData as any)?.$?.[`section[${cardSectionIndex}].card_block.cta_button`] : (pageData as any)?.$?.['section[].card_block.cta_button'])}
               >
                 {sectionData?.popularCoursesBlock?.ctaButton?.title || 'View All Courses'}
                 <ArrowRight size={18} />
@@ -484,15 +508,21 @@ export default function LandingPage() {
         </section>
 
         {/* How It Works Section */}
-        <section className={`${styles.howItWorks} section`}>
+        <section className={`${styles.howItWorks} section`} {...getLivePreviewAttributes(pageData?.$)}>
           <div className="container">
             <div className={styles.sectionHeader}>
-              <h2 className="section-title">
+              <h2 
+                className="section-title"
+                {...getLivePreviewAttributes(workflowSectionIndex !== null ? (pageData as any)?.$?.[`section[${workflowSectionIndex}].workflow_block.title_and_description.title`] : (pageData as any)?.$?.['section[].workflow_block.title_and_description.title'])}
+              >
                 {hasCMSWorkflow && sectionData.workflowTitle.title
                   ? sectionData.workflowTitle.title
                   : 'How It Works'}
               </h2>
-              <p className="section-subtitle">
+              <p 
+                className="section-subtitle"
+                {...getLivePreviewAttributes(workflowSectionIndex !== null ? (pageData as any)?.$?.[`section[${workflowSectionIndex}].workflow_block.title_and_description.description`] : (pageData as any)?.$?.['section[].workflow_block.title_and_description.description'])}
+              >
                 {hasCMSWorkflow && sectionData.workflowTitle.description
                   ? sectionData.workflowTitle.description
                   : 'Start your learning journey in just 3 simple steps.'}
@@ -502,20 +532,27 @@ export default function LandingPage() {
             <div className={styles.stepsGrid}>
               {hasCMSWorkflow ? (
                 // Render CMS workflow steps
-                sectionData.workflow.map((step, index) => (
-                  <div key={step.uid} className={styles.stepWrapper}>
-                    <div className={styles.step}>
-                      <div className={styles.stepNumber}>{String(index + 1).padStart(2, '0')}</div>
-                      <div className={styles.stepContent}>
-                        <h3>{step.icon_title || step.title}</h3>
-                        <p>{step.description}</p>
+                sectionData.workflow.map((step, index) => {
+                  const stepPath = workflowSectionIndex !== null ? `section[${workflowSectionIndex}].workflow_block.stage[${index}]` : `section[].workflow_block.stage[${index}]`;
+                  return (
+                    <div key={step.uid} className={styles.stepWrapper} {...getLivePreviewAttributes(step.$ || (pageData as any)?.$?.[stepPath])}>
+                      <div className={styles.step}>
+                        <div className={styles.stepNumber}>{String(index + 1).padStart(2, '0')}</div>
+                        <div className={styles.stepContent}>
+                          <h3 {...getLivePreviewAttributes(step.$?.icon_title || step.$?.title || (pageData as any)?.$?.[`${stepPath}.icon_title`] || (pageData as any)?.$?.[`${stepPath}.title`])}>
+                            {step.icon_title || step.title}
+                          </h3>
+                          <p {...getLivePreviewAttributes(step.$?.description || (pageData as any)?.$?.[`${stepPath}.description`])}>
+                            {step.description}
+                          </p>
+                        </div>
                       </div>
+                      {index < sectionData.workflow.length - 1 && (
+                        <div className={styles.stepConnector} />
+                      )}
                     </div>
-                    {index < sectionData.workflow.length - 1 && (
-                      <div className={styles.stepConnector} />
-                    )}
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 // Render fallback workflow
                 fallbackWorkflow.map((step, index) => (
@@ -538,15 +575,15 @@ export default function LandingPage() {
         </section>
 
         {/* Testimonials Section */}
-        <section id="testimonials" className={`${styles.testimonials} section`}>
+        <section id="testimonials" className={`${styles.testimonials} section`} {...getLivePreviewAttributes(pageData?.$)}>
           <div className="container">
             <div className={styles.sectionHeader}>
-              <h2 className="section-title">
+              <h2 className="section-title" {...getLivePreviewAttributes(testimonialSectionIndex !== null ? (pageData as any)?.$?.[`section[${testimonialSectionIndex}].testimonial_block.title_and_description.title`] : (pageData as any)?.$?.['section[].testimonial_block.title_and_description.title'])}>
                 {hasCMSTestimonials && sectionData.testimonialsTitle.title
                   ? sectionData.testimonialsTitle.title
                   : 'What Our Students Say'}
               </h2>
-              <p className="section-subtitle">
+              <p className="section-subtitle" {...getLivePreviewAttributes(testimonialSectionIndex !== null ? (pageData as any)?.$?.[`section[${testimonialSectionIndex}].testimonial_block.title_and_description.description`] : (pageData as any)?.$?.['section[].testimonial_block.title_and_description.description'])}>
                 {hasCMSTestimonials && sectionData.testimonialsTitle.description
                   ? sectionData.testimonialsTitle.description
                   : 'Join thousands of satisfied learners who have transformed their careers.'}
@@ -556,21 +593,26 @@ export default function LandingPage() {
             <div className={styles.testimonialsGrid}>
               {hasCMSTestimonials ? (
                 // Render CMS testimonials
-                sectionData.testimonials.map((testimonial) => {
+                sectionData.testimonials.map((testimonial, index) => {
                   const author = normalizeArray(testimonial.author)[0];
                   const rating = extractRating(testimonial.rating);
                   const authorInfo = extractAuthorRole(author?.bio);
                   
+                  // Try multiple path formats for testimonial
+                  const testimonialPath = testimonialSectionIndex !== null ? `section[${testimonialSectionIndex}].testimonial_block.testimonial[${index}]` : `section[].testimonial_block.testimonial[${index}]`;
+                  const testimonialAttrs = getLivePreviewAttributes(testimonial.$) || 
+                                          getLivePreviewAttributes((pageData as any)?.$?.[testimonialPath]);
+                  
                   return (
-                    <div key={testimonial.uid} className={styles.testimonialCard}>
-                      <div className={styles.testimonialRating}>
+                    <div key={testimonial.uid} className={styles.testimonialCard} {...testimonialAttrs}>
+                      <div className={styles.testimonialRating} {...getLivePreviewAttributes(testimonial.$?.rating) || getLivePreviewAttributes((pageData as any)?.$?.[`${testimonialPath}.rating`])}>
                         {[...Array(Math.round(rating))].map((_, i) => (
                           <Star key={`star-${testimonial.uid}-${i}`} size={18} fill="var(--warning-500)" stroke="var(--warning-500)" />
                         ))}
                       </div>
-                      <p className={styles.testimonialQuote}>"{testimonial.review}"</p>
+                      <p className={styles.testimonialQuote} {...getLivePreviewAttributes(testimonial.$?.review) || getLivePreviewAttributes((pageData as any)?.$?.[`${testimonialPath}.review`])}>"{testimonial.review}"</p>
                       <div className={styles.testimonialAuthor}>
-                        <div className={styles.authorAvatar}>
+                        <div className={styles.authorAvatar} {...getLivePreviewAttributes(testimonial.$?.author) || getLivePreviewAttributes((pageData as any)?.$?.[`${testimonialPath}.author`])}>
                           {author?.picture?.url ? (
                             <Image 
                               src={author.picture.url} 
@@ -584,7 +626,9 @@ export default function LandingPage() {
                           )}
                         </div>
                         <div className={styles.authorInfo}>
-                          <h4>{author?.title || testimonial.title}</h4>
+                          <h4 {...getLivePreviewAttributes(testimonial.$?.title) || getLivePreviewAttributes((pageData as any)?.$?.[`${testimonialPath}.title`])}>
+                            {author?.title || testimonial.title}
+                          </h4>
                           <p>
                             {authorInfo.role}
                             {authorInfo.company && ` at ${authorInfo.company}`}
@@ -651,7 +695,7 @@ export default function LandingPage() {
         {/* FAQ Section */}
         <section id="faq" className="section">
           <div className="container">
-            <FAQ 
+            <FAQ
               items={fallbackFaqs}
               title="Frequently Asked Questions"
               subtitle="Have questions? We've got answers."

@@ -1,193 +1,3 @@
-// 'use client';
-
-// import { useState } from 'react';
-// import Link from 'next/link';
-// import { 
-//   Mail, 
-//   Lock, 
-//   Eye, 
-//   EyeOff, 
-//   BookOpen,
-//   ArrowRight,
-//   Chrome
-// } from 'lucide-react';
-// import styles from '../auth.module.css';
-
-// export default function LoginPage() {
-//   const [email, setEmail] = useState('');
-//   const [password, setPassword] = useState('');
-//   const [showPassword, setShowPassword] = useState(false);
-//   const [isLoading, setIsLoading] = useState(false);
-//   const [error, setError] = useState('');
-
-//   const handleSubmit = async (e: React.FormEvent) => {
-//     e.preventDefault();
-//     setIsLoading(true);
-//     setError('');
-    
-//     // UI only - no actual authentication
-//     setTimeout(() => {
-//       setIsLoading(false);
-//       // Redirect to courses
-//       window.location.href = '/courses';
-//     }, 1000);
-//   };
-
-//   const handleGoogleLogin = async () => {
-//     setIsLoading(true);
-//     setError('');
-    
-//     // UI only - no actual authentication
-//     setTimeout(() => {
-//       setIsLoading(false);
-//       window.location.href = '/courses';
-//     }, 1000);
-//   };
-
-//   return (
-//     <div className={styles.authPage}>
-//       {/* Left Side - Branding */}
-//       <div className={styles.brandSide}>
-//         <div className={styles.brandContent}>
-//           <Link href="/" className={styles.logo}>
-//             <div className={styles.logoIcon}>
-//               <BookOpen size={28} />
-//             </div>
-//             <span className={styles.logoText}>StackAcademy</span>
-//           </Link>
-
-//           <div className={styles.brandMessage}>
-//             <h1>Welcome Back!</h1>
-//             <p>Continue your learning journey and unlock new skills.</p>
-//           </div>
-
-//           <div className={styles.brandStats}>
-//             <div className={styles.brandStat}>
-//               <span className={styles.statNumber}>1000+</span>
-//               <span className={styles.statText}>Courses</span>
-//             </div>
-//             <div className={styles.brandStat}>
-//               <span className={styles.statNumber}>50K+</span>
-//               <span className={styles.statText}>Students</span>
-//             </div>
-//             <div className={styles.brandStat}>
-//               <span className={styles.statNumber}>200+</span>
-//               <span className={styles.statText}>Instructors</span>
-//             </div>
-//           </div>
-
-//           <div className={styles.decorElements}>
-//             <div className={styles.decorCircle1} />
-//             <div className={styles.decorCircle2} />
-//             <div className={styles.decorCircle3} />
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* Right Side - Form */}
-//       <div className={styles.formSide}>
-//         <div className={styles.formContainer}>
-//           <div className={styles.formHeader}>
-//             <h2>Sign In</h2>
-//             <p>Enter your credentials to access your account</p>
-//           </div>
-
-//           {/* Social Login */}
-//           <div className={styles.socialLogin}>
-//             <button 
-//               className={styles.socialBtn}
-//               onClick={handleGoogleLogin}
-//               disabled={isLoading}
-//             >
-//               <Chrome size={20} />
-//               <span>Continue with Google</span>
-//             </button>
-//           </div>
-
-//           <div className={styles.divider}>
-//             <span>or continue with email</span>
-//           </div>
-
-//           {/* Login Form */}
-//           <form onSubmit={handleSubmit} className={styles.form}>
-//             {error && (
-//               <div className={styles.errorMessage}>
-//                 {error}
-//               </div>
-//             )}
-
-//             <div className={styles.inputGroup}>
-//               <label htmlFor="email">Email Address</label>
-//               <div className={styles.inputWrapper}>
-//                 <Mail size={20} className={styles.inputIcon} />
-//                 <input
-//                   type="email"
-//                   id="email"
-//                   placeholder="you@example.com"
-//                   value={email}
-//                   onChange={(e) => setEmail(e.target.value)}
-//                   required
-//                   disabled={isLoading}
-//                 />
-//               </div>
-//             </div>
-
-//             <div className={styles.inputGroup}>
-//               <div className={styles.labelRow}>
-//                 <label htmlFor="password">Password</label>
-//                 <Link href="/forgot-password" className={styles.forgotLink}>
-//                   Forgot password?
-//                 </Link>
-//               </div>
-//               <div className={styles.inputWrapper}>
-//                 <Lock size={20} className={styles.inputIcon} />
-//                 <input
-//                   type={showPassword ? 'text' : 'password'}
-//                   id="password"
-//                   placeholder="Enter your password"
-//                   value={password}
-//                   onChange={(e) => setPassword(e.target.value)}
-//                   required
-//                   disabled={isLoading}
-//                 />
-//                 <button
-//                   type="button"
-//                   className={styles.togglePassword}
-//                   onClick={() => setShowPassword(!showPassword)}
-//                 >
-//                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-//                 </button>
-//               </div>
-//             </div>
-
-//             <button 
-//               type="submit" 
-//               className={styles.submitBtn}
-//               disabled={isLoading}
-//             >
-//               {isLoading ? (
-//                 <div className={styles.spinner} />
-//               ) : (
-//                 <>
-//                   Sign In
-//                   <ArrowRight size={20} />
-//                 </>
-//               )}
-//             </button>
-//           </form>
-
-//           <p className={styles.switchAuth}>
-//             Don't have an account?{' '}
-//             <Link href="/signup">Sign up for free</Link>
-//           </p>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -197,6 +7,8 @@ import { createClient } from '@/utils/supabase/client';
 import { Mail, Lock, Eye, EyeOff, BookOpen, ArrowRight, Chrome } from 'lucide-react';
 import { useAuthBranding } from '@/hooks/useAuthBranding';
 import { IconEntry, normalizeArray } from '@/types/contentstack';
+import lyticsService from '@/services/lytics';
+import { cacheUserProfile } from '@/utils/userCache';
 import styles from '../auth.module.css';
 import onboardingStyles from '../onboarding/onboarding.module.css';
 
@@ -208,47 +20,91 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [checkingSession, setCheckingSession] = useState(true);
   const [redirectingToHome, setRedirectingToHome] = useState(false);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isOAuthRedirect, setIsOAuthRedirect] = useState(false);
   
   const supabase = createClient();
   const router = useRouter();
 
-  // Check if user is already logged in on mount
+  // Check for OAuth callback errors in URL params
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get('error');
+    
+    if (errorParam) {
+      setError(decodeURIComponent(errorParam));
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
+  // Check if user is already logged in on mount (only if not currently logging in)
+  useEffect(() => {
+    // Don't check session if we're in the middle of logging in or OAuth redirect
+    if (isLoggingIn || redirectingToHome || isOAuthRedirect) {
+      return;
+    }
+
     const checkSession = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          // User is already logged in - check preferences
-          const { data: prefs } = await supabase
-            .from('user_preferences')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          if (prefs) {
-            // Preferences exist - redirect to home
-            router.push('/home');
-          } else {
-            // No preferences - redirect to onboarding
-            router.push('/onboarding');
-          }
-        } else {
-          // No session - show login form
+        // Check if we're coming from an OAuth redirect by checking URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('code') || urlParams.has('error')) {
+          // We're in the middle of an OAuth flow, don't check session
+          setIsOAuthRedirect(true);
           setCheckingSession(false);
+          return;
+        }
+
+        // Get session (not just user) to ensure it's valid
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        // If there's a session error or no valid session, don't auto-login
+        if (sessionError || !session) {
+          lyticsService.setAnonymousProfile();
+          setCheckingSession(false);
+          return;
+        }
+
+        // Verify the session is still valid by getting the user
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+          // Session is invalid, clear it
+          await supabase.auth.signOut();
+          lyticsService.setAnonymousProfile();
+          setCheckingSession(false);
+          return;
+        }
+
+        // User is already logged in - check preferences
+        const { data: prefs } = await supabase
+          .from('user_preferences')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (prefs) {
+          // Preferences exist - redirect to home using replace to avoid history issues
+          window.location.replace('/home');
+        } else {
+          // No preferences - redirect to onboarding using replace
+          window.location.replace('/onboarding');
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        // Set anonymous profile even on error (doesn't clear cookies)
+        lyticsService.setAnonymousProfile();
         setCheckingSession(false);
       }
     };
 
     checkSession();
-  }, [supabase, router]);
+  }, [supabase, isLoggingIn, redirectingToHome, isOAuthRedirect]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setIsLoggingIn(true);
     setError('');
     
     const { data, error: authError } = await supabase.auth.signInWithPassword({
@@ -259,6 +115,7 @@ export default function LoginPage() {
     if (authError) {
       setError(authError.message);
       setIsLoading(false);
+      setIsLoggingIn(false);
       return;
     }
 
@@ -276,22 +133,140 @@ export default function LoginPage() {
       .maybeSingle();
 
     if (prefs) {
-      // Case 1.1: Preferences exist -> show curating content animation and redirect to home
+      // Case 1.1: Preferences exist -> identify user with preferences, wait for audience processing, then refresh
       setRedirectingToHome(true);
-      setTimeout(() => {
-        router.push('/home');
-      }, 2000);
+      
+      // Import preference tracking to sync preferences
+      const { syncPreferencesToLytics } = await import('@/services/preferenceTracking');
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', data.user.id)
+        .single();
+      
+      const { data: userPrefs } = await supabase
+        .from('user_preferences')
+        .select('goal, role, education, topics, schedule, daily_goal_minutes')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+      
+      // Fetch enrollments for course counts
+      const { data: enrollments, error: enrollmentsError } = await supabase
+        .from('enrollments')
+        .select('status')
+        .eq('user_id', data.user.id);
+
+      const completedCount = enrollments?.filter(e => e.status === 'completed').length || 0;
+      const inProgressCount = enrollments?.filter(e => e.status === 'enrolled').length || 0;
+      const total_completed_courses = completedCount;
+      
+      // Error fetching enrollments - continue without enrollment counts
+      
+      // Cache user profile data for faster access
+      cacheUserProfile(data.user.id, {
+        name: profile?.full_name || data.user.email?.split('@')[0] || 'User',
+        email: data.user.email || '',
+        avatar: profile?.avatar_url || undefined,
+        coursesCompleted: completedCount,
+        coursesInProgress: inProgressCount,
+      });
+      
+      if (userPrefs) {
+        await syncPreferencesToLytics(
+          {
+            email: data.user.email || '',
+            user_id: data.user.id,
+            full_name: profile?.full_name || undefined,
+          },
+          userPrefs,
+          total_completed_courses
+        );
+        
+        // Wait a bit for audience processing, then redirect to home
+        setTimeout(() => {
+          window.location.replace('/home');
+        }, 3000);
+      } else {
+        // No preferences but user exists - just redirect
+        setTimeout(() => {
+          window.location.replace('/home');
+        }, 2000);
+      }
     } else {
       // Case 1.2: No preferences -> redirect to onboarding (normal redirect, no special animation)
-      router.push('/onboarding');
+      window.location.replace('/onboarding');
     }
   };
 
   const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` }
-    });
+    try {
+      setIsOAuthRedirect(true);
+      setError('');
+      
+      // Get the current origin - ensure we're using the correct protocol and host
+      const currentOrigin = window.location.origin;
+      const redirectUrl = `${currentOrigin}/auth/callback`;
+      
+      // Log for debugging
+      console.log('OAuth redirect URL:', redirectUrl);
+      console.log('Current origin:', currentOrigin);
+      console.log('Current URL:', window.location.href);
+      
+      // Validate that we're not accidentally using localhost:4000
+      if (redirectUrl.includes('localhost:4000')) {
+        console.warn('Warning: Redirect URL contains localhost:4000. Current origin:', currentOrigin);
+        setError('Invalid redirect configuration. Please check your Supabase settings.');
+        setIsOAuthRedirect(false);
+        return;
+      }
+      
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent', // Force consent screen to show
+          }
+        }
+      });
+
+      if (oauthError) {
+        console.error('OAuth error:', oauthError);
+        setError(oauthError.message);
+        setIsOAuthRedirect(false);
+        return;
+      }
+
+      // If data.url exists, the redirect will happen automatically
+      // If not, there might be an issue
+      if (!data.url) {
+        setError('Failed to initiate Google login. Please try again.');
+        setIsOAuthRedirect(false);
+        return;
+      }
+      
+      // Log the OAuth URL for debugging
+      console.log('OAuth URL generated:', data.url);
+      
+      // Verify the redirect URL in the OAuth URL matches what we expect
+      try {
+        const oauthUrlObj = new URL(data.url);
+        const redirectParam = oauthUrlObj.searchParams.get('redirect_to');
+        if (redirectParam && redirectParam.includes('localhost:4000')) {
+          console.error('Supabase is using localhost:4000 in redirect URL:', redirectParam);
+          setError('Redirect URL misconfiguration detected. Please check your Supabase project settings and ensure the correct redirect URLs are configured.');
+          setIsOAuthRedirect(false);
+          return;
+        }
+      } catch (urlError) {
+        console.warn('Could not parse OAuth URL:', urlError);
+      }
+    } catch (error) {
+      console.error('Error initiating Google login:', error);
+      setError('An unexpected error occurred. Please try again.');
+      setIsOAuthRedirect(false);
+    }
   };
 
   // Fetch auth branding data from Contentstack
@@ -314,9 +289,6 @@ export default function LoginPage() {
     }
   }
 
-  console.log('Login branding data:', brandingData);
-  console.log('Stats array:', statsArray);
-  console.log('Branding content:', brandingData?.branding_content);
 
   const brandData = {
     headline: brandingData?.headline || 'Welcome Back!',
@@ -350,13 +322,13 @@ export default function LoginPage() {
           </div>
         </div>
         <h2 className={onboardingStyles.curatingTitle}>Curating Your Experience</h2>
-        <p className={onboardingStyles.curatingSubtitle}>Loading your personalized content...</p>
+        <p className={onboardingStyles.curatingSubtitle}>Loading your content...</p>
       </div>
     );
   }
 
-  // Show normal loading screen for checking session or loading branding
-  if (checkingSession || brandingLoading) {
+  // Show normal loading screen for checking session, loading branding, or OAuth redirect
+  if (checkingSession || brandingLoading || isOAuthRedirect) {
     return (
       <div style={{ 
         display: 'flex', 
@@ -475,9 +447,6 @@ export default function LoginPage() {
             <div className={styles.inputGroup}>
               <div className={styles.labelRow}>
                 <label htmlFor="password">Password</label>
-                <Link href="/forgot-password" className={styles.forgotLink}>
-                  Forgot password?
-                </Link>
               </div>
               <div className={styles.inputWrapper}>
                 <Lock size={20} className={styles.inputIcon} />

@@ -1,355 +1,7 @@
-// 'use client';
-
-// import { useState, useMemo } from 'react';
-// import { useRouter } from 'next/navigation';
-// import Link from 'next/link';
-// import {
-//   BookOpen,
-//   ArrowLeft,
-//   ArrowRight,
-//   Search,
-//   Check,
-//   Rocket,
-//   Shuffle,
-//   TrendingUp,
-//   Glasses,
-//   Zap,
-//   Cpu,
-//   Layers,
-//   Code,
-//   BarChart2,
-//   Palette,
-//   Shield,
-//   Cloud,
-//   GitBranch,
-//   Briefcase,
-//   Book,
-//   Award,
-//   GraduationCap,
-//   Terminal,
-//   Globe,
-//   Smartphone,
-//   Clock,
-//   LucideIcon,
-// } from 'lucide-react';
-// import styles from './onboarding.module.css';
-// import { useOnboarding, OnboardingStep } from '@/hooks/useOnboarding';
-
-// // Comprehensive icon map
-// const iconMap: Record<string, LucideIcon> = {
-//   'rocket': Rocket,
-//   'shuffle': Shuffle,
-//   'trending-up': TrendingUp,
-//   'glasses': Glasses,
-//   'zap': Zap,
-//   'cpu': Cpu,
-//   'layers': Layers,
-//   'code': Code,
-//   'bar-chart-2': BarChart2,
-//   'palette': Palette,
-//   'shield': Shield,
-//   'cloud': Cloud,
-//   'git-branch': GitBranch,
-//   'briefcase': Briefcase,
-//   'book': Book,
-//   'book-open': BookOpen,
-//   'award': Award,
-//   'graduation-cap': GraduationCap,
-//   'terminal': Terminal,
-//   'globe': Globe,
-//   'smartphone': Smartphone,
-//   'clock': Clock,
-// };
-
-// export default function OnboardingPage() {
-//   const router = useRouter();
-//   const { steps, isLoading: stepsLoading } = useOnboarding();
-//   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-//   const [selections, setSelections] = useState<Record<number, string[]>>({});
-//   const [searchQuery, setSearchQuery] = useState('');
-//   const [isSaving, setIsSaving] = useState(false);
-//   const [isRedirecting, setIsRedirecting] = useState(false);
-
-//   const currentStep = steps[currentStepIndex];
-//   const totalSteps = steps.length || 5;
-
-//   // Filter options based on search query
-//   const filteredOptions = useMemo(() => {
-//     if (!currentStep) return [];
-//     if (!searchQuery.trim()) return currentStep.options;
-    
-//     const query = searchQuery.toLowerCase();
-//     return currentStep.options.filter(opt => 
-//       opt.label.toLowerCase().includes(query) || 
-//       opt.description.toLowerCase().includes(query)
-//     );
-//   }, [currentStep, searchQuery]);
-
-//   const handleSelect = (optionId: string) => {
-//     const stepNum = currentStepIndex;
-//     const currentSelections = selections[stepNum] || [];
-    
-//     // For most steps, allow single selection. For topics, allow multiple
-//     if (currentStepIndex === 3) {
-//       // Step 4: Topics - allow multiple selections
-//       if (currentSelections.includes(optionId)) {
-//         setSelections({
-//           ...selections,
-//           [stepNum]: currentSelections.filter(id => id !== optionId),
-//         });
-//       } else {
-//         setSelections({
-//           ...selections,
-//           [stepNum]: [...currentSelections, optionId],
-//         });
-//       }
-//     } else {
-//       // Single selection for other steps
-//       setSelections({
-//         ...selections,
-//         [stepNum]: [optionId],
-//       });
-//     }
-//   };
-
-//   const isSelected = (optionId: string) => {
-//     return (selections[currentStepIndex] || []).includes(optionId);
-//   };
-
-//   const canProceed = (selections[currentStepIndex] || []).length > 0;
-
-//   const handleNext = async () => {
-//     if (currentStepIndex < steps.length - 1) {
-//       setCurrentStepIndex(currentStepIndex + 1);
-//       setSearchQuery('');
-//     } else {
-//       // Save preferences (UI only - no database)
-//       await handleSavePreferences();
-//     }
-//   };
-
-//   const handleSavePreferences = async () => {
-//     setIsSaving(true);
-    
-//     try {
-//       // Collect all selections
-//       const preferences = {
-//         goal: selections[0]?.[0] || null,
-//         role: selections[1]?.[0] || null,
-//         education: selections[2]?.[0] || null,
-//         topics: selections[3] || [],
-//         schedule: selections[4]?.[0] || null,
-//       };
-
-//       console.log('User preferences collected:', preferences);
-      
-//       // Store in localStorage for now (can be used later)
-//       localStorage.setItem('userPreferences', JSON.stringify(preferences));
-      
-//       // Stop saving state first
-//       setIsSaving(false);
-      
-//       // Set redirecting state immediately - this will trigger re-render
-//       setIsRedirecting(true);
-      
-//       // Use double requestAnimationFrame to ensure DOM update happens
-//       // This ensures the animation component renders before we redirect
-//       requestAnimationFrame(() => {
-//         requestAnimationFrame(() => {
-//           // Wait to show the animation before redirecting (2.5 seconds)
-//           setTimeout(() => {
-//             window.location.href = '/home';
-//           }, 2500);
-//         });
-//       });
-//     } catch (error: any) {
-//       console.error('Error saving preferences:', error);
-//       setIsSaving(false);
-//       setIsRedirecting(false);
-//       alert(`Failed to save preferences: ${error.message || 'Please try again.'}`);
-//     }
-//   };
-
-//   const handleSkip = async () => {
-//     // Don't save anything - just show loading animation and redirect to home
-//     setIsRedirecting(true);
-    
-//     // Wait a bit to show the animation before redirecting
-//     setTimeout(() => {
-//       window.location.href = '/home';
-//     }, 1500);
-//   };
-
-//   const handleBack = () => {
-//     if (currentStepIndex > 0) {
-//       setCurrentStepIndex(currentStepIndex - 1);
-//       setSearchQuery('');
-//     }
-//   };
-
-//   if (stepsLoading) {
-//     return (
-//       <div className={styles.loadingContainer}>
-//         <div className={styles.spinner} />
-//         <p>Preparing your personalized experience...</p>
-//       </div>
-//     );
-//   }
-
-//   if (isRedirecting) {
-//     return (
-//       <div className={styles.loadingContainer} style={{ zIndex: 9999 }}>
-//         <div className={styles.curatingSpinner}>
-//           <div className={styles.curatingIcon}>
-//             <BookOpen size={48} style={{ color: 'white', opacity: 1 }} />
-//           </div>
-//           <div className={styles.curatingDots}>
-//             <span></span>
-//             <span></span>
-//             <span></span>
-//           </div>
-//         </div>
-//         <h2 className={styles.curatingTitle}>Curating Content</h2>
-//         <p className={styles.curatingSubtitle}>According to your preferences...</p>
-//       </div>
-//     );
-//   }
-
-//   if (!currentStep) {
-//     return (
-//       <div className={styles.errorContainer}>
-//         <p>Unable to load onboarding. Please try again.</p>
-//         <button onClick={() => router.push('/home')} className={styles.skipBtn}>
-//           Skip to Home
-//         </button>
-//       </div>
-//     );
-//   }
-
-//   return (
-//     <div className={styles.onboardingPage}>
-//       {/* Header */}
-//       <header className={styles.header}>
-//         <Link href="/" className={styles.logo}>
-//           <div className={styles.logoIcon}>
-//             <BookOpen size={24} />
-//           </div>
-//           <span className={styles.logoText}>StackAcademy</span>
-//         </Link>
-//         <button 
-//           onClick={handleSkip} 
-//           className={styles.skipBtn}
-//           disabled={isRedirecting}
-//         >
-//           {isRedirecting ? 'Redirecting...' : 'Skip for now'}
-//         </button>
-//       </header>
-
-//       {/* Progress Bar */}
-//       <div className={styles.progressContainer}>
-//         <div className={styles.progressBar}>
-//           <div 
-//             className={styles.progressFill} 
-//             style={{ width: `${((currentStepIndex + 1) / totalSteps) * 100}%` }}
-//           />
-//         </div>
-//         <span className={styles.progressText}>
-//           Step {currentStepIndex + 1} of {totalSteps}
-//         </span>
-//       </div>
-
-//       {/* Main Content */}
-//       <main className={styles.content}>
-//         <div className={styles.stepContent}>
-//           <h1 className={styles.question}>{currentStep.question}</h1>
-          
-//           {currentStepIndex === 3 ? (
-//             <p className={styles.subtitle}>Select all topics that interest you</p>
-//           ) : (
-//             <p className={styles.subtitle}>Choose the option that best describes you</p>
-//           )}
-
-//           {/* Search Bar for Searchable Grid */}
-//           {currentStep.displayType === 'Searchable Grid' && (
-//             <div className={styles.searchWrapper}>
-//               <Search size={20} className={styles.searchIcon} />
-//               <input
-//                 type="text"
-//                 placeholder="Search options..."
-//                 value={searchQuery}
-//                 onChange={(e) => setSearchQuery(e.target.value)}
-//                 className={styles.searchInput}
-//               />
-//             </div>
-//           )}
-
-//           {/* Options Grid */}
-//           <div className={`${styles.optionsGrid} ${currentStep.displayType === 'Card Grid' ? styles.cardGrid : styles.searchableGrid}`}>
-//             {filteredOptions.map((option) => {
-//               const IconComponent = iconMap[option.iconName] || Zap;
-//               const selected = isSelected(option.id);
-              
-//               return (
-//                 <button
-//                   key={option.id}
-//                   className={`${styles.optionCard} ${selected ? styles.selected : ''}`}
-//                   onClick={() => handleSelect(option.id)}
-//                 >
-//                   <div className={styles.optionIconWrapper}>
-//                     <IconComponent size={28} style={{ color: 'white', opacity: 1 }} />
-//                   </div>
-//                   <div className={styles.optionContent}>
-//                     <span className={styles.optionLabel}>{option.label}</span>
-//                     {option.description && (
-//                       <span className={styles.optionDescription}>{option.description}</span>
-//                     )}
-//                   </div>
-//                   {selected && (
-//                     <div className={styles.checkmark}>
-//                       <Check size={16} />
-//                     </div>
-//                   )}
-//                 </button>
-//               );
-//             })}
-//           </div>
-
-//           {filteredOptions.length === 0 && searchQuery && (
-//             <p className={styles.noResults}>No results found for &quot;{searchQuery}&quot;</p>
-//           )}
-//         </div>
-//       </main>
-
-//       {/* Footer Navigation */}
-//       <footer className={styles.footer}>
-//         <button
-//           className={styles.backBtn}
-//           onClick={handleBack}
-//           disabled={currentStepIndex === 0}
-//         >
-//           <ArrowLeft size={20} />
-//           {currentStep.backButtonText}
-//         </button>
-        
-//         <button
-//           className={styles.nextBtn}
-//           onClick={handleNext}
-//           disabled={!canProceed || isSaving}
-//         >
-//           {isSaving ? 'Saving...' : currentStep.nextButtonText}
-//           <ArrowRight size={20} />
-//         </button>
-//       </footer>
-//     </div>
-//   );
-// }
-
-
-
 'use client';
-
 import { useState, useEffect, useMemo } from 'react';
 import { createClient } from '@/utils/supabase/client';
+import { syncPreferencesToLytics } from '@/services/preferenceTracking';
 import Link from 'next/link';
 import {
   BookOpen,
@@ -541,6 +193,24 @@ export default function OnboardingPage() {
     return labelToSlug(selectedOption.label);
   };
 
+  // Helper function to convert topic UIDs to semantic slugs
+  // Converts array of Contentstack UIDs to array of semantic slugs (e.g., ["CSS", "Python"] -> ["css", "python"])
+  const getTopicsValue = (topicUids: string[]): string[] => {
+    if (!topicUids || topicUids.length === 0 || !steps[3]) return [];
+    
+    const topicsStep = steps[3];
+    
+    // Convert each UID to its semantic slug
+    return topicUids
+      .map(uid => {
+        const selectedOption = topicsStep.options.find(opt => opt.id === uid);
+        if (!selectedOption) return null;
+        // Convert label to semantic slug (e.g., "CSS" -> "css", "Python Programming" -> "python-programming")
+        return labelToSlug(selectedOption.label);
+      })
+      .filter((slug): slug is string => slug !== null); // Filter out null values
+  };
+
   // Helper function to extract numeric schedule value from option label and convert to minutes
   // Returns as string since schedule column is TEXT (trigger converts to daily_goal_minutes INTEGER)
   // Handles different units: "5 minutes" -> "5", "1 hour" -> "60", "2 hours" -> "120"
@@ -617,8 +287,8 @@ export default function OnboardingPage() {
       const roleValue = getOptionValue(1, selections[1]?.[0]);
       // Step 2: Education (e.g., "Bachelor's Degree" -> "bachelors-degree")
       const educationValue = getOptionValue(2, selections[2]?.[0]);
-      // Step 3: Topics - keep as array of UIDs (or convert to slugs if needed)
-      const topicsValue = selections[3] || [];
+      // Step 3: Topics - convert array of UIDs to semantic slugs (e.g., ["CSS", "Python"] -> ["css", "python"])
+      const topicsValue = getTopicsValue(selections[3] || []);
       // Step 4: Schedule - extract numeric value and convert to minutes
       // Handles: "5 minutes" -> "5", "1 hour" -> "60", "2 hours" -> "120"
       const scheduleValue = getScheduleValue(selections[4]?.[0]);
@@ -631,7 +301,7 @@ export default function OnboardingPage() {
           goal: goalValue, // Save semantic value ("start-career") instead of UID
           role: roleValue, // Save semantic value ("data-scientist") instead of UID
           education: educationValue, // Save semantic value ("bachelors-degree") instead of UID
-          topics: topicsValue, // Keep as array (could convert to slugs if needed)
+          topics: topicsValue, // Save as array of semantic slugs (e.g., ["css", "python", "react"]) instead of Contentstack UIDs
           schedule: scheduleValue, // Save as numeric string ("5", "15", "30", "60") instead of Contentstack UID
           completed_at: new Date().toISOString(), // Mark as completed
         })
@@ -649,6 +319,30 @@ export default function OnboardingPage() {
       if (data) {
         console.log('Preferences saved successfully:', data);
       }
+
+      // Sync preferences to Lytics for audience matching
+      // Get user profile for full name
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      syncPreferencesToLytics(
+        {
+          email: user.email || '',
+          user_id: user.id,
+          full_name: profile?.full_name || undefined,
+        },
+        {
+          goal: goalValue,
+          role: roleValue,
+          education: educationValue,
+          topics: topicsValue,
+          schedule: scheduleValue,
+          daily_goal_minutes: scheduleValue ? parseInt(scheduleValue, 10) : null,
+        }
+      );
 
       // Clear skip cookie since preferences are now saved
       document.cookie = 'skipped_onboarding=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
