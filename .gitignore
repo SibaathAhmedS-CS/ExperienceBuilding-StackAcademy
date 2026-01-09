@@ -4,3 +4,4 @@ node_modules/
 *.md
 .next
 .cursor/rules/snyk_rules.mdc
+
