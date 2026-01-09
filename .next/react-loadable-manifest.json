@@ -19,14 +19,6 @@
     "id": "app/(main)/home/page.tsx -> @/utils/userCache",
     "files": []
   },
-  "app/(main)/my-courses/page.tsx -> @/utils/userCache": {
-    "id": "app/(main)/my-courses/page.tsx -> @/utils/userCache",
-    "files": []
-  },
-  "app/(main)/profile/page.tsx -> @/utils/userCache": {
-    "id": "app/(main)/profile/page.tsx -> @/utils/userCache",
-    "files": []
-  },
   "services/personalize.ts -> @/lib/contentstack": {
     "id": "services/personalize.ts -> @/lib/contentstack",
     "files": []

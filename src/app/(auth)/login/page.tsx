@@ -203,10 +203,27 @@ export default function LoginPage() {
       setIsOAuthRedirect(true);
       setError('');
       
+      // Get the current origin - ensure we're using the correct protocol and host
+      const currentOrigin = window.location.origin;
+      const redirectUrl = `${currentOrigin}/auth/callback`;
+      
+      // Log for debugging
+      console.log('OAuth redirect URL:', redirectUrl);
+      console.log('Current origin:', currentOrigin);
+      console.log('Current URL:', window.location.href);
+      
+      // Validate that we're not accidentally using localhost:4000
+      if (redirectUrl.includes('localhost:4000')) {
+        console.warn('Warning: Redirect URL contains localhost:4000. Current origin:', currentOrigin);
+        setError('Invalid redirect configuration. Please check your Supabase settings.');
+        setIsOAuthRedirect(false);
+        return;
+      }
+      
       const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: { 
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: redirectUrl,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent', // Force consent screen to show
@@ -215,6 +232,7 @@ export default function LoginPage() {
       });
 
       if (oauthError) {
+        console.error('OAuth error:', oauthError);
         setError(oauthError.message);
         setIsOAuthRedirect(false);
         return;
@@ -225,6 +243,24 @@ export default function LoginPage() {
       if (!data.url) {
         setError('Failed to initiate Google login. Please try again.');
         setIsOAuthRedirect(false);
+        return;
+      }
+      
+      // Log the OAuth URL for debugging
+      console.log('OAuth URL generated:', data.url);
+      
+      // Verify the redirect URL in the OAuth URL matches what we expect
+      try {
+        const oauthUrlObj = new URL(data.url);
+        const redirectParam = oauthUrlObj.searchParams.get('redirect_to');
+        if (redirectParam && redirectParam.includes('localhost:4000')) {
+          console.error('Supabase is using localhost:4000 in redirect URL:', redirectParam);
+          setError('Redirect URL misconfiguration detected. Please check your Supabase project settings and ensure the correct redirect URLs are configured.');
+          setIsOAuthRedirect(false);
+          return;
+        }
+      } catch (urlError) {
+        console.warn('Could not parse OAuth URL:', urlError);
       }
     } catch (error) {
       console.error('Error initiating Google login:', error);
