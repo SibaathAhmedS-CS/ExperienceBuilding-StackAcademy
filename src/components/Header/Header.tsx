@@ -511,12 +511,16 @@ export default function Header({ variant = 'landing', user, headerData, isLoadin
       localStorage.removeItem('user');
       localStorage.removeItem('skipped_onboarding');
       
-      // Sign out from Supabase (don't await - redirect immediately)
-      supabase.auth.signOut().catch(() => {
+      // Sign out from Supabase with timeout to ensure it completes
+      const signOutPromise = supabase.auth.signOut();
+      const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 1000));
+      
+      // Wait for signOut or timeout, whichever comes first
+      await Promise.race([signOutPromise, timeoutPromise]).catch(() => {
         // Ignore errors - we're redirecting anyway
       });
       
-      // Redirect immediately without any delay
+      // Redirect after ensuring signOut is attempted
       // The overlay will prevent any content from showing during redirect
       window.location.replace('/');
     } catch (error) {

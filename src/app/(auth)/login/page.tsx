@@ -21,40 +21,75 @@ export default function LoginPage() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [redirectingToHome, setRedirectingToHome] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isOAuthRedirect, setIsOAuthRedirect] = useState(false);
   
   const supabase = createClient();
   const router = useRouter();
 
+  // Check for OAuth callback errors in URL params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorParam = params.get('error');
+    
+    if (errorParam) {
+      setError(decodeURIComponent(errorParam));
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, []);
+
   // Check if user is already logged in on mount (only if not currently logging in)
   useEffect(() => {
-    // Don't check session if we're in the middle of logging in
-    if (isLoggingIn || redirectingToHome) {
+    // Don't check session if we're in the middle of logging in or OAuth redirect
+    if (isLoggingIn || redirectingToHome || isOAuthRedirect) {
       return;
     }
 
     const checkSession = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
-        if (user) {
-          // User is already logged in - check preferences
-          const { data: prefs } = await supabase
-            .from('user_preferences')
-            .select('id')
-            .eq('user_id', user.id)
-            .maybeSingle();
+        // Check if we're coming from an OAuth redirect by checking URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('code') || urlParams.has('error')) {
+          // We're in the middle of an OAuth flow, don't check session
+          setIsOAuthRedirect(true);
+          setCheckingSession(false);
+          return;
+        }
 
-          if (prefs) {
-            // Preferences exist - redirect to home using replace to avoid history issues
-            window.location.replace('/home');
-          } else {
-            // No preferences - redirect to onboarding using replace
-            window.location.replace('/onboarding');
-          }
-        } else {
-          // No session - set anonymous profile in Lytics (doesn't clear cookies)
+        // Get session (not just user) to ensure it's valid
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        // If there's a session error or no valid session, don't auto-login
+        if (sessionError || !session) {
           lyticsService.setAnonymousProfile();
           setCheckingSession(false);
+          return;
+        }
+
+        // Verify the session is still valid by getting the user
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !user) {
+          // Session is invalid, clear it
+          await supabase.auth.signOut();
+          lyticsService.setAnonymousProfile();
+          setCheckingSession(false);
+          return;
+        }
+
+        // User is already logged in - check preferences
+        const { data: prefs } = await supabase
+          .from('user_preferences')
+          .select('id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (prefs) {
+          // Preferences exist - redirect to home using replace to avoid history issues
+          window.location.replace('/home');
+        } else {
+          // No preferences - redirect to onboarding using replace
+          window.location.replace('/onboarding');
         }
       } catch (error) {
         // Set anonymous profile even on error (doesn't clear cookies)
@@ -64,7 +99,7 @@ export default function LoginPage() {
     };
 
     checkSession();
-  }, [supabase, isLoggingIn, redirectingToHome]);
+  }, [supabase, isLoggingIn, redirectingToHome, isOAuthRedirect]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,10 +199,38 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/auth/callback` }
-    });
+    try {
+      setIsOAuthRedirect(true);
+      setError('');
+      
+      const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { 
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent', // Force consent screen to show
+          }
+        }
+      });
+
+      if (oauthError) {
+        setError(oauthError.message);
+        setIsOAuthRedirect(false);
+        return;
+      }
+
+      // If data.url exists, the redirect will happen automatically
+      // If not, there might be an issue
+      if (!data.url) {
+        setError('Failed to initiate Google login. Please try again.');
+        setIsOAuthRedirect(false);
+      }
+    } catch (error) {
+      console.error('Error initiating Google login:', error);
+      setError('An unexpected error occurred. Please try again.');
+      setIsOAuthRedirect(false);
+    }
   };
 
   // Fetch auth branding data from Contentstack
@@ -228,8 +291,8 @@ export default function LoginPage() {
     );
   }
 
-  // Show normal loading screen for checking session or loading branding
-  if (checkingSession || brandingLoading) {
+  // Show normal loading screen for checking session, loading branding, or OAuth redirect
+  if (checkingSession || brandingLoading || isOAuthRedirect) {
     return (
       <div style={{ 
         display: 'flex', 

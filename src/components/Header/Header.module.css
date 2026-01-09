@@ -17,15 +17,16 @@
 }
 
 .container {
-  max-width: var(--container-max);
-  margin: 0 auto;
-  padding: 0 24px;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
   height: var(--header-height);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 32px;
+  gap: 0;
   position: relative;
+  width: 100%;
 }
 
 /* Left Section - Logo and Navigation */
@@ -35,6 +36,7 @@
   gap: 32px;
   flex: 0 0 auto;
   min-width: 0; /* Prevent flex shrinking */
+  padding-left: 24px; /* Add padding only to left side */
 }
 
 /* Logo */
@@ -158,6 +160,7 @@
   gap: 16px;
   flex: 0 0 auto; /* Prevent right section from shrinking */
   margin-left: auto; /* Push to the right */
+  padding-right: 24px; /* Add padding only to right side */
 }
 
 /* Language Selector */
@@ -817,6 +820,7 @@
   box-shadow: var(--shadow-lg);
   padding: 16px 24px 24px;
   animation: fadeIn 0.3s ease;
+  width: 100%;
 }
 
 .mobileSearchWrapper {
@@ -909,8 +913,16 @@
 
 @media (max-width: 640px) {
   .container {
-    padding: 0 16px;
+    padding: 0;
     height: 70px;
+  }
+  
+  .leftSection {
+    padding-left: 16px;
+  }
+  
+  .rightSection {
+    padding-right: 16px;
   }
 
   .logoText {
