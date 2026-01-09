@@ -2,11 +2,13 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 
 export async function GET(request: Request) {
+
   const requestUrl = new URL(request.url);
-  console.log("Reqest", request);
   const code = requestUrl.searchParams.get('code');
   const error = requestUrl.searchParams.get('error');
   const errorDescription = requestUrl.searchParams.get('error_description');
+  const url = process.env.NEXT_PUBLIC_SITE_URL;
+  console.log(url);
 
   const supabase = createClient();
 
@@ -16,7 +18,7 @@ export async function GET(request: Request) {
     // Clear any partial session that might exist
     await supabase.auth.signOut();
     return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(errorDescription || error)}`, requestUrl.origin)
+      new URL(`/login?error=${encodeURIComponent(errorDescription || error)}`, url)
     );
   }
 
@@ -25,7 +27,7 @@ export async function GET(request: Request) {
     console.warn('OAuth callback called without code parameter');
     // Clear any partial session
     await supabase.auth.signOut();
-    return NextResponse.redirect(new URL('/login?error=no_code', requestUrl.origin));
+    return NextResponse.redirect(new URL('/login?error=no_code', url));
   }
 
   try {
@@ -36,14 +38,14 @@ export async function GET(request: Request) {
       // Clear any partial session
       await supabase.auth.signOut();
       return NextResponse.redirect(
-        new URL(`/login?error=${encodeURIComponent(exchangeError.message)}`, requestUrl.origin)
+        new URL(`/login?error=${encodeURIComponent(exchangeError.message)}`, url)
       );
     }
 
     if (!data.session) {
       console.warn('No session created after code exchange');
       await supabase.auth.signOut();
-      return NextResponse.redirect(new URL('/login?error=no_session', requestUrl.origin));
+      return NextResponse.redirect(new URL('/login?error=no_session', url));
     }
 
     // Verify user profile exists in database
@@ -57,7 +59,7 @@ export async function GET(request: Request) {
     if (profileError || !profile) {
       console.warn('User profile not found in callback, clearing session');
       await supabase.auth.signOut();
-      return NextResponse.redirect(new URL('/login?error=profile_not_found', requestUrl.origin));
+      return NextResponse.redirect(new URL('/login?error=profile_not_found', url));
     }
 
     // Update last_login_at timestamp in profiles table
@@ -75,17 +77,17 @@ export async function GET(request: Request) {
 
     // If preferences exist (regardless of completed_at), redirect to home
     if (prefs) {
-      return NextResponse.redirect(new URL('/home', requestUrl.origin));
+      return NextResponse.redirect(new URL('/home', url));
     }
 
     // If preferences don't exist, redirect to onboarding
-    return NextResponse.redirect(new URL('/onboarding', requestUrl.origin));
+    return NextResponse.redirect(new URL('/onboarding', url));
   } catch (error) {
     console.error('Unexpected error in OAuth callback:', error);
     // Clear any partial session
     await supabase.auth.signOut();
     return NextResponse.redirect(
-      new URL('/login?error=unexpected_error', requestUrl.origin)
+      new URL('/login?error=unexpected_error', url)
     );
   }
 }
