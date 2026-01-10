@@ -1,275 +1,161 @@
 # StackAcademy - E-Learning Platform
 
-A modern, professional e-learning platform built with Next.js 14 and designed to integrate seamlessly with Contentstack CMS.
+A modern e-learning platform built with Next.js 14, Contentstack CMS, Supabase authentication, and Algolia search.
 
-![StackAcademy](https://via.placeholder.com/1200x630?text=StackAcademy+E-Learning+Platform)
-
-## 🚀 Features
+## Features
 
 ### Pages
-- **Landing Page** - Beautiful hero section, features, popular courses, testimonials, FAQs
-- **Login/Signup** - Secure authentication with social login options
-- **Home Dashboard** - Promotional carousel, categories, top courses, recommendations
-- **Course Detail** - Hero banner, tabbed navigation (About, Outcomes, Modules, Reviews)
-- **Module Player** - Video player, lesson content, resources, course progress tracking
+- **Landing Page** (`/`) - Hero section, features, popular courses, testimonials, FAQs
+- **Authentication** (`/login`, `/signup`) - Supabase-based authentication
+- **Onboarding** (`/onboarding`) - Multi-step user onboarding flow
+- **Home Dashboard** (`/home`) - Personalized dashboard with carousel, categories, and course recommendations
+- **Courses** (`/courses`) - Browse all courses with Algolia search and filtering
+- **Course Detail** (`/course/[slug]`) - Course information, modules, reviews
+- **Module Player** (`/module/[id]`) - Video player and lesson content
+- **My Courses** (`/my-courses`) - User's enrolled courses
+- **Profile** (`/profile`) - User profile management
+- **Certificate** (`/certificate/[enrollmentId]`) - Course completion certificates
 
-### UI/UX
-- 🎨 Modern, clean, and professional design
-- 📱 Fully responsive across all devices
-- ✨ Smooth animations and micro-interactions
-- 🌙 Consistent design system with CSS variables
-- ♿ Accessible components
+### Key Integrations
+- **Contentstack CMS** - Content management and delivery
+- **Supabase** - Authentication and user data
+- **Algolia** - Course search functionality
+- **Lytics** - User tracking and personalization
+- **Contentstack Personalize** - Variant delivery based on user audience
+- **Contentstack Live Preview** - Real-time content preview
 
-### Technical
-- ⚡ Next.js 14 App Router
-- 🔤 TypeScript for type safety
-- 🎯 Contentstack SDK integration ready
-- 🧩 Reusable component architecture
-- 📦 Modular CSS with CSS Modules
+## Tech Stack
 
-## 📁 Project Structure
+- **Framework**: Next.js 14 (App Router)
+- **Language**: TypeScript
+- **Styling**: CSS Modules
+- **CMS**: Contentstack
+- **Auth**: Supabase
+- **Search**: Algolia
+- **Analytics**: Lytics
 
-```
-stack-academy/
-├── src/
-│   ├── app/
-│   │   ├── (auth)/           # Auth pages (login, signup)
-│   │   ├── (main)/           # Main app pages
-│   │   │   ├── home/         # Dashboard
-│   │   │   ├── course/[slug]/# Course detail
-│   │   │   └── module/[id]/  # Video player
-│   │   ├── globals.css       # Global styles
-│   │   ├── layout.tsx        # Root layout
-│   │   └── page.tsx          # Landing page
-│   ├── components/
-│   │   ├── Header/           # Navigation header
-│   │   ├── Footer/           # Site footer
-│   │   ├── Carousel/         # Promotional slider
-│   │   ├── CourseCard/       # Course card component
-│   │   ├── CategoryCard/     # Category display
-│   │   ├── FAQ/              # Accordion FAQ
-│   │   └── VideoPlayer/      # Custom video player
-│   ├── lib/
-│   │   └── contentstack.ts   # Contentstack SDK
-│   └── types/
-│       └── contentstack.ts   # TypeScript interfaces
-├── public/
-│   └── images/
-├── package.json
-└── README.md
-```
-
-## 🛠️ Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
-- Contentstack account (for CMS integration)
+- Contentstack account
+- Supabase project
+- Algolia account (optional, for search)
 
 ### Installation
 
-1. **Clone the repository**
-   ```bash
-   cd stack-academy
-   ```
-
-2. **Install dependencies**
+1. **Clone and install dependencies**
    ```bash
    npm install
    ```
 
-3. **Configure environment variables**
+2. **Set up environment variables**
    ```bash
    cp env.example .env.local
    ```
-   
-   Edit `.env.local` with your Contentstack credentials:
+
+   Edit `.env.local` with your credentials:
    ```env
+   # Contentstack
    CONTENTSTACK_API_KEY=your_api_key
    CONTENTSTACK_DELIVERY_TOKEN=your_delivery_token
    CONTENTSTACK_ENVIRONMENT=development
    CONTENTSTACK_BRANCH=main
+   
+   # Supabase
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   
+   # Algolia (optional)
+   NEXT_PUBLIC_ALGOLIA_APP_ID=your_algolia_app_id
+   NEXT_PUBLIC_ALGOLIA_SEARCH_API_KEY=your_search_key
+   ALGOLIA_ADMIN_API_KEY=your_admin_key
+   
+   # Lytics (optional)
+   NEXT_PUBLIC_LYTICS_ACCOUNT_ID=your_lytics_account_id
+   
+   # Contentstack Personalize (optional)
+   NEXT_PUBLIC_CONTENTSTACK_PERSONALIZE_PROJECT_UID=your_project_uid
    ```
 
-4. **Run the development server**
+3. **Run the development server**
    ```bash
    npm run dev
    ```
 
-5. **Open in browser**
+4. **Open in browser**
    ```
    http://localhost:3000
    ```
 
-## 📚 Contentstack Integration
+## Project Structure
 
-### Required Content Types
-
-Create these content types in your Contentstack stack:
-
-#### 1. Course
 ```
-Fields:
-- title (Single Line Text)
-- slug (Single Line Text, Unique)
-- short_description (Multi Line Text)
-- description (Rich Text Editor)
-- thumbnail (File - Image)
-- hero_image (File - Image)
-- instructor (Reference - Instructor)
-- category (Reference - Category)
-- level (Select: beginner, intermediate, advanced)
-- duration (Single Line Text)
-- rating (Number)
-- reviews_count (Number)
-- students_enrolled (Number)
-- price (Number)
-- discount_price (Number)
-- outcomes (Group - Multiple)
-- requirements (Group - Multiple)
-- modules (Reference - Module, Multiple)
-- is_featured (Boolean)
-- is_popular (Boolean)
-```
-
-#### 2. Module
-```
-Fields:
-- title (Single Line Text)
-- description (Multi Line Text)
-- duration (Single Line Text)
-- video_url (Single Line Text)
-- video_thumbnail (File - Image)
-- content (Rich Text Editor)
-- resources (Group - Multiple)
-- order (Number)
-- is_preview (Boolean)
+src/
+├── app/                    # Next.js app router pages
+│   ├── (auth)/            # Auth pages (login, signup, onboarding)
+│   ├── (main)/            # Main app pages (home, courses, profile, etc.)
+│   └── auth/              # Auth callback routes
+├── components/            # React components
+│   ├── Header/           # Navigation header
+│   ├── Footer/           # Site footer
+│   ├── Carousel/         # Promotional slider
+│   ├── CourseCard/       # Course card component
+│   ├── CategoryCard/     # Category display
+│   ├── FAQ/              # Accordion FAQ
+│   ├── VideoPlayer/      # Video player component
+│   └── ...
+├── hooks/                 # Custom React hooks
+│   ├── useCourses.ts     # Course data fetching
+│   ├── useAlgoliaSearch.ts # Algolia search
+│   ├── useHeader.ts      # Header data
+│   └── ...
+├── lib/                   # Library configurations
+│   ├── contentstack.ts   # Contentstack SDK helpers
+│   └── algolia.ts        # Algolia client
+├── services/             # Service integrations
+│   ├── lytics.ts         # Lytics tracking
+│   ├── personalize.ts    # Personalization
+│   └── ...
+├── types/                 # TypeScript type definitions
+└── utils/                # Utility functions
 ```
 
-#### 3. Category
-```
-Fields:
-- title (Single Line Text)
-- slug (Single Line Text, Unique)
-- description (Multi Line Text)
-- icon (Single Line Text)
-- image (File - Image)
-```
-
-#### 4. Instructor
-```
-Fields:
-- name (Single Line Text)
-- title (Single Line Text)
-- bio (Multi Line Text)
-- profile_image (File - Image)
-- courses_count (Number)
-- students_count (Number)
-- rating (Number)
-```
-
-#### 5. Banner
-```
-Fields:
-- title (Single Line Text)
-- description (Multi Line Text)
-- image (File - Image)
-- cta_label (Single Line Text)
-- cta_url (Single Line Text)
-- background_color (Single Line Text)
-```
-
-#### 6. FAQ
-```
-Fields:
-- question (Single Line Text)
-- answer (Multi Line Text)
-- category (Single Line Text)
-- order (Number)
-```
-
-### Fetching Data
-
-Use the provided SDK helpers:
-
-```typescript
-import { getEntries, getEntry, CONTENT_TYPES } from '@/lib/contentstack';
-
-// Fetch all courses
-const courses = await getEntries(CONTENT_TYPES.COURSE, {
-  referenceFields: ['instructor', 'category'],
-  limit: 10,
-});
-
-// Fetch single course by slug
-const course = await getEntryByUrl(CONTENT_TYPES.COURSE, '/machine-learning-python');
-```
-
-## 🎨 Customization
-
-### Colors
-Edit CSS variables in `src/app/globals.css`:
-
-```css
-:root {
-  --primary-500: #3b82f6;  /* Main brand color */
-  --accent-500: #f97316;   /* Accent color */
-  /* ... */
-}
-```
-
-### Fonts
-The project uses:
-- **Outfit** - Headings
-- **Plus Jakarta Sans** - Body text
-
-Update in `globals.css` to change fonts.
-
-## 📱 Pages Overview
-
-| Page | Route | Description |
-|------|-------|-------------|
-| Landing | `/` | Marketing landing page |
-| Login | `/login` | User authentication |
-| Signup | `/signup` | User registration |
-| Home | `/home` | Logged-in dashboard |
-| Course | `/course/[slug]` | Course details |
-| Module | `/module/[id]` | Video lesson player |
-
-## 🔧 Scripts
+## Scripts
 
 ```bash
-npm run dev      # Start development server
-npm run build    # Build for production
-npm run start    # Start production server
-npm run lint     # Run ESLint
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+npm run sync-algolia # Sync courses to Algolia index
 ```
 
-## 📦 Dependencies
+## Contentstack Content Types
 
-| Package | Purpose |
-|---------|---------|
-| `next` | React framework |
-| `react` | UI library |
-| `contentstack` | CMS SDK |
-| `lucide-react` | Icons |
-| `framer-motion` | Animations |
-| `react-player` | Video playback |
+The application uses these Contentstack content types:
 
-## 🤝 Contributing
+- **Page** (`modular_section`) - Modular page content
+- **Header** (`header`) - Navigation headers
+- **Footer** (`footer`) - Site footer
+- **Course** (`courses`) - Course content
+- **Module** (`module`) - Course modules
+- **Lesson** (`lesson`) - Individual lessons
+- **Category** (`categories_block`) - Course categories
+- **Banner** (`banner`) - Promotional banners
+- **FAQ** (`faq`) - FAQ content
+- **Testimonial** (`testimonial`) - Student testimonials
+- **Author** (`author`) - Course authors/instructors
+- **Onboarding** (`onboarding_block`) - Onboarding steps
+- **Auth Branding** (`auth_branding`) - Login/signup page branding
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/amazing`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing`)
-5. Open a Pull Request
+## Key Features
 
-## 📄 License
-
-This project is licensed under the MIT License.
-
----
-
-Built with ❤️ using Next.js and Contentstack
-
+- **Multi-language Support** - Content localization with fallback to default locale
+- **Personalization** - User-based content variants via Contentstack Personalize
+- **Search** - Full-text course search powered by Algolia
+- **User Tracking** - Analytics and user behavior tracking via Lytics
+- **Live Preview** - Real-time content preview in Contentstack
+- **Responsive Design** - Mobile-first, fully responsive UI
