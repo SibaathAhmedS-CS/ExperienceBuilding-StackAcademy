@@ -174,6 +174,25 @@ export default function Footer({ footerData: propFooterData, newsletterData: pro
     
     // For landing page, validate email
     if (!isHomePage && (!email || !email.includes('@'))) {
+      try
+      {
+        setIsSubmitting(true);
+        const { data, error } = await supabase
+        .from('subscribedprofiles')
+        .upsert(
+          { 
+            email: email
+          }, 
+          { onConflict: 'email' }
+        )
+        .select();
+      }
+      catch (error) {
+        console.error('Error subscribing to newsletter:', error);
+      }
+      finally {
+        setIsSubmitting(false);
+      }
       return;
     }
 
